@@ -10,7 +10,6 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
@@ -26,18 +25,6 @@ PASSWORD = "Contrasenya-de-prova-123"
 def client() -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
-
-
-@pytest.fixture(autouse=True)
-async def clean_rate_limits() -> AsyncIterator[None]:
-    # La IP del TestClient és sempre "testclient": sense neteja, els límits
-    # per IP es filtrarien d'un test a l'altre.
-    redis = Redis.from_url(settings.redis_url)
-    keys = [key async for key in redis.scan_iter("rl:*")]
-    if keys:
-        await redis.delete(*keys)
-    await redis.aclose()
-    yield
 
 
 @pytest.fixture

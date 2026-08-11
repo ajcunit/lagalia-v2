@@ -2,26 +2,33 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authz
 from app.core.config import settings
 from app.core.db import get_session
+from app.core.pagination import PageMeta
+from app.core.problems import Problem
 from app.core.ratelimit import enforce_rate_limit, parse_rate
-from app.modules.users import service
+from app.modules.users import management, repository, service
 from app.modules.users.dependencies import (
     CurrentSession,
     get_current_session,
     get_request_context,
 )
+from app.modules.users.models import UserRole
 from app.modules.users.schemas import (
     LoginRequest,
+    MeUpdate,
     MyPermissionsResponse,
+    PagedUsersResponse,
     PermissionScope,
     RefreshRequest,
     TokenPairResponse,
+    UserCreate,
     UserResponse,
+    UserUpdate,
 )
 from app.modules.users.service import RequestContext
 
@@ -78,3 +85,92 @@ async def get_my_permissions(
         scope=PermissionScope(type=scope.type, department_ids=scope.department_ids),
         can_switch_view=authz.can_switch_view(current.user),
     )
+
+
+@router.patch("/me", tags=["me"], operation_id="updateMe")
+async def update_me(
+    body: MeUpdate,
+    authz_ctx: Annotated[authz.AuthzContext, Depends(authz.Authorize("me:update"))],
+    session: SessionDep,
+    ctx: ContextDep,
+) -> UserResponse:
+    user = await management.update_me(session, authz_ctx.user, body, ctx)
+    return UserResponse.from_user(user)
+
+
+def _parse_sort(sort: str) -> tuple[str, bool]:
+    descending = sort.startswith("-")
+    field = sort.removeprefix("-")
+    if field not in repository.SORTABLE_FIELDS:
+        raise Problem(422, "Camp d'ordenació no admès", "validation")
+    return field, descending
+
+
+@router.get("/users", tags=["users"], operation_id="listUsers")
+async def list_users(
+    session: SessionDep,
+    _authz: Annotated[authz.AuthzContext, Depends(authz.Authorize("users:read"))],
+    page_size: Annotated[int, Query(alias="page[size]", ge=1, le=500)] = 50,
+    page_cursor: Annotated[str | None, Query(alias="page[cursor]")] = None,
+    active: Annotated[bool | None, Query(alias="filter[active]")] = None,
+    role: Annotated[UserRole | None, Query(alias="filter[role]")] = None,
+    department_id: Annotated[int | None, Query(alias="filter[department_id]")] = None,
+    sort: str = "name",
+) -> PagedUsersResponse:
+    sort_field, descending = _parse_sort(sort)
+    users, total, next_cursor = await repository.list_users(
+        session,
+        active=active,
+        role=role,
+        department_id=department_id,
+        sort_field=sort_field,
+        descending=descending,
+        page_size=page_size,
+        cursor=page_cursor,
+    )
+    return PagedUsersResponse(
+        data=[UserResponse.from_user(u) for u in users],
+        meta=PageMeta(total=total, next_cursor=next_cursor),
+    )
+
+
+@router.post("/users", tags=["users"], operation_id="createUser", status_code=201)
+async def create_user(
+    body: UserCreate,
+    authz_ctx: Annotated[authz.AuthzContext, Depends(authz.Authorize("users:write"))],
+    session: SessionDep,
+    ctx: ContextDep,
+) -> UserResponse:
+    user = await management.create_user(session, body, authz_ctx.user, ctx)
+    return UserResponse.from_user(user)
+
+
+@router.get("/users/{id}", tags=["users"], operation_id="getUser")
+async def get_user(
+    id: Annotated[int, Path(ge=1)],
+    session: SessionDep,
+    _authz: Annotated[authz.AuthzContext, Depends(authz.Authorize("users:read"))],
+) -> UserResponse:
+    return UserResponse.from_user(await management.get_user(session, id))
+
+
+@router.patch("/users/{id}", tags=["users"], operation_id="updateUser")
+async def update_user(
+    id: Annotated[int, Path(ge=1)],
+    body: UserUpdate,
+    authz_ctx: Annotated[authz.AuthzContext, Depends(authz.Authorize("users:write"))],
+    session: SessionDep,
+    ctx: ContextDep,
+) -> UserResponse:
+    user = await management.update_user(session, id, body, authz_ctx.user, ctx)
+    return UserResponse.from_user(user)
+
+
+@router.delete("/users/{id}", tags=["users"], operation_id="deactivateUser", status_code=204)
+async def deactivate_user(
+    id: Annotated[int, Path(ge=1)],
+    authz_ctx: Annotated[authz.AuthzContext, Depends(authz.Authorize("users:write"))],
+    session: SessionDep,
+    ctx: ContextDep,
+) -> None:
+    await management.deactivate_user(session, id, authz_ctx.user, ctx)

@@ -42,6 +42,18 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Descripció:** [06-seguretat.md](06-seguretat.md) §7 fixa 2 anys d'auditoria i 1 any per a entrades/sortides d'IA com a valors per defecte, però han de ser validats per la responsable de protecció de dades de l'ajuntament.
 - **Com desenvolupar-la:** validació formal, i implementar la purga com a job programat configurable.
 
+### B-007 · Idempotència persistent del header `Idempotency-Key`
+- **Prioritat:** P3 · **Estat:** Proposta · **Mida:** S
+- **Descripció:** el contracte declara `Idempotency-Key` als POST de creació ([openapi.yaml](../openapi.yaml)), però la implementació de la Fase 0 només s'empara en els `409` per duplicat (correu, codi). Falta la taula de claus usades amb resposta memoritzada i caducitat.
+- **Com desenvolupar-la:** taula `idempotency_keys` (clau, hash de petició, resposta serialitzada, expiració) + dependency comuna; aplicar-la a tots els POST de creació.
+- **Specs afectades:** [users-departments.md](../specs/users-departments.md), [05-api.md](05-api.md).
+
+### B-008 · Dataset complet de contrasenyes filtrades
+- **Prioritat:** P3 · **Estat:** Proposta · **Mida:** S
+- **Descripció:** la política de contrasenyes rebutja una llista embeguda de contrasenyes habituals, però [openapi.yaml](../openapi.yaml) (`Password`) demana llistes de credencials filtrades. Cal un dataset offline (p. ex. subconjunt HIBP per freqüència) actualitzable, sense crides externes en la petició.
+- **Com desenvolupar-la:** fitxer de hashos empaquetat amb la imatge o taula carregada per job; comprovació local a `app/core/security.py`.
+- **Specs afectades:** [users-departments.md](../specs/users-departments.md), [06-seguretat.md](06-seguretat.md).
+
 ---
 
 ## Tancades

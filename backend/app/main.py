@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.problems import register_problem_handlers
 from app.core.tracing import new_trace_id
+from app.modules.departments.router import router as departments_router
 from app.modules.users.router import router as users_router
 
 configure_logging(settings.log_level, settings.log_format)
@@ -54,4 +55,5 @@ def get_health() -> dict[str, str]:
 
 
 api.include_router(users_router)
+api.include_router(departments_router)
 app.include_router(api)
