@@ -17,7 +17,14 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
-EXPECTED_TABLES = {"departments", "users", "user_departments", "refresh_tokens", "audit_log"}
+EXPECTED_TABLES = {
+    "departments",
+    "users",
+    "user_departments",
+    "refresh_tokens",
+    "audit_log",
+    "settings",
+}
 
 
 @pytest.fixture

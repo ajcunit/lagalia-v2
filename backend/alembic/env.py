@@ -10,6 +10,7 @@ from app.core.db import Base
 
 # Importar els models registra les taules a Base.metadata (per a autogenerate).
 from app.modules.audit import models as audit_models  # noqa: F401
+from app.modules.config import models as config_models  # noqa: F401
 from app.modules.departments import models as departments_models  # noqa: F401
 from app.modules.users import models as users_models  # noqa: F401
 
