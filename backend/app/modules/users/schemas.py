@@ -28,6 +28,18 @@ class DepartmentRef(BaseModel):
     name: str
 
 
+class PermissionScope(BaseModel):
+    type: Literal["all", "departments"]
+    department_ids: list[int] | None = None
+
+
+class MyPermissionsResponse(BaseModel):
+    role: UserRole
+    actions: list[str]
+    scope: PermissionScope
+    can_switch_view: bool
+
+
 class UserResponse(BaseModel):
     id: int
     name: str

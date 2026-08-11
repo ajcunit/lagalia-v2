@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import authz
 from app.core.config import settings
 from app.core.db import get_session
 from app.core.ratelimit import enforce_rate_limit, parse_rate
@@ -16,6 +17,8 @@ from app.modules.users.dependencies import (
 )
 from app.modules.users.schemas import (
     LoginRequest,
+    MyPermissionsResponse,
+    PermissionScope,
     RefreshRequest,
     TokenPairResponse,
     UserResponse,
@@ -62,3 +65,16 @@ async def get_me(
     current: Annotated[CurrentSession, Depends(get_current_session)],
 ) -> UserResponse:
     return UserResponse.from_user(current.user)
+
+
+@router.get("/me/permissions", tags=["me"], operation_id="getMyPermissions")
+async def get_my_permissions(
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+) -> MyPermissionsResponse:
+    scope = authz.scope_for(current.user)
+    return MyPermissionsResponse(
+        role=current.user.role,
+        actions=authz.allowed_actions(current.user),
+        scope=PermissionScope(type=scope.type, department_ids=scope.department_ids),
+        can_switch_view=authz.can_switch_view(current.user),
+    )
