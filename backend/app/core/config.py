@@ -37,6 +37,8 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    rate_limit_login: str = "5/minute"
+
     log_level: str = "INFO"
     log_format: Literal["json", "console"] = "json"
 

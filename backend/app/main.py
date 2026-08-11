@@ -1,11 +1,14 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request, Response
 
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.core.problems import register_problem_handlers
+from app.core.tracing import new_trace_id
+from app.modules.users.router import router as users_router
 
 configure_logging(settings.log_level, settings.log_format)
 logger = structlog.get_logger()
@@ -25,6 +28,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+register_problem_handlers(app)
+
+
+@app.middleware("http")
+async def trace_requests(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    trace_id = new_trace_id()
+    structlog.contextvars.bind_contextvars(trace_id=trace_id)
+    try:
+        response = await call_next(request)
+    finally:
+        structlog.contextvars.unbind_contextvars("trace_id")
+    response.headers["X-Trace-Id"] = trace_id
+    return response
+
+
 api = APIRouter(prefix="/api/v1")
 
 
@@ -33,4 +53,5 @@ def get_health() -> dict[str, str]:
     return {"status": "ok", "version": settings.app_version}
 
 
+api.include_router(users_router)
 app.include_router(api)

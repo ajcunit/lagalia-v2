@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -30,7 +31,13 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-engine = create_async_engine(settings.database_url)
+# Fora de producció, sense pool: el TestClient crea un event loop per petició
+# i les connexions asyncpg reutilitzades entre loops queden inservibles.
+_pool_kwargs: dict[str, object] = (
+    {} if settings.environment == "production" else {"poolclass": NullPool}
+)
+
+engine = create_async_engine(settings.database_url, **_pool_kwargs)
 session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
