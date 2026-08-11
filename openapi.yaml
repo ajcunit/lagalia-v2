@@ -27,6 +27,7 @@ info:
     name: Ajuntament de Cunit
   license:
     name: EUPL-1.2
+    identifier: EUPL-1.2
 
 servers:
   - url: /api/v1
@@ -691,8 +692,7 @@ components:
       properties:
         total: { type: integer }
         next_cursor:
-          type: string
-          nullable: true
+          type: [string, "null"]
 
     Role:
       type: string
@@ -739,7 +739,7 @@ components:
         email: { type: string, format: email }
         role: { $ref: "#/components/schemas/Role" }
         active: { type: boolean }
-        dni: { type: string, nullable: true }
+        dni: { type: [string, "null"] }
         can_audit: { type: boolean, default: false }
         can_plan: { type: boolean, default: false }
         auth_source:
@@ -793,11 +793,10 @@ components:
         - type: object
           required: [active]
           properties:
-            description: { type: string, nullable: true }
+            description: { type: [string, "null"] }
             active: { type: boolean }
             gestiona_group:
-              type: object
-              nullable: true
+              type: [object, "null"]
               description: Grup de Gestiona associat, si la integració és activa.
               properties:
                 id: { type: string }
@@ -820,4 +819,4 @@ components:
         name: { type: string, minLength: 1, maxLength: 255 }
         description: { type: string }
         active: { type: boolean }
-        gestiona_group_id: { type: string, nullable: true }
+        gestiona_group_id: { type: [string, "null"] }
