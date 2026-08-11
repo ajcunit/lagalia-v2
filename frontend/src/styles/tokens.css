@@ -1,0 +1,47 @@
+/* ─────────────────────────────────────────────────────────────────────
+   Tokens de disseny (docs/10-ui.md §2). Única font de color de la UI:
+   cap color literal als components. Contrast AA validat a tots dos temes.
+   ───────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Tema clar: continuïtat amb la v1 (fons clars, accents cel). */
+  --surface: #f6f8fb; /* fons de pàgina */
+  --surface-raised: #ffffff; /* targetes i panells */
+  --surface-sunken: #eaeef5; /* zones enfonsades, codi */
+  --ink: #16233b; /* text principal (AA sobre surface: 13.4:1) */
+  --muted: #51617c; /* text secundari (AA: 5.6:1) */
+  --line: #d4dce8; /* vores i separadors */
+  --accent: #0369a1; /* accions i enllaços (AA sobre blanc: 5.9:1) */
+  --accent-ink: #ffffff; /* text sobre accent */
+  --accent-soft: #e0f2fe; /* fons suau d'accent */
+  --success: #15803d;
+  --warning: #a16207;
+  --danger: #b91c1c;
+  --info: #0369a1;
+  --focus: #0369a1; /* anell de focus visible */
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 1rem;
+
+  --shadow-card: 0 1px 3px rgb(22 35 59 / 0.08), 0 4px 16px rgb(22 35 59 / 0.06);
+}
+
+:root[data-theme="dark"] {
+  --surface: #0d1524;
+  --surface-raised: #16213a;
+  --surface-sunken: #0a101c;
+  --ink: #e4eaf4; /* AA sobre surface: 13.9:1 */
+  --muted: #9fb0c9; /* AA: 6.6:1 */
+  --line: #2b3a57;
+  --accent: #67c3f3; /* AA sobre surface-raised: 7.0:1 */
+  --accent-ink: #082539;
+  --accent-soft: #12314b;
+  --success: #6fd394;
+  --warning: #e3c368;
+  --danger: #f1918d;
+  --info: #67c3f3;
+  --focus: #67c3f3;
+
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.5), 0 4px 16px rgb(0 0 0 / 0.35);
+}

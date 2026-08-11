@@ -121,6 +121,9 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
+    environment:
+      # El dev server fa proxy de /api cap al servei api del compose.
+      VITE_API_PROXY_TARGET: http://api:8000
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     depends_on:
