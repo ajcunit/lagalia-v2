@@ -153,9 +153,10 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://lagalia:lagalia@localhost:5432/lagalia_test
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: test-secret-key-not-for-production-use-only
-          ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcy1sb25nIQ==
+          # 32 bytes de zeros en base64: vàlid per AES-256, inservible fora de test.
+          ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
         run: |
-          uv run alembic upgrade head
+          if [ -f alembic.ini ]; then uv run alembic upgrade head; fi
           uv run pytest -q --cov=app --cov-report=term-missing
 
       - name: Auditoria de dependències
