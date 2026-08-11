@@ -1,0 +1,823 @@
+openapi: 3.1.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAGALia v2 — Contracte API (font de veritat)
+#
+# Aquest fitxer és una SPEC EXECUTABLE: la CI verifica que la implementació el
+# compleix (contract testing) i el client TypeScript del frontend es genera
+# d'aquí. Cap endpoint pot existir al codi sense ser aquí.
+#
+# ABAST ACTUAL: Fase 0 del roadmap (auth, usuaris, departaments, salut, setup).
+# Les fases següents l'amplien seguint docs/05-api.md, que conté el mapa
+# complet de recursos previstos.
+# ─────────────────────────────────────────────────────────────────────────────
+
+info:
+  title: LAGALia — Gestió de contractació pública
+  version: 0.1.0
+  description: |
+    API de la plataforma de gestió de contractació pública de l'Ajuntament de Cunit.
+
+    **API first**: tota funcionalitat del sistema és accessible per aquesta API.
+    La interfície web n'és un client més, igual que els agents d'IA, n8n o
+    qualsevol integració de tercers.
+
+    Convencions generals a `docs/05-api.md`.
+  contact:
+    name: Ajuntament de Cunit
+  license:
+    name: EUPL-1.2
+
+servers:
+  - url: /api/v1
+    description: Servidor actual
+
+tags:
+  - name: auth
+    description: Autenticació i sessió
+  - name: me
+    description: Usuari actual
+  - name: users
+    description: Gestió d'usuaris (admin)
+  - name: departments
+    description: Departaments
+  - name: setup
+    description: Inicialització del sistema
+  - name: system
+    description: Salut i estat
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ───────────────────────────── system ─────────────────────────────
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness
+      description: Comprova que el servei respon. Públic.
+      security: []
+      responses:
+        "200":
+          description: Servei viu
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, enum: [ok] }
+                  version: { type: string, examples: ["0.1.0"] }
+
+  /health/ready:
+    get:
+      tags: [system]
+      operationId: getReadiness
+      summary: Readiness amb estat de dependències
+      x-required-scopes: [system:read]
+      responses:
+        "200":
+          description: Estat de les dependències
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, checks]
+                properties:
+                  status: { type: string, enum: [ok, degraded, failing] }
+                  checks:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, status]
+                      properties:
+                        name: { type: string, examples: ["database", "redis", "storage"] }
+                        status: { type: string, enum: [ok, degraded, failing] }
+                        detail: { type: string }
+                        latency_ms: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ───────────────────────────── setup ─────────────────────────────
+  /setup/status:
+    get:
+      tags: [setup]
+      operationId: getSetupStatus
+      summary: Indica si el sistema encara no s'ha inicialitzat
+      description: Públic. Únic endpoint que revela informació abans de l'autenticació.
+      security: []
+      responses:
+        "200":
+          description: Estat d'inicialització
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [needs_setup]
+                properties:
+                  needs_setup:
+                    type: boolean
+                    description: Cert quan no hi ha cap usuari al sistema.
+
+  /setup/initialize:
+    post:
+      tags: [setup]
+      operationId: initializeSystem
+      summary: Crea l'usuari administrador inicial i la configuració per defecte
+      description: |
+        Només es pot executar quan `needs_setup` és cert. Rate limit estricte.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 255 }
+                email: { type: string, format: email }
+                password: { $ref: "#/components/schemas/Password" }
+                organization_name: { type: string }
+                ine10_code: { $ref: "#/components/schemas/Ine10Code" }
+      responses:
+        "201":
+          description: Sistema inicialitzat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  # ───────────────────────────── auth ─────────────────────────────
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Autentica amb credencials locals o LDAP
+      description: |
+        Prova primer el directori (si el connector LDAP és actiu) i cau a
+        credencials locals. Els intents fallits es registren a l'auditoria.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Sessió iniciada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Compte desactivat
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Renova la sessió (rotació de refresh token)
+      description: |
+        El refresh token es rota a cada ús. La reutilització d'un token ja rotat
+        revoca tota la família de tokens (detecció de robatori).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: Sessió renovada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoca la sessió actual
+      responses:
+        "204": { description: Sessió revocada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/ephemeral:
+    post:
+      tags: [auth]
+      operationId: createEphemeralToken
+      summary: Emet un token efímer d'un sol ús
+      description: |
+        Per a casos on no es pot enviar la capçalera `Authorization`: subscripció
+        a esdeveniments de jobs (SSE) i descàrregues directes. Caduca en minuts i
+        només serveix per al recurs sol·licitat. Mai s'accepta un JWT normal per
+        query string.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose]
+              properties:
+                purpose: { type: string, enum: [job_events, download] }
+                resource: { type: string, description: "Identificador del recurs autoritzat" }
+      responses:
+        "201":
+          description: Token emès
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, expires_at]
+                properties:
+                  token: { type: string }
+                  expires_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ───────────────────────────── me ─────────────────────────────
+  /me:
+    get:
+      tags: [me]
+      operationId: getMe
+      summary: Perfil de l'usuari actual
+      responses:
+        "200":
+          description: Usuari actual
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [me]
+      operationId: updateMe
+      summary: Actualitza el perfil propi
+      description: Només nom, DNI i contrasenya. El rol i el correu no són editables per l'usuari.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 2, maxLength: 255 }
+                dni: { type: string }
+                password: { $ref: "#/components/schemas/Password" }
+      responses:
+        "200":
+          description: Perfil actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /me/permissions:
+    get:
+      tags: [me]
+      operationId: getMyPermissions
+      summary: Permisos efectius de l'usuari actual
+      description: |
+        La interfície **no dedueix** permisos a partir del rol: els rep d'aquí.
+        Retorna les accions permeses (segons la matriu de l'annex A2) i l'abast
+        departamental aplicable.
+      responses:
+        "200":
+          description: Permisos efectius
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [role, actions, scope]
+                properties:
+                  role: { $ref: "#/components/schemas/Role" }
+                  actions:
+                    type: array
+                    description: Accions permeses, en format `recurs:acció`.
+                    items: { type: string, examples: ["contracts:read", "contracts:write"] }
+                  scope:
+                    type: object
+                    required: [type]
+                    properties:
+                      type: { type: string, enum: [all, departments] }
+                      department_ids:
+                        type: array
+                        items: { type: integer, format: int64 }
+                  can_switch_view:
+                    type: boolean
+                    description: Si l'usuari pot demanar abast complet (Vista Admin).
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ───────────────────────────── users ─────────────────────────────
+  /users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: Llista d'usuaris
+      x-required-scopes: [users:read]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - $ref: "#/components/parameters/ViewScope"
+        - name: filter[active]
+          in: query
+          schema: { type: boolean }
+        - name: filter[role]
+          in: query
+          schema: { $ref: "#/components/schemas/Role" }
+        - name: filter[department_id]
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: sort
+          in: query
+          schema: { type: string, examples: ["name", "-created_at"] }
+      responses:
+        "200":
+          description: Pàgina d'usuaris
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/User" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [users]
+      operationId: createUser
+      summary: Crea un usuari
+      x-required-scopes: [users:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreate" }
+      responses:
+        "201":
+          description: Usuari creat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: El correu ja existeix
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [users]
+      operationId: getUser
+      summary: Detall d'un usuari
+      x-required-scopes: [users:read]
+      responses:
+        "200":
+          description: Usuari
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [users]
+      operationId: updateUser
+      summary: Actualitza un usuari
+      x-required-scopes: [users:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdate" }
+      responses:
+        "200":
+          description: Usuari actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [users]
+      operationId: deactivateUser
+      summary: Desactiva un usuari
+      description: |
+        Baixa lògica: l'usuari es marca inactiu i **es revoquen totes les seves
+        sessions** (famílies de refresh tokens). No s'esborra cap dada històrica.
+      x-required-scopes: [users:write]
+      responses:
+        "204": { description: Usuari desactivat }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ───────────────────────────── departments ─────────────────────────────
+  /departments:
+    get:
+      tags: [departments]
+      operationId: listDepartments
+      summary: Llista de departaments
+      x-required-scopes: [departments:read]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: filter[active]
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Pàgina de departaments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Department" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [departments]
+      operationId: createDepartment
+      summary: Crea un departament
+      x-required-scopes: [departments:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DepartmentCreate" }
+      responses:
+        "201":
+          description: Departament creat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Department" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: El codi ja existeix
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /departments/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [departments]
+      operationId: getDepartment
+      summary: Detall d'un departament
+      x-required-scopes: [departments:read]
+      responses:
+        "200":
+          description: Departament
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Department" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [departments]
+      operationId: updateDepartment
+      summary: Actualitza un departament
+      x-required-scopes: [departments:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DepartmentUpdate" }
+      responses:
+        "200":
+          description: Departament actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Department" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [departments]
+      operationId: deactivateDepartment
+      summary: Desactiva un departament (baixa lògica)
+      x-required-scopes: [departments:write]
+      responses:
+        "204": { description: Departament desactivat }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /departments/{id}/users:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [departments]
+      operationId: listDepartmentUsers
+      summary: Usuaris d'un departament
+      x-required-scopes: [users:read]
+      responses:
+        "200":
+          description: Usuaris del departament
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token d'accés d'usuari (JWT curt) o clau de compte de servei (`sk_...`)
+        per a agents d'IA i integracions. Sempre a la capçalera `Authorization`;
+        mai per query string.
+
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+
+    PageSize:
+      name: page[size]
+      in: query
+      description: Elements per pàgina.
+      schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+
+    PageCursor:
+      name: page[cursor]
+      in: query
+      description: Cursor de la pàgina següent, retornat a `meta.next_cursor`.
+      schema: { type: string }
+
+    ViewScope:
+      name: view
+      in: query
+      description: |
+        Abast demanat. `user` (per defecte) limita als departaments propis;
+        `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
+        permet — es valida al servidor, no és una preferència del client.
+      schema: { type: string, enum: [user, all], default: user }
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: |
+        Clau única del client per evitar duplicats en reintents. Repetir la
+        mateixa clau retorna el resultat original en comptes de crear un recurs nou.
+      schema: { type: string, maxLength: 128 }
+
+  responses:
+    Problem:
+      description: Error
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+    Unauthorized:
+      description: Cal autenticar-se o la sessió ha caducat
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+    Forbidden:
+      description: Autenticat però sense permís per a aquesta acció o recurs
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+    NotFound:
+      description: Recurs inexistent o fora del teu abast
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+    ValidationError:
+      description: Dades d'entrada no vàlides
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+    RateLimited:
+      description: Massa peticions
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Segons a esperar abans de reintentar.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    Problem:
+      type: object
+      description: Error segons RFC 9457. Mai inclou el cos de la petició original.
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri, examples: ["https://lagalia/errors/validation"] }
+        title: { type: string, examples: ["Dades no vàlides"] }
+        status: { type: integer, examples: [422] }
+        detail: { type: string }
+        instance: { type: string }
+        trace_id:
+          type: string
+          description: Identificador de traça per a suport.
+        errors:
+          type: array
+          description: Errors per camp, quan aplica.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    PageMeta:
+      type: object
+      required: [total]
+      properties:
+        total: { type: integer }
+        next_cursor:
+          type: string
+          nullable: true
+
+    Role:
+      type: string
+      enum: [admin, procurement_manager, dept_manager, employee]
+      description: |
+        Rols del sistema. Equivalència amb la v1: `procurement_manager` =
+        `responsable_contratacion`, `dept_manager` = `responsable`,
+        `employee` = `empleado`.
+
+    Password:
+      type: string
+      format: password
+      minLength: 12
+      description: |
+        Mínim 12 caràcters amb majúscula, minúscula i xifra. Es rebutgen les
+        contrasenyes presents en llistes de credencials filtrades.
+
+    Ine10Code:
+      type: string
+      pattern: "^[0-9]{10}$"
+      description: Codi INE de 10 dígits de l'ens.
+      examples: ["4305160009"]
+
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in:
+          type: integer
+          description: Segons de validesa del token d'accés.
+
+    User:
+      type: object
+      description: |
+        Representació pública d'un usuari. **Mai** inclou credencials ni tokens
+        d'integracions de tercers (aquests viuen xifrats i no s'exposen).
+      required: [id, name, email, role, active]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/Role" }
+        active: { type: boolean }
+        dni: { type: string, nullable: true }
+        can_audit: { type: boolean, default: false }
+        can_plan: { type: boolean, default: false }
+        auth_source:
+          type: string
+          enum: [local, ldap]
+        departments:
+          type: array
+          items: { $ref: "#/components/schemas/DepartmentRef" }
+        created_at: { type: string, format: date-time }
+
+    UserCreate:
+      type: object
+      required: [name, email, role]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 255 }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/Role" }
+        password:
+          allOf: [{ $ref: "#/components/schemas/Password" }]
+          description: Obligatòria per a usuaris locals; absent per a usuaris de directori.
+        department_ids:
+          type: array
+          items: { type: integer, format: int64 }
+        can_audit: { type: boolean, default: false }
+        can_plan: { type: boolean, default: false }
+
+    UserUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 255 }
+        role: { $ref: "#/components/schemas/Role" }
+        active: { type: boolean }
+        password: { $ref: "#/components/schemas/Password" }
+        department_ids:
+          type: array
+          items: { type: integer, format: int64 }
+        can_audit: { type: boolean }
+        can_plan: { type: boolean }
+
+    DepartmentRef:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: integer, format: int64 }
+        code: { type: string }
+        name: { type: string }
+
+    Department:
+      allOf:
+        - $ref: "#/components/schemas/DepartmentRef"
+        - type: object
+          required: [active]
+          properties:
+            description: { type: string, nullable: true }
+            active: { type: boolean }
+            gestiona_group:
+              type: object
+              nullable: true
+              description: Grup de Gestiona associat, si la integració és activa.
+              properties:
+                id: { type: string }
+                name: { type: string }
+                href: { type: string, format: uri }
+            created_at: { type: string, format: date-time }
+
+    DepartmentCreate:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 50 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string }
+
+    DepartmentUpdate:
+      type: object
+      properties:
+        code: { type: string, minLength: 1, maxLength: 50 }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string }
+        active: { type: boolean }
+        gestiona_group_id: { type: string, nullable: true }

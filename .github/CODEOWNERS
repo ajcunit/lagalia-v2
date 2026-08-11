@@ -1,0 +1,16 @@
+# Propietat del codi i de les especificacions.
+# Substituïu els comptes d'exemple pels reals en crear el repositori.
+
+# Per defecte
+*                       @esteve-tinto
+
+# Les especificacions i el contracte de l'API són la font de veritat:
+# tot canvi requereix revisió del responsable funcional del projecte.
+/docs/                  @esteve-tinto
+/openapi.yaml           @esteve-tinto
+/specs/                 @esteve-tinto
+
+# Seguretat i infraestructura
+/.github/               @esteve-tinto
+/docker-compose.yml     @esteve-tinto
+/.env.example           @esteve-tinto

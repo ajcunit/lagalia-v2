@@ -1,0 +1,208 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ───────────────────────────────────────────────────────────────
+  # La regla spec-driven, verificada automàticament: un canvi de codi
+  # de domini ha d'anar acompanyat d'un canvi de spec, openapi o docs.
+  # Excepció explícita: etiqueta "no-spec-change" (refactors purs).
+  # ───────────────────────────────────────────────────────────────
+  spec-sync:
+    name: Sincronització spec ↔ codi
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Comprova que el codi de domini porta canvi de spec
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-change') }}
+        run: |
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD)
+          echo "$changed"
+
+          code=$(echo "$changed" | grep -E '^(backend/app/modules/|backend/app/ai/|backend/app/integrations/|frontend/src/)' || true)
+          spec=$(echo "$changed" | grep -E '^(specs/|docs/|openapi\.yaml$)' || true)
+
+          if [ -n "$code" ] && [ -z "$spec" ]; then
+            echo "::error::Aquesta PR canvia comportament sense actualitzar cap spec."
+            echo "Actualitza la spec afectada (docs/ o specs/) o openapi.yaml a la mateixa PR."
+            echo "Si és un refactor pur sense canvi de comportament, afegeix l'etiqueta 'no-spec-change'."
+            exit 1
+          fi
+
+  # ───────────────────────────────────────────────────────────────
+  # El contracte de l'API no pot derivar: es valida sempre, i quan hi
+  # ha backend es comprova que la implementació el compleix.
+  # ───────────────────────────────────────────────────────────────
+  openapi:
+    name: Contracte OpenAPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint del contracte
+        run: npx --yes @redocly/cli@latest lint openapi.yaml
+
+      - name: Canvis incompatibles respecte de main
+        if: github.event_name == 'pull_request'
+        run: |
+          git show "origin/${{ github.base_ref }}:openapi.yaml" > /tmp/base-openapi.yaml 2>/dev/null || exit 0
+          npx --yes oasdiff@latest breaking /tmp/base-openapi.yaml openapi.yaml --fail-on ERR
+
+  # ───────────────────────────────────────────────────────────────
+  security:
+    name: Lint de seguretat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prohibicions explícites del projecte (CLAUDE.md)
+        run: |
+          fail=0
+
+          check() {
+            local pattern="$1" message="$2" path="${3:-.}"
+            if grep -rInE --include='*.py' --include='*.ts' --include='*.tsx' \
+                 --exclude-dir=node_modules --exclude-dir=.git "$pattern" "$path" ; then
+              echo "::error::$message"
+              fail=1
+            fi
+          }
+
+          check 'verify\s*=\s*False' \
+            'TLS sense verificar (verify=False). Configura el CA bundle en comptes de desactivar la verificació.'
+          check 'text\(\s*f["'"'"']' \
+            'SQL construït amb f-string dins text(). Fes servir paràmetres vinculats.'
+          check '\.(rol|role)\s*(==|!=|not in|in)\s*\[?["'"'"'](admin|responsable|empleado|procurement_manager|dept_manager|employee)' \
+            'Check de rol inline. L autorització va pel motor central Authorize(action).'
+
+          exit $fail
+
+      - name: Detecció de secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ───────────────────────────────────────────────────────────────
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: lagalia
+          POSTGRES_PASSWORD: lagalia
+          POSTGRES_DB: lagalia_test
+        options: >-
+          --health-cmd "pg_isready -U lagalia"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+        ports: ["5432:5432"]
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hi ha backend?
+        id: check
+        run: echo "exists=${{ hashFiles('backend/pyproject.toml') != '' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.exists == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Instal·la dependències
+        if: steps.check.outputs.exists == 'true'
+        working-directory: backend
+        run: |
+          pip install uv
+          uv sync --frozen
+
+      - name: Lint i tipatge
+        if: steps.check.outputs.exists == 'true'
+        working-directory: backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy app
+
+      - name: Migracions i tests
+        if: steps.check.outputs.exists == 'true'
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://lagalia:lagalia@localhost:5432/lagalia_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-not-for-production-use-only
+          ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcy1sb25nIQ==
+        run: |
+          uv run alembic upgrade head
+          uv run pytest -q --cov=app --cov-report=term-missing
+
+      - name: Auditoria de dependències
+        if: steps.check.outputs.exists == 'true'
+        working-directory: backend
+        run: uv run pip-audit
+
+  # ───────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hi ha frontend?
+        id: check
+        run: echo "exists=${{ hashFiles('frontend/package.json') != '' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'true'
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instal·la, comprova i construeix
+        if: steps.check.outputs.exists == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm test -- --run
+          npm run build
+
+      - name: El client generat està al dia amb openapi.yaml
+        if: steps.check.outputs.exists == 'true'
+        working-directory: frontend
+        run: |
+          npm run generate:api
+          if ! git diff --quiet -- src/api/generated; then
+            echo "::error::El client TS no coincideix amb openapi.yaml. Executa 'npm run generate:api' i inclou el resultat."
+            git diff --stat -- src/api/generated
+            exit 1
+          fi
+
+      - name: Accessibilitat (axe)
+        if: steps.check.outputs.exists == 'true'
+        working-directory: frontend
+        run: npm run test:a11y --if-present
