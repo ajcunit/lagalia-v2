@@ -1,9 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { AuthProvider } from "./auth/AuthProvider";
+import { RequireAuth } from "./auth/RequireAuth";
+import { Shell } from "./components/Shell";
 import { t } from "./i18n";
-import { Home } from "./routes/Home";
+import { Dashboard } from "./routes/Dashboard";
+import { Login } from "./routes/Login";
 import { NotFound } from "./routes/NotFound";
+import { Setup } from "./routes/Setup";
+import { UnderConstruction } from "./routes/UnderConstruction";
 
 const queryClient = new QueryClient();
 
@@ -12,15 +18,33 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <a
         href="#content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-ink"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-10 focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-ink"
       >
         {t("app.skipToContent")}
       </a>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/setup" element={<Setup />} />
+            <Route
+              element={
+                <RequireAuth>
+                  <Shell />
+                </RequireAuth>
+              }
+            >
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/contracts" element={<UnderConstruction />} />
+              <Route path="/search" element={<UnderConstruction />} />
+              <Route path="/admin/users" element={<UnderConstruction />} />
+              <Route path="/admin/departments" element={<UnderConstruction />} />
+              <Route path="/admin/config" element={<UnderConstruction />} />
+              <Route path="/admin/audit-log" element={<UnderConstruction />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );
