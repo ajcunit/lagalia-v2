@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 
-import { Badge, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { useAuth } from "../../auth/AuthProvider";
+import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { ca } from "../../i18n/ca";
 import {
@@ -18,6 +19,9 @@ import {
   useContractExtensions,
   useContractHistory,
   useContractModifications,
+  useDismissExpiry,
+  useEnrichContract,
+  useFinishContract,
 } from "./queries";
 
 function yesNo(value: boolean | null | undefined): string {
@@ -40,12 +44,34 @@ export function ContractDetail() {
   const criteria = useContractCriteria(id);
   const committee = useContractCommittee(id);
   const documents = useContractDocuments(id);
+  const finish = useFinishContract(id);
+  const dismiss = useDismissExpiry(id);
+  const enrich = useEnrichContract(id);
+  const { permissions } = useAuth();
+  const actions = permissions?.actions ?? [];
 
   if (contract.isPending) return <Skeleton rows={12} />;
   if (contract.isError || !contract.data) {
     return <EmptyState icon="🔒" title={t("contract.notFound")} />;
   }
   const data = contract.data;
+
+  const canCloseAlert = actions.includes("contracts:close_alert");
+  const canEnrich = actions.includes("contracts:enrich");
+
+  const onFinish = () => {
+    if (window.confirm(t("contract.action.finishConfirm"))) finish.mutate();
+  };
+  const onDismiss = () => {
+    if (window.confirm(t("contract.action.dismissConfirm"))) dismiss.mutate();
+  };
+  const onEnrich = () => {
+    enrich.mutate(undefined, {
+      onSuccess: () => window.alert(t("contract.action.enrichQueued")),
+      onError: (error) =>
+        window.alert(t("contract.action.error", { message: String(error) })),
+    });
+  };
 
   return (
     <div className="max-w-5xl">
@@ -65,7 +91,12 @@ export function ContractDetail() {
           </h1>
           <p className="mt-1 max-w-3xl text-muted">{data.subject}</p>
         </div>
-        <span className="flex gap-1.5">
+        <span className="flex items-center gap-1.5">
+          {canEnrich && data.phase_urls && Object.keys(data.phase_urls).length > 0 && (
+            <Button onClick={onEnrich} disabled={enrich.isPending}>
+              {t("contract.action.enrich")}
+            </Button>
+          )}
           {data.expiry_warning && <Badge tone="warning">{t("contracts.badge.expiry")}</Badge>}
           {data.possibly_finished && (
             <Badge tone="danger">{t("contracts.badge.finished")}</Badge>
@@ -73,6 +104,38 @@ export function ContractDetail() {
           <Badge tone="accent">{data.status}</Badge>
         </span>
       </div>
+
+      {data.possibly_finished && (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-ink"
+        >
+          <span>{t("contract.alert.possiblyFinished")}</span>
+          {canCloseAlert && (
+            <span className="flex gap-2">
+              <Button tone="danger" onClick={onFinish} disabled={finish.isPending}>
+                {t("contract.action.finish")}
+              </Button>
+              <Button onClick={onDismiss} disabled={dismiss.isPending}>
+                {t("contract.action.dismiss")}
+              </Button>
+            </span>
+          )}
+        </div>
+      )}
+      {!data.possibly_finished && data.expiry_warning && (
+        <div
+          role="alert"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-ink"
+        >
+          <span>{t("contract.alert.expiring")}</span>
+          {canCloseAlert && (
+            <Button onClick={onDismiss} disabled={dismiss.isPending}>
+              {t("contract.action.dismiss")}
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <SectionCard title={t("contract.section.overview")}>

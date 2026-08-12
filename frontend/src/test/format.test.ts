@@ -4,7 +4,8 @@ import { formatCurrency, formatDate, formatDuration } from "../lib/format";
 
 describe("formats ca-ES centralitzats", () => {
   it("formatCurrency", () => {
-    const normalize = (value: string) => value.replace(/[  ]/g, " ");
+    const nbsp = String.fromCharCode(0xa0, 0x202f);
+    const normalize = (value: string) => value.replace(new RegExp("[" + nbsp + "]", "g"), " ");
     expect(normalize(formatCurrency("1234567.5"))).toBe("1.234.567,50 €");
     expect(normalize(formatCurrency(1000))).toBe("1.000,00 €");
     expect(formatCurrency(null)).toBe("—");

@@ -178,6 +178,9 @@ class Contract(Base, TimestampMixin):
     expiry_warning: Mapped[bool] = mapped_column(Boolean, server_default="false")
     possibly_finished: Mapped[bool] = mapped_column(Boolean, server_default="false")
     warning_months_override: Mapped[int | None] = mapped_column(Integer)
+    # Descart persistent: només val mentre calculated_end_date no canviï.
+    alert_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    alert_dismissed_end_date: Mapped[date | None] = mapped_column(Date)
 
     # Classificació. cpv_code fins a 255: la font de vegades hi concatena
     # diversos codis (verificat contra l'API real, sync_run 19).
