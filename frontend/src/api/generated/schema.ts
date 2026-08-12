@@ -770,6 +770,8 @@ export interface components {
             social_reserve?: boolean | null;
             subcontracting_allowed?: boolean | null;
             /** Format: date-time */
+            enriched_at?: string | null;
+            /** Format: date-time */
             first_synced_at?: string | null;
             /** Format: date-time */
             last_synced_at?: string | null;

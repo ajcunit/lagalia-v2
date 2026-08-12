@@ -100,6 +100,7 @@ class ContractDetail(ContractSummary):
     allows_modifications: bool | None = None
     social_reserve: bool | None = None
     subcontracting_allowed: bool | None = None
+    enriched_at: datetime | None = None
     first_synced_at: datetime | None = None
     last_synced_at: datetime | None = None
     siblings: list[ContractSummary] = []
@@ -142,6 +143,7 @@ class ContractDetail(ContractSummary):
             allows_modifications=contract.allows_modifications,
             social_reserve=contract.social_reserve,
             subcontracting_allowed=contract.subcontracting_allowed,
+            enriched_at=contract.enriched_at,
             first_synced_at=contract.first_synced_at,
             last_synced_at=contract.last_synced_at,
             siblings=[ContractSummary.from_contract(s) for s in siblings],

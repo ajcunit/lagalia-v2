@@ -1362,6 +1362,7 @@ components:
             allows_modifications: { type: [boolean, "null"] }
             social_reserve: { type: [boolean, "null"] }
             subcontracting_allowed: { type: [boolean, "null"] }
+            enriched_at: { type: [string, "null"], format: date-time }
             first_synced_at: { type: [string, "null"], format: date-time }
             last_synced_at: { type: [string, "null"], format: date-time }
             siblings:
