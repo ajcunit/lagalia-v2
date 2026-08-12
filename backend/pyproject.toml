@@ -62,6 +62,8 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 # S101: assert als tests és l'esperat. S105/S106: secrets sintètics de test.
 "tests/*" = ["S101", "S105", "S106"]
+# S608: la fixture v1 sintètica interpola el nom d'esquema, que és una constant.
+"tests/test_v1_migration.py" = ["S101", "S608"]
 
 [tool.mypy]
 python_version = "3.12"
