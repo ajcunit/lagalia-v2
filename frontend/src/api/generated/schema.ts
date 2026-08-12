@@ -307,6 +307,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contracts/{id}/criteria": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Criteris d'adjudicació del contracte */
+        get: operations["getContractCriteria"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/{id}/committee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mesa de contractació del contracte */
+        get: operations["getContractCommittee"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/{id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Documents de fase del contracte */
+        get: operations["getContractDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/minor-contracts": {
         parameters: {
             query?: never;
@@ -844,6 +895,35 @@ export interface components {
             approved_at?: string | null;
             type?: string | null;
             amount?: string | null;
+        };
+        AwardCriterion: {
+            /** Format: int64 */
+            id: number;
+            position: number;
+            name: string;
+            weight?: string | null;
+            /** @description JSON original de la font (desglossament del criteri). */
+            breakdown?: Record<string, never> | null;
+        };
+        CommitteeMember: {
+            /** Format: int64 */
+            id: number;
+            first_name?: string | null;
+            last_name?: string | null;
+            role?: string | null;
+        };
+        PhaseDocument: {
+            /** Format: int64 */
+            id: number;
+            phase: string;
+            title?: string | null;
+            doc_type?: string | null;
+            /** @description Mida en bytes segons la font. */
+            size?: number | null;
+            /** @description URL pública de descàrrega al portal d'origen. */
+            download_url?: string | null;
+            /** @description Hi ha còpia del fitxer a l'emmagatzematge local. */
+            has_copy?: boolean;
         };
         /**
          * @description Treball en segon pla. Mai inclou el `payload` d'entrada: només
@@ -1586,6 +1666,84 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["ContractModification"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContractCriteria: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Criteris ordenats per posició */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AwardCriterion"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContractCommittee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membres de la mesa */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CommitteeMember"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContractDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documents ordenats per fase */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PhaseDocument"][];
                     };
                 };
             };

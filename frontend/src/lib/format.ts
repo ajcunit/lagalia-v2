@@ -34,6 +34,20 @@ export function formatDateTime(value: string | null | undefined): string {
   return dateTimeFormat.format(date);
 }
 
+export function formatBytes(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  if (value < 1024) return `${value} B`;
+  const units = ["kB", "MB", "GB"];
+  let size = value;
+  let unit = "B";
+  for (const next of units) {
+    if (size < 1024) break;
+    size /= 1024;
+    unit = next;
+  }
+  return `${size.toLocaleString("ca-ES", { maximumFractionDigits: 1 })} ${unit}`;
+}
+
 export function formatDuration(months: number | null | undefined): string {
   if (!months) return "—";
   const years = Math.floor(months / 12);

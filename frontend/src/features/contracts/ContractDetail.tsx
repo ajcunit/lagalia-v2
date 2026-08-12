@@ -2,9 +2,19 @@ import { Link, useParams } from "react-router-dom";
 
 import { Badge, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
-import { formatCurrency, formatDate, formatDateTime, formatDuration } from "../../lib/format";
+import { ca } from "../../i18n/ca";
+import {
+  formatBytes,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatDuration,
+} from "../../lib/format";
 import {
   useContract,
+  useContractCommittee,
+  useContractCriteria,
+  useContractDocuments,
   useContractExtensions,
   useContractHistory,
   useContractModifications,
@@ -15,6 +25,11 @@ function yesNo(value: boolean | null | undefined): string {
   return value ? t("common.yes") : t("common.no");
 }
 
+function phaseLabel(phase: string): string {
+  const key = `contract.phase.${phase}`;
+  return key in ca ? ca[key as keyof typeof ca] : phase;
+}
+
 export function ContractDetail() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
@@ -22,6 +37,9 @@ export function ContractDetail() {
   const extensions = useContractExtensions(id);
   const modifications = useContractModifications(id);
   const history = useContractHistory(id);
+  const criteria = useContractCriteria(id);
+  const committee = useContractCommittee(id);
+  const documents = useContractDocuments(id);
 
   if (contract.isPending) return <Skeleton rows={12} />;
   if (contract.isError || !contract.data) {
@@ -181,6 +199,55 @@ export function ContractDetail() {
           )}
         </SectionCard>
 
+        {(criteria.data?.data.length ?? 0) > 0 && (
+          <SectionCard title={t("contract.section.criteria")}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted">
+                  <th scope="col" className="py-1 pr-2 font-medium">
+                    #
+                  </th>
+                  <th scope="col" className="py-1 pr-2 font-medium">
+                    {t("contract.criteria.name")}
+                  </th>
+                  <th scope="col" className="py-1 text-right font-medium">
+                    {t("contract.criteria.weight")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {criteria.data?.data.map((criterion) => (
+                  <tr key={criterion.id} className="border-t border-line">
+                    <td className="py-1.5 pr-2 tabular-nums text-muted">{criterion.position}</td>
+                    <td className="py-1.5 pr-2">{criterion.name}</td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {criterion.weight ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </SectionCard>
+        )}
+
+        {(committee.data?.data.length ?? 0) > 0 && (
+          <SectionCard title={t("contract.section.committee")}>
+            <ul className="space-y-1.5 text-sm">
+              {committee.data?.data.map((member) => (
+                <li
+                  key={member.id}
+                  className="flex justify-between gap-2 border-t border-line pt-1.5 first:border-0"
+                >
+                  <span className="text-ink">
+                    {[member.first_name, member.last_name].filter(Boolean).join(" ") || "—"}
+                  </span>
+                  <span className="text-right text-muted">{member.role ?? ""}</span>
+                </li>
+              ))}
+            </ul>
+          </SectionCard>
+        )}
+
         {data.links && Object.keys(data.links).length > 0 && (
           <SectionCard title={t("contract.section.links")}>
             <ul className="space-y-1 text-sm">
@@ -220,6 +287,55 @@ export function ContractDetail() {
                 </li>
               ))}
             </ul>
+          </SectionCard>
+        </div>
+      )}
+
+      {(documents.data?.data.length ?? 0) > 0 && (
+        <div className="mt-4">
+          <SectionCard
+            title={`${t("contract.section.documents")} (${documents.data?.data.length ?? 0})`}
+          >
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted">
+                  <th scope="col" className="py-1 pr-2 font-medium">
+                    {t("contract.documents.title")}
+                  </th>
+                  <th scope="col" className="py-1 pr-2 font-medium">
+                    {t("contract.documents.phase")}
+                  </th>
+                  <th scope="col" className="py-1 text-right font-medium">
+                    {t("contract.documents.size")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {documents.data?.data.map((document) => (
+                  <tr key={document.id} className="border-t border-line">
+                    <td className="py-1.5 pr-2">
+                      {document.download_url ? (
+                        <a
+                          href={document.download_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent underline-offset-2 hover:underline"
+                          aria-label={`${document.title ?? ""} — ${t("contract.documents.open")}`}
+                        >
+                          {document.title ?? "—"} ↗
+                        </a>
+                      ) : (
+                        (document.title ?? "—")
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-2 text-muted">{phaseLabel(document.phase)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-muted">
+                      {formatBytes(document.size)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </SectionCard>
         </div>
       )}

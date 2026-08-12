@@ -6,12 +6,15 @@ from pydantic import BaseModel, Field
 
 from app.core.pagination import PageMeta
 from app.modules.contracts.models import (
+    AwardCriterion,
+    CommitteeMember,
     Contract,
     ContractHistoryEntry,
     ContractSource,
     Extension,
     InternalStatus,
     Modification,
+    PhaseDocument,
 )
 
 
@@ -234,6 +237,64 @@ class ModificationResponse(BaseModel):
             approved_at=modification.approved_at,
             type=modification.type,
             amount=modification.amount,
+        )
+
+
+class AwardCriterionResponse(BaseModel):
+    id: int
+    position: int
+    name: str
+    weight: Decimal | None = None
+    breakdown: dict[str, Any] | None = None
+
+    @classmethod
+    def from_criterion(cls, criterion: AwardCriterion) -> "AwardCriterionResponse":
+        return cls(
+            id=criterion.id,
+            position=criterion.position,
+            name=criterion.name,
+            weight=criterion.weight,
+            breakdown=criterion.breakdown,
+        )
+
+
+class CommitteeMemberResponse(BaseModel):
+    id: int
+    first_name: str | None = None
+    last_name: str | None = None
+    role: str | None = None
+
+    @classmethod
+    def from_member(cls, member: CommitteeMember) -> "CommitteeMemberResponse":
+        return cls(
+            id=member.id,
+            first_name=member.first_name,
+            last_name=member.last_name,
+            role=member.role,
+        )
+
+
+class PhaseDocumentResponse(BaseModel):
+    """storage_key no s'exposa mai: la còpia local es serveix amb token efímer."""
+
+    id: int
+    phase: str
+    title: str | None = None
+    doc_type: str | None = None
+    size: int | None = None
+    download_url: str | None = None
+    has_copy: bool = False
+
+    @classmethod
+    def from_document(cls, document: PhaseDocument) -> "PhaseDocumentResponse":
+        return cls(
+            id=document.id,
+            phase=document.phase.value,
+            title=document.title,
+            doc_type=document.doc_type,
+            size=document.size,
+            download_url=document.download_url,
+            has_copy=document.storage_key is not None,
         )
 
 
