@@ -24,6 +24,7 @@ EXPECTED_TABLES = {
     "refresh_tokens",
     "audit_log",
     "settings",
+    "jobs",
 }
 
 

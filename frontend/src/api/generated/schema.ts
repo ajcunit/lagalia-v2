@@ -206,6 +206,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Estat i progrés d'un treball
+         * @description Visible per al creador del treball; per a la resta cal la concessió
+         *     `sync:read` de la matriu de permisos.
+         */
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Progrés en temps real (SSE)
+         * @description Server-Sent Events. S'autentica amb un token efímer d'un sol ús
+         *     emès per `POST /auth/ephemeral` (purpose `job_events`) — mai un JWT
+         *     per query string. Emet l'estat actual en connectar i tanca quan el
+         *     treball arriba a un estat terminal.
+         */
+        get: operations["streamJobEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{id}/actions/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel·la un treball encuat o en execució
+         * @description Permès al creador del treball o amb la concessió `sync:execute`.
+         */
+        post: operations["cancelJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -354,6 +420,32 @@ export interface components {
          * @example 4305160009
          */
         Ine10Code: string;
+        /**
+         * @description Treball en segon pla. Mai inclou el `payload` d'entrada: només
+         *     estat, progrés i resultat.
+         */
+        Job: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @example system.heartbeat
+             * @example sync.contracts
+             */
+            type: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "success" | "failed" | "cancelled";
+            progress: number;
+            progress_message?: string | null;
+            result?: Record<string, never> | null;
+            error?: string | null;
+            attempts?: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+        };
         TokenPair: {
             access_token: string;
             refresh_token: string;
@@ -844,6 +936,92 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Treball */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    streamJobEvents: {
+        parameters: {
+            query: {
+                /** @description Token efímer d'un sol ús. */
+                token: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Flux d'esdeveniments `text/event-stream` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancel·lació sol·licitada */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description El treball ja és en un estat terminal */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     listUsers: {

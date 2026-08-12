@@ -46,6 +46,8 @@ tags:
     description: Inicialització del sistema
   - name: system
     description: Salut i estat
+  - name: jobs
+    description: Treballs en segon pla (cua, progrés, cancel·lació)
 
 security:
   - bearerAuth: []
@@ -332,6 +334,87 @@ paths:
                     type: boolean
                     description: Si l'usuari pot demanar abast complet (Vista Admin).
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ───────────────────────────── jobs ─────────────────────────────
+  /jobs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [jobs]
+      operationId: getJob
+      summary: Estat i progrés d'un treball
+      description: |
+        Visible per al creador del treball; per a la resta cal la concessió
+        `sync:read` de la matriu de permisos.
+      responses:
+        "200":
+          description: Treball
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /jobs/{id}/events:
+    get:
+      tags: [jobs]
+      operationId: streamJobEvents
+      summary: Progrés en temps real (SSE)
+      description: |
+        Server-Sent Events. S'autentica amb un token efímer d'un sol ús
+        emès per `POST /auth/ephemeral` (purpose `job_events`) — mai un JWT
+        per query string. Emet l'estat actual en connectar i tanca quan el
+        treball arriba a un estat terminal.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: token
+          in: query
+          required: true
+          description: Token efímer d'un sol ús.
+          schema: { type: string }
+      responses:
+        "200":
+          description: Flux d'esdeveniments `text/event-stream`
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /jobs/{id}/actions/cancel:
+    post:
+      tags: [jobs]
+      operationId: cancelJob
+      summary: Cancel·la un treball encuat o en execució
+      description: |
+        Permès al creador del treball o amb la concessió `sync:execute`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "202":
+          description: Cancel·lació sol·licitada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: El treball ja és en un estat terminal
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
 
   # ───────────────────────────── users ─────────────────────────────
   /users:
@@ -715,6 +798,25 @@ components:
       pattern: "^[0-9]{10}$"
       description: Codi INE de 10 dígits de l'ens.
       examples: ["4305160009"]
+
+    Job:
+      type: object
+      description: |
+        Treball en segon pla. Mai inclou el `payload` d'entrada: només
+        estat, progrés i resultat.
+      required: [id, type, status, progress, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, examples: ["system.heartbeat", "sync.contracts"] }
+        status: { type: string, enum: [queued, running, success, failed, cancelled] }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        progress_message: { type: [string, "null"] }
+        result: { type: [object, "null"] }
+        error: { type: [string, "null"] }
+        attempts: { type: integer }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
 
     TokenPair:
       type: object
