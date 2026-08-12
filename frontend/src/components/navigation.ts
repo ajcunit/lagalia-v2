@@ -21,6 +21,7 @@ export const NAV_ZONES: NavZone[] = [
       { to: "/", labelKey: "nav.dashboard" },
       { to: "/contracts", labelKey: "nav.contracts", action: "contracts:read" },
       { to: "/minor-contracts", labelKey: "nav.minorContracts", action: "minor_contracts:read" },
+      { to: "/contractors", labelKey: "nav.contractors", action: "contracts:read" },
     ],
   },
   {
@@ -30,6 +31,7 @@ export const NAV_ZONES: NavZone[] = [
   {
     labelKey: "nav.zone.administration",
     items: [
+      { to: "/contractors/duplicates", labelKey: "nav.duplicates", action: "duplicates:manage" },
       { to: "/admin/users", labelKey: "nav.users", action: "users:read" },
       { to: "/admin/departments", labelKey: "nav.departments", action: "departments:write" },
       { to: "/admin/config", labelKey: "nav.config", action: "config:write" },
