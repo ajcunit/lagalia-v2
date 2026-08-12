@@ -171,6 +171,53 @@ class ContractCreate(BaseModel):
     department_ids: list[int] = []
 
 
+class StatsTotals(BaseModel):
+    contracts: int
+    new_this_month: int
+    expiry_warning: int
+    possibly_finished: int
+    awarded_total: Decimal
+    unique_contractors: int
+
+
+class StatsMinors(BaseModel):
+    count: int
+    amount: Decimal
+
+
+class StatusCount(BaseModel):
+    status: str
+    count: int
+
+
+class DepartmentCount(BaseModel):
+    id: int
+    name: str
+    count: int
+
+
+class TopContractor(BaseModel):
+    id: int
+    name: str
+    amount: Decimal
+    count: int
+
+
+class ContractStats(BaseModel):
+    totals: StatsTotals
+    minors: StatsMinors
+    by_status: list[StatusCount]
+    by_department: list[DepartmentCount]
+    top_contractors: list[TopContractor]
+
+
+class ContractFacets(BaseModel):
+    statuses: list[str]
+    contract_types: list[str]
+    procedures: list[str]
+    years: list[int]
+
+
 class ExportFilters(BaseModel):
     q: str | None = Field(default=None, max_length=200)
     department_id: int | None = None

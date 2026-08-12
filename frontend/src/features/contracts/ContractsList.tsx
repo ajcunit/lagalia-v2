@@ -9,6 +9,7 @@ import {
   downloadExport,
   useBulkAssignDepartments,
   useContracts,
+  useContractsFacets,
   useCreateExport,
   useDepartmentOptions,
   useJobStatus,
@@ -64,12 +65,15 @@ export function ContractsList() {
     "filter[contract_type]": searchParams.get("type") ?? undefined,
     "filter[internal_status]": (searchParams.get("internal") ??
       undefined) as ContractsListParams["filter[internal_status]"],
+    "filter[status]": searchParams.get("status") ?? undefined,
+    "filter[contractor_id]": numberParam(searchParams.get("contractor")),
     "filter[expiry_warning]": boolParam(searchParams.get("expiry")),
     "filter[possibly_finished]": boolParam(searchParams.get("finished")),
     "filter[unassigned]": boolParam(searchParams.get("unassigned")),
   };
   const contracts = useContracts(params);
   const departments = useDepartmentOptions();
+  const facets = useContractsFacets(view as "user" | "all");
 
   // Exportació: encua el job amb els filtres vigents i descarrega en acabar.
   const canExport = permissions?.actions.includes("contracts:export") ?? false;
@@ -105,6 +109,8 @@ export function ContractsList() {
           department_id: numberParam(searchParams.get("department")) ?? null,
           year: numberParam(searchParams.get("year")) ?? null,
           contract_type: searchParams.get("type"),
+          status: searchParams.get("status"),
+          contractor_id: numberParam(searchParams.get("contractor")) ?? null,
           internal_status: (searchParams.get("internal") ?? null) as never,
           expiry_warning: boolParam(searchParams.get("expiry")) ?? null,
           possibly_finished: boolParam(searchParams.get("finished")) ?? null,
@@ -166,7 +172,7 @@ export function ContractsList() {
     );
   }
 
-  const activeFilters = ["department", "year", "type", "internal", "expiry", "finished", "unassigned"]
+  const activeFilters = ["department", "year", "type", "status", "contractor", "internal", "expiry", "finished", "unassigned"]
     .filter((key) => searchParams.get(key))
     .concat(q ? ["q"] : []);
 
@@ -241,14 +247,45 @@ export function ContractsList() {
             </option>
           ))}
         </select>
-        <input
+        <select
+          aria-label={t("contracts.filterStatus")}
+          value={searchParams.get("status") ?? ""}
+          onChange={(e) => update({ status: e.target.value || null })}
+          className="rounded-md border border-line bg-surface-raised px-2 py-2 text-sm text-ink"
+        >
+          <option value="">{t("contracts.filterStatus")}</option>
+          {facets.data?.statuses.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label={t("contracts.filterType")}
+          value={searchParams.get("type") ?? ""}
+          onChange={(e) => update({ type: e.target.value || null })}
+          className="rounded-md border border-line bg-surface-raised px-2 py-2 text-sm text-ink"
+        >
+          <option value="">{t("contracts.filterType")}</option>
+          {facets.data?.contract_types.map((ty) => (
+            <option key={ty} value={ty}>
+              {ty}
+            </option>
+          ))}
+        </select>
+        <select
           aria-label={t("contracts.filterYear")}
-          type="number"
-          placeholder={t("contracts.filterYear")}
           value={searchParams.get("year") ?? ""}
           onChange={(e) => update({ year: e.target.value || null })}
-          className="w-28 rounded-md border border-line bg-surface-raised px-2 py-2 text-sm text-ink tabular-nums"
-        />
+          className="rounded-md border border-line bg-surface-raised px-2 py-2 text-sm text-ink tabular-nums"
+        >
+          <option value="">{t("contracts.filterYear")}</option>
+          {facets.data?.years.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
         <label className="flex items-center gap-1.5 text-sm text-ink">
           <input
             type="checkbox"
