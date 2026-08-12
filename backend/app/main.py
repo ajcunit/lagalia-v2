@@ -10,8 +10,10 @@ from app.core.problems import register_problem_handlers
 from app.core.tracing import new_trace_id
 from app.jobs import tasks as _jobs_tasks  # noqa: F401 — registra els handlers
 from app.jobs.router import router as jobs_router
+from app.modules.contractors.router import router as contractors_router
 from app.modules.contracts.router import router as contracts_router
 from app.modules.departments.router import router as departments_router
+from app.modules.minor_contracts.router import router as minor_contracts_router
 from app.modules.setup.router import router as setup_router
 from app.modules.users.router import router as users_router
 
@@ -63,4 +65,6 @@ api.include_router(departments_router)
 api.include_router(setup_router)
 api.include_router(jobs_router)
 api.include_router(contracts_router)
+api.include_router(minor_contracts_router)
+api.include_router(contractors_router)
 app.include_router(api)

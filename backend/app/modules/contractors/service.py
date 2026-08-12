@@ -14,6 +14,7 @@ from app.modules.contractors.models import (
     Contractor,
     ContractorAlias,
     ContractorDuplicate,
+    ContractorDuplicateStatus,
 )
 
 
@@ -70,6 +71,57 @@ async def resolve_contractor(
     session.add(contractor)
     await session.flush()
     return ResolvedContractor(contractor_id=contractor.id, raw_name=name)
+
+
+async def merge_contractors(session: AsyncSession, *, winner_id: int, loser_id: int) -> None:
+    """Fusiona el perdedor dins del guanyador: refs, àlies i eliminació.
+
+    El nom del perdedor esdevé àlies del guanyador perquè les ingestes
+    futures resolguin soles.
+    """
+    from sqlalchemy import delete, update
+
+    from app.modules.contracts.models import Contract
+    from app.modules.minor_contracts.models import MinorContract
+
+    loser = await session.get(Contractor, loser_id)
+    winner = await session.get(Contractor, winner_id)
+    if loser is None or winner is None:
+        raise ValueError("contractor inexistent en la fusió")
+
+    await session.execute(
+        update(Contract).where(Contract.contractor_id == loser_id).values(contractor_id=winner_id)
+    )
+    await session.execute(
+        update(MinorContract)
+        .where(MinorContract.contractor_id == loser_id)
+        .values(contractor_id=winner_id)
+    )
+    await session.execute(
+        update(ContractorAlias)
+        .where(ContractorAlias.contractor_id == loser_id)
+        .values(contractor_id=winner_id)
+    )
+    if loser.canonical_name != winner.canonical_name:
+        existing_alias = (
+            await session.execute(
+                select(ContractorAlias).where(ContractorAlias.alias == loser.canonical_name)
+            )
+        ).scalar_one_or_none()
+        if existing_alias is None:
+            session.add(ContractorAlias(alias=loser.canonical_name, contractor_id=winner_id))
+
+    # Altres parells pendents del perdedor: es descarten (la propera
+    # detecció els regenerarà contra el guanyador si encara toca).
+    await session.execute(
+        delete(ContractorDuplicate).where(
+            ContractorDuplicate.status == ContractorDuplicateStatus.PENDING,
+            (ContractorDuplicate.contractor_id_1 == loser_id)
+            | (ContractorDuplicate.contractor_id_2 == loser_id),
+        )
+    )
+    await session.delete(loser)
+    await session.flush()
 
 
 async def detect_tax_id_duplicates(session: AsyncSession) -> int:

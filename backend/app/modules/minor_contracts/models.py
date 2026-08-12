@@ -23,6 +23,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.core.models import TimestampMixin
+from app.modules.contractors.models import Contractor
 from app.modules.contracts.models import _INTERNAL_STATUS, InternalStatus
 from app.modules.departments.models import Department
 
@@ -72,3 +73,4 @@ class MinorContract(Base, TimestampMixin):
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     departments: Mapped[list[Department]] = relationship(secondary=minor_contract_departments)
+    contractor: Mapped[Contractor | None] = relationship()

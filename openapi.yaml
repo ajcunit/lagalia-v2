@@ -50,6 +50,10 @@ tags:
     description: Treballs en segon pla (cua, progrés, cancel·lació)
   - name: contracts
     description: Contractes majors (nucli de contractació)
+  - name: minor-contracts
+    description: Contractes menors (amb liquidacions)
+  - name: contractors
+    description: Adjudicataris normalitzats (rànquing, fitxa, duplicats)
 
 security:
   - bearerAuth: []
@@ -547,6 +551,217 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  # ───────────────────────── minor-contracts ─────────────────────────
+  /minor-contracts:
+    get:
+      tags: [minor-contracts]
+      operationId: listMinorContracts
+      summary: Llistat de contractes menors (abast departamental)
+      x-required-scopes: [minor_contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - $ref: "#/components/parameters/ViewScope"
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [award_date, -award_date, award_amount, -award_amount, file_code, -file_code]
+            default: "-award_date"
+        - name: filter[fiscal_year]
+          in: query
+          schema: { type: integer }
+        - name: filter[contract_type]
+          in: query
+          schema: { type: string }
+        - name: filter[department_id]
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: filter[unassigned]
+          in: query
+          schema: { type: boolean }
+        - name: filter[settled]
+          in: query
+          description: Amb (true) o sense (false) liquidació.
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Pàgina de menors
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/MinorContract" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /minor-contracts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [minor-contracts]
+      operationId: getMinorContract
+      summary: Detall d'un contracte menor
+      description: Fora de l'abast departamental la resposta és `404`.
+      x-required-scopes: [minor_contracts:read]
+      responses:
+        "200":
+          description: Contracte menor
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MinorContract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [minor-contracts]
+      operationId: updateMinorContract
+      summary: Edició (estat intern i departaments)
+      x-required-scopes: [minor_contracts:update]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MinorContractUpdate" }
+      responses:
+        "200":
+          description: Contracte menor actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MinorContract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  # ─────────────────────────── contractors ───────────────────────────
+  /contractors:
+    get:
+      tags: [contractors]
+      operationId: listContractors
+      summary: Rànquing unificat d'adjudicataris (majors + menors)
+      description: |
+        Agregats sobre el conjunt complet de dades (font pública), amb
+        independència de l'abast departamental de l'usuari.
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: q
+          in: query
+          description: Nom (canònic o àlies) o NIF.
+          schema: { type: string, maxLength: 200 }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [total_amount, -total_amount, contracts_count, -contracts_count, name, -name]
+            default: "-total_amount"
+      responses:
+        "200":
+          description: Rànquing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractorRanking" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /contractors/duplicates:
+    get:
+      tags: [contractors]
+      operationId: listContractorDuplicates
+      summary: Parells de possibles duplicats per NIF
+      x-required-scopes: [duplicates:manage]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, merged, rejected], default: pending }
+      responses:
+        "200":
+          description: Parells detectats
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractorDuplicate" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /contractors/duplicates/{id}/actions/resolve:
+    post:
+      tags: [contractors]
+      operationId: resolveContractorDuplicate
+      summary: Resol un parell (fusió o rebuig)
+      description: |
+        `merge_1`/`merge_2`: el contractor indicat esdevé el canònic; l'altre
+        transfereix contractes i menors, el seu nom queda com a àlies i
+        s'elimina. `reject`: el parell es tanca i no es regenera.
+      x-required-scopes: [duplicates:manage]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [merge_1, merge_2, reject] }
+                notes: { type: string, maxLength: 1000 }
+      responses:
+        "200":
+          description: Parell resolt
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContractorDuplicate" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: El parell ja està resolt
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /contractors/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [contractors]
+      operationId: getContractor
+      summary: Fitxa d'un adjudicatari amb KPIs
+      x-required-scopes: [contracts:read]
+      responses:
+        "200":
+          description: Adjudicatari
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContractorProfile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ───────────────────────────── jobs ─────────────────────────────
   /jobs/{id}:
     parameters:
@@ -1010,6 +1225,78 @@ components:
       pattern: "^[0-9]{10}$"
       description: Codi INE de 10 dígits de l'ens.
       examples: ["4305160009"]
+
+    MinorContract:
+      type: object
+      required: [id, file_code, internal_status]
+      properties:
+        id: { type: integer, format: int64 }
+        file_code: { type: string }
+        contract_type: { type: [string, "null"] }
+        description: { type: [string, "null"] }
+        contractor: { oneOf: [{ $ref: "#/components/schemas/ContractorRef" }, { type: "null" }] }
+        award_amount: { type: [string, "null"] }
+        award_date: { type: [string, "null"], format: date }
+        fiscal_year: { type: [integer, "null"] }
+        duration_years: { type: [integer, "null"] }
+        duration_months: { type: [integer, "null"] }
+        duration_days: { type: [integer, "null"] }
+        settlement_type: { type: [string, "null"] }
+        settlement_date: { type: [string, "null"], format: date }
+        settlement_amount: { type: [string, "null"] }
+        internal_status: { type: string, enum: [normal, pending_review, approved, rejected] }
+        department_ids:
+          type: array
+          items: { type: integer, format: int64 }
+        last_synced_at: { type: [string, "null"], format: date-time }
+
+    MinorContractUpdate:
+      type: object
+      properties:
+        internal_status: { type: string, enum: [normal, pending_review, approved, rejected] }
+        department_ids:
+          type: array
+          items: { type: integer, format: int64 }
+
+    ContractorRanking:
+      type: object
+      required: [id, name, contracts_count, minor_count, total_amount]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        tax_id: { type: [string, "null"] }
+        contracts_count: { type: integer }
+        contracts_amount: { type: [string, "null"] }
+        minor_count: { type: integer }
+        minor_amount: { type: [string, "null"] }
+        total_amount: { type: string }
+
+    ContractorProfile:
+      allOf:
+        - $ref: "#/components/schemas/ContractorRanking"
+        - type: object
+          properties:
+            nationality: { type: [string, "null"] }
+            company_type: { type: [string, "null"] }
+            third_sector: { type: boolean }
+            phone: { type: [string, "null"] }
+            email: { type: [string, "null"] }
+            aliases:
+              type: array
+              items: { type: string }
+            created_at: { type: string, format: date-time }
+
+    ContractorDuplicate:
+      type: object
+      required: [id, status, contractor_1, contractor_2]
+      properties:
+        id: { type: integer, format: int64 }
+        status: { type: string, enum: [pending, merged, rejected] }
+        contractor_1: { $ref: "#/components/schemas/ContractorRanking" }
+        contractor_2: { $ref: "#/components/schemas/ContractorRanking" }
+        resolved_by: { type: [integer, "null"], format: int64 }
+        resolved_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
 
     ContractorRef:
       type: object

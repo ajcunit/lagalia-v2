@@ -307,6 +307,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/minor-contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Llistat de contractes menors (abast departamental) */
+        get: operations["listMinorContracts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/minor-contracts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Detall d'un contracte menor
+         * @description Fora de l'abast departamental la resposta és `404`.
+         */
+        get: operations["getMinorContract"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edició (estat intern i departaments) */
+        patch: operations["updateMinorContract"];
+        trace?: never;
+    };
+    "/contractors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rànquing unificat d'adjudicataris (majors + menors)
+         * @description Agregats sobre el conjunt complet de dades (font pública), amb
+         *     independència de l'abast departamental de l'usuari.
+         */
+        get: operations["listContractors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contractors/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Parells de possibles duplicats per NIF */
+        get: operations["listContractorDuplicates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contractors/duplicates/{id}/actions/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resol un parell (fusió o rebuig)
+         * @description `merge_1`/`merge_2`: el contractor indicat esdevé el canònic; l'altre
+         *     transfereix contractes i menors, el seu nom queda com a àlies i
+         *     s'elimina. `reject`: el parell es tanca i no es regenera.
+         */
+        post: operations["resolveContractorDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contractors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /** Fitxa d'un adjudicatari amb KPIs */
+        get: operations["getContractor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/{id}": {
         parameters: {
             query?: never;
@@ -521,6 +640,70 @@ export interface components {
          * @example 4305160009
          */
         Ine10Code: string;
+        MinorContract: {
+            /** Format: int64 */
+            id: number;
+            file_code: string;
+            contract_type?: string | null;
+            description?: string | null;
+            contractor?: components["schemas"]["ContractorRef"] | null;
+            award_amount?: string | null;
+            /** Format: date */
+            award_date?: string | null;
+            fiscal_year?: number | null;
+            duration_years?: number | null;
+            duration_months?: number | null;
+            duration_days?: number | null;
+            settlement_type?: string | null;
+            /** Format: date */
+            settlement_date?: string | null;
+            settlement_amount?: string | null;
+            /** @enum {string} */
+            internal_status: "normal" | "pending_review" | "approved" | "rejected";
+            department_ids?: number[];
+            /** Format: date-time */
+            last_synced_at?: string | null;
+        };
+        MinorContractUpdate: {
+            /** @enum {string} */
+            internal_status?: "normal" | "pending_review" | "approved" | "rejected";
+            department_ids?: number[];
+        };
+        ContractorRanking: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            tax_id?: string | null;
+            contracts_count: number;
+            contracts_amount?: string | null;
+            minor_count: number;
+            minor_amount?: string | null;
+            total_amount: string;
+        };
+        ContractorProfile: components["schemas"]["ContractorRanking"] & {
+            nationality?: string | null;
+            company_type?: string | null;
+            third_sector?: boolean;
+            phone?: string | null;
+            email?: string | null;
+            aliases?: string[];
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ContractorDuplicate: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            status: "pending" | "merged" | "rejected";
+            contractor_1: components["schemas"]["ContractorRanking"];
+            contractor_2: components["schemas"]["ContractorRanking"];
+            /** Format: int64 */
+            resolved_by?: number | null;
+            /** Format: date-time */
+            resolved_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+        };
         ContractorRef: {
             /** Format: int64 */
             id: number;
@@ -1402,6 +1585,234 @@ export interface operations {
                     "application/json": {
                         data: components["schemas"]["ContractModification"][];
                     };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMinorContracts: {
+        parameters: {
+            query?: {
+                /** @description Elements per pàgina. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                /**
+                 * @description Abast demanat. `user` (per defecte) limita als departaments propis;
+                 *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
+                 *     permet — es valida al servidor, no és una preferència del client.
+                 */
+                view?: components["parameters"]["ViewScope"];
+                q?: string;
+                sort?: "award_date" | "-award_date" | "award_amount" | "-award_amount" | "file_code" | "-file_code";
+                "filter[fiscal_year]"?: number;
+                "filter[contract_type]"?: string;
+                "filter[department_id]"?: number;
+                "filter[unassigned]"?: boolean;
+                /** @description Amb (true) o sense (false) liquidació. */
+                "filter[settled]"?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pàgina de menors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["MinorContract"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getMinorContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contracte menor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinorContract"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMinorContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MinorContractUpdate"];
+            };
+        };
+        responses: {
+            /** @description Contracte menor actualitzat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinorContract"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listContractors: {
+        parameters: {
+            query?: {
+                /** @description Elements per pàgina. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                /** @description Nom (canònic o àlies) o NIF. */
+                q?: string;
+                sort?: "total_amount" | "-total_amount" | "contracts_count" | "-contracts_count" | "name" | "-name";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rànquing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractorRanking"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listContractorDuplicates: {
+        parameters: {
+            query?: {
+                /** @description Elements per pàgina. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                status?: "pending" | "merged" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Parells detectats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractorDuplicate"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    resolveContractorDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    action: "merge_1" | "merge_2" | "reject";
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Parell resolt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractorDuplicate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description El parell ja està resolt */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getContractor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Adjudicatari */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractorProfile"];
                 };
             };
             401: components["responses"]["Unauthorized"];
