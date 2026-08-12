@@ -6,9 +6,12 @@ import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 import {
+  downloadExport,
   useBulkAssignDepartments,
   useContracts,
+  useCreateExport,
   useDepartmentOptions,
+  useJobStatus,
   type ContractsListParams,
 } from "./queries";
 
@@ -67,6 +70,54 @@ export function ContractsList() {
   };
   const contracts = useContracts(params);
   const departments = useDepartmentOptions();
+
+  // Exportació: encua el job amb els filtres vigents i descarrega en acabar.
+  const canExport = permissions?.actions.includes("contracts:export") ?? false;
+  const createExport = useCreateExport();
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const exportJob = useJobStatus(exportJobId);
+  const exportStatus = exportJob.data?.status;
+  useEffect(() => {
+    if (exportJobId && exportStatus === "success") {
+      setExportJobId(null);
+      void downloadExport(exportJobId).catch((error) =>
+        window.alert(t("contract.action.error", { message: String(error) })),
+      );
+    }
+    if (exportStatus === "failed") {
+      setExportJobId(null);
+      window.alert(
+        t("contract.action.error", { message: exportJob.data?.error ?? "error desconegut" }),
+      );
+    }
+  }, [exportJobId, exportStatus, exportJob.data?.error]);
+
+  const exporting =
+    createExport.isPending || exportStatus === "queued" || exportStatus === "running";
+
+  function onExport() {
+    createExport.mutate(
+      {
+        format: "csv",
+        view: view as "user" | "all",
+        filters: {
+          q: q || null,
+          department_id: numberParam(searchParams.get("department")) ?? null,
+          year: numberParam(searchParams.get("year")) ?? null,
+          contract_type: searchParams.get("type"),
+          internal_status: (searchParams.get("internal") ?? null) as never,
+          expiry_warning: boolParam(searchParams.get("expiry")) ?? null,
+          possibly_finished: boolParam(searchParams.get("finished")) ?? null,
+          unassigned: boolParam(searchParams.get("unassigned")) ?? null,
+        },
+      },
+      {
+        onSuccess: (job) => setExportJobId(job.id),
+        onError: (error) =>
+          window.alert(t("contract.action.error", { message: String(error) })),
+      },
+    );
+  }
 
   const canBulkAssign = permissions?.actions.includes("contracts:bulk_assign") ?? false;
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -136,6 +187,12 @@ export function ContractsList() {
             </p>
           )}
         </div>
+        <div className="flex items-center gap-2">
+        {canExport && (
+          <Button onClick={onExport} disabled={exporting}>
+            {exporting ? t("contracts.exporting") : t("contracts.export")}
+          </Button>
+        )}
         {permissions?.can_switch_view && (
           <div role="group" aria-label={t("contracts.viewMode")} className="flex rounded-md border border-line">
             {(["user", "all"] as const).map((mode) => (
@@ -153,6 +210,7 @@ export function ContractsList() {
             ))}
           </div>
         )}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

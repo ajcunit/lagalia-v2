@@ -71,6 +71,29 @@ export function useJobStatus(jobId: string | null) {
   });
 }
 
+type ExportBody = NonNullable<
+  paths["/contracts/exports"]["post"]["requestBody"]
+>["content"]["application/json"];
+
+export function useCreateExport() {
+  return useMutation({
+    mutationFn: async (body: ExportBody) => {
+      const { data, error } = await api.POST("/contracts/exports", { body });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+}
+
+export async function downloadExport(jobId: string): Promise<void> {
+  const { data, error } = await api.POST("/auth/ephemeral", {
+    body: { purpose: "download", resource: jobId },
+  });
+  if (error !== undefined) throw error;
+  const url = `/api/v1/contracts/exports/${jobId}/download?token=${encodeURIComponent(data.token)}`;
+  window.location.assign(url);
+}
+
 export function useBulkAssignDepartments() {
   const queryClient = useQueryClient();
   return useMutation({

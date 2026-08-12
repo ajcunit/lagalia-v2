@@ -31,5 +31,6 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
+    queue_name = settings.jobs_queue_name
     allow_abort_jobs = True
     max_tries = 1  # reintents amb backoff: backlog B-009

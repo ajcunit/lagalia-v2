@@ -50,7 +50,12 @@ async def enqueue_job(
 
     pool = await _arq_pool()
     try:
-        await pool.enqueue_job("execute_job", str(job.id), _job_id=str(job.id))
+        await pool.enqueue_job(
+            "execute_job",
+            str(job.id),
+            _job_id=str(job.id),
+            _queue_name=settings.jobs_queue_name,
+        )
     finally:
         await pool.aclose()
     await session.commit()

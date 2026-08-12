@@ -25,7 +25,12 @@ from app.modules.contracts.models import (
     ContractHistoryEntry,
     ContractSource,
 )
-from app.modules.contracts.schemas import BulkAssignRequest, ContractCreate, ContractUpdate
+from app.modules.contracts.schemas import (
+    BulkAssignRequest,
+    ContractCreate,
+    ContractUpdate,
+    ExportRequest,
+)
 from app.modules.departments.repository import get_many as get_departments
 from app.modules.users.models import User
 from app.modules.users.service import RequestContext
@@ -270,6 +275,43 @@ async def enqueue_enrichment(
         created_by=user.id,
         dedup_key=f"enrich.contract:{contract_id}",
     )
+
+
+async def enqueue_export(
+    session: AsyncSession, data: ExportRequest, user: User, ctx: RequestContext
+) -> Job:
+    if authz.evaluate(user, "contracts:export") is None:
+        await _audit_denied(session, user, 0, "contracts:export", ctx)
+        raise Problem(403, "Sense permís per exportar contractes", "forbidden")
+
+    # L'abast efectiu es fixa ARA i viatja al payload: el job no re-avalua.
+    scope = await authz.resolve_view_scope(session, user, data.view, ctx)
+    job = await enqueue_job(
+        session,
+        job_type="export.contracts",
+        payload={
+            "format": data.format,
+            "user_id": user.id,
+            "scope": {"type": scope.type, "department_ids": scope.department_ids},
+            "filters": data.filters.model_dump(mode="json", exclude_none=True),
+        },
+        created_by=user.id,
+    )
+    await record_audit(
+        session,
+        actor_type=AuditActorType.USER,
+        action="contracts.export",
+        success=True,
+        actor_id=user.id,
+        resource_type="job",
+        resource_id=str(job.id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+        details={"format": data.format, "view": data.view},
+    )
+    await session.commit()
+    return job
 
 
 async def bulk_assign_departments(

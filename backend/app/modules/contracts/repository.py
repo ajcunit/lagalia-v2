@@ -4,6 +4,7 @@ El predicat de visibilitat (A2 §3) s'aplica idèntic a llistats, detalls
 i subrecursos: pertànyer a un departament assignat o ser responsable.
 """
 
+from collections.abc import AsyncIterator
 from typing import Any
 
 from sqlalchemy import ColumnElement, Select, extract, false, func, or_, select, tuple_
@@ -223,6 +224,35 @@ async def modifications_of(session: AsyncSession, contract_id: int) -> list[Modi
         .order_by(Modification.number.asc())
     )
     return list((await session.execute(stmt)).scalars())
+
+
+async def iter_for_export(
+    session: AsyncSession,
+    *,
+    scope: ScopeInfo,
+    user_id: int,
+    filters: dict[str, Any],
+    batch_size: int = 500,
+) -> AsyncIterator[list[Contract]]:
+    """Mateix predicat i filtres que el llistat, per lots i ordenat per id."""
+    predicate = visibility_predicate(scope, user_id)
+    last_id = 0
+    while True:
+        stmt = (
+            select(Contract)
+            .options(selectinload(Contract.contractor), selectinload(Contract.departments))
+            .where(Contract.id > last_id)
+            .order_by(Contract.id.asc())
+            .limit(batch_size)
+        )
+        if predicate is not None:
+            stmt = stmt.where(predicate)
+        stmt = _apply_filters(stmt, filters)
+        rows = list((await session.execute(stmt)).scalars())
+        if not rows:
+            return
+        yield rows
+        last_id = rows[-1].id
 
 
 async def is_manager(session: AsyncSession, contract_id: int, user_id: int) -> bool:

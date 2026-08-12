@@ -27,6 +27,9 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://lagalia:lagalia@localhost:5432/lagalia"
     redis_url: str = "redis://localhost:6379/0"
+    # Cua d'arq. Els tests en fan servir una de pròpia perquè un worker viu
+    # de desenvolupament no executi els jobs que encuen.
+    jobs_queue_name: str = "arq:queue"
 
     # Sense valor per defecte: obligatoris per arrencar.
     secret_key: SecretStr

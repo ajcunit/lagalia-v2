@@ -1,15 +1,21 @@
 """Endpoints de contractes. Prims: abast i regles als serveis/repositori."""
 
+import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authz
 from app.core.db import get_session
 from app.core.pagination import PageMeta
 from app.core.problems import Problem
+from app.core.storage import get_storage
+from app.jobs import ephemeral
+from app.jobs.models import Job, JobStatus
 from app.jobs.schemas import JobResponse
+from app.modules.audit.models import AuditActorType
+from app.modules.audit.service import record_audit
 from app.modules.contracts import repository, service
 from app.modules.contracts.models import InternalStatus
 from app.modules.contracts.schemas import (
@@ -21,6 +27,7 @@ from app.modules.contracts.schemas import (
     ContractDetail,
     ContractSummary,
     ContractUpdate,
+    ExportRequest,
     ExtensionResponse,
     HistoryEntryResponse,
     ModificationResponse,
@@ -225,6 +232,57 @@ async def enrich_contract(
 ) -> JobResponse:
     job = await service.enqueue_enrichment(session, id, current.user, ctx)
     return JobResponse.from_job(job)
+
+
+@router.post("/contracts/exports", operation_id="createContractsExport", status_code=202)
+async def create_contracts_export(
+    body: ExportRequest,
+    session: SessionDep,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    ctx: ContextDep,
+) -> JobResponse:
+    job = await service.enqueue_export(session, body, current.user, ctx)
+    return JobResponse.from_job(job)
+
+
+@router.get("/contracts/exports/{id}/download", operation_id="downloadContractsExport")
+async def download_contracts_export(
+    id: uuid.UUID,
+    session: SessionDep,
+    ctx: ContextDep,
+    token: Annotated[str, Query(min_length=16, max_length=128)],
+) -> Response:
+    """Sense capçalera d'autenticació: el token efímer d'un sol ús és l'autorització."""
+    grant = await ephemeral.consume_token(token)
+    if grant is None or grant.purpose != "download" or grant.resource != str(id):
+        raise Problem(401, "Token de descàrrega invàlid o ja utilitzat", "unauthorized")
+
+    job = await session.get(Job, id)
+    if job is None or job.type != "export.contracts":
+        raise Problem(404, "Exportació no trobada", "not-found")
+    if job.status != JobStatus.SUCCESS or not job.result:
+        raise Problem(409, "L'exportació encara no està disponible", "conflict")
+
+    result: dict[str, Any] = dict(job.result)
+    content = await get_storage().get(str(result["storage_key"]))
+    await record_audit(
+        session,
+        actor_type=AuditActorType.USER,
+        action="contracts.export_download",
+        success=True,
+        actor_id=grant.user_id,
+        resource_type="job",
+        resource_id=str(id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+    )
+    await session.commit()
+    return Response(
+        content=content,
+        media_type=str(result.get("content_type") or "application/octet-stream"),
+        headers={"Content-Disposition": f'attachment; filename="{result["filename"]}"'},
+    )
 
 
 @router.post("/contracts/bulk/assign-departments", operation_id="bulkAssignDepartments")
