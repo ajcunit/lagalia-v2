@@ -20,6 +20,7 @@ export const NAV_ZONES: NavZone[] = [
     items: [
       { to: "/", labelKey: "nav.dashboard" },
       { to: "/contracts", labelKey: "nav.contracts", action: "contracts:read" },
+      { to: "/minor-contracts", labelKey: "nav.minorContracts", action: "minor_contracts:read" },
     ],
   },
   {

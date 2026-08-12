@@ -9,6 +9,8 @@ import { DepartmentsAdmin } from "./features/admin/DepartmentsAdmin";
 import { UsersAdmin } from "./features/admin/UsersAdmin";
 import { ContractDetail } from "./features/contracts/ContractDetail";
 import { ContractsList } from "./features/contracts/ContractsList";
+import { MinorDetail } from "./features/minors/MinorDetail";
+import { MinorsList } from "./features/minors/MinorsList";
 import { Dashboard } from "./routes/Dashboard";
 import { Login } from "./routes/Login";
 import { NotFound } from "./routes/NotFound";
@@ -41,6 +43,8 @@ export function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/contracts" element={<ContractsList />} />
               <Route path="/contracts/:id" element={<ContractDetail />} />
+              <Route path="/minor-contracts" element={<MinorsList />} />
+              <Route path="/minor-contracts/:id" element={<MinorDetail />} />
               <Route path="/search" element={<UnderConstruction />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
