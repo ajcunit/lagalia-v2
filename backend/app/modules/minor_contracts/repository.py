@@ -2,12 +2,12 @@
 
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, false, func, select, tuple_
+from sqlalchemy import ColumnElement, Select, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.authz import ScopeInfo
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import decode_cursor, encode_cursor, keyset_condition
 from app.modules.contractors.models import Contractor
 from app.modules.minor_contracts.models import MinorContract, minor_contract_departments
 
@@ -114,14 +114,9 @@ async def list_minors(
 
     if cursor is not None:
         last_value, last_id = decode_cursor(cursor)
-        if last_value is None:
-            stmt = stmt.where(
-                MinorContract.id < last_id if descending else MinorContract.id > last_id
-            )
-        else:
-            keyset: Any = tuple_(column, MinorContract.id)
-            boundary = (last_value, int(last_id))
-            stmt = stmt.where(keyset < boundary if descending else keyset > boundary)
+        stmt = stmt.where(
+            keyset_condition(column, MinorContract.id, last_value, last_id, descending=descending)
+        )
 
     rows = list((await session.execute(stmt.limit(page_size + 1))).scalars())
     next_cursor = None

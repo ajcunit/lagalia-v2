@@ -7,12 +7,12 @@ i subrecursos: pertànyer a un departament assignat o ser responsable.
 from collections.abc import AsyncIterator
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, extract, false, func, or_, select, tuple_
+from sqlalchemy import ColumnElement, Select, extract, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.authz import ScopeInfo
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import decode_cursor, encode_cursor, keyset_condition
 from app.modules.contractors.models import Contractor
 from app.modules.contracts.models import (
     AwardCriterion,
@@ -144,14 +144,9 @@ async def list_contracts(
 
     if cursor is not None:
         last_value, last_id = decode_cursor(cursor)
-        keyset: Any = tuple_(column, Contract.id)
-        boundary = (last_value, int(last_id))
-        # Nota: el keyset amb NULLs al camp d'ordre es degrada a > id quan
-        # el valor és null; suficient per als camps actuals (poc nuls).
-        if last_value is None:
-            stmt = stmt.where(Contract.id < last_id if descending else Contract.id > last_id)
-        else:
-            stmt = stmt.where(keyset < boundary if descending else keyset > boundary)
+        stmt = stmt.where(
+            keyset_condition(column, Contract.id, last_value, last_id, descending=descending)
+        )
 
     rows = list((await session.execute(stmt.limit(page_size + 1))).scalars())
     next_cursor = None
