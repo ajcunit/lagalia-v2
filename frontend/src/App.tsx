@@ -5,6 +5,8 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Shell } from "./components/Shell";
 import { t } from "./i18n";
+import { DepartmentsAdmin } from "./features/admin/DepartmentsAdmin";
+import { UsersAdmin } from "./features/admin/UsersAdmin";
 import { ContractDetail } from "./features/contracts/ContractDetail";
 import { ContractsList } from "./features/contracts/ContractsList";
 import { Dashboard } from "./routes/Dashboard";
@@ -40,8 +42,8 @@ export function App() {
               <Route path="/contracts" element={<ContractsList />} />
               <Route path="/contracts/:id" element={<ContractDetail />} />
               <Route path="/search" element={<UnderConstruction />} />
-              <Route path="/admin/users" element={<UnderConstruction />} />
-              <Route path="/admin/departments" element={<UnderConstruction />} />
+              <Route path="/admin/users" element={<UsersAdmin />} />
+              <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/config" element={<UnderConstruction />} />
               <Route path="/admin/audit-log" element={<UnderConstruction />} />
             </Route>

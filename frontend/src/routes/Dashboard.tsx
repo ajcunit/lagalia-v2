@@ -58,7 +58,7 @@ export function Dashboard() {
   const yearParam = year ? `&year=${year}` : "";
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink">

@@ -93,7 +93,7 @@ export function ContractDetail() {
   const enriching = enrich.isPending || jobStatus === "queued" || jobStatus === "running";
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <nav aria-label="breadcrumb" className="text-sm text-muted">
         <Link to="/contracts" className="text-accent underline-offset-2 hover:underline">
           {t("contracts.title")}
