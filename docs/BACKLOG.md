@@ -60,6 +60,12 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** amb els primers jobs reals (sync Socrata, Fase 1): `max_tries` i backoff per tipus al registre de jobs, estat `dead` o taula/etiqueta DLQ, i endpoint d'administració per re-encuar.
 - **Specs afectades:** [jobs-queue.md](../specs/jobs-queue.md), [03-arquitectura.md](03-arquitectura.md).
 
+### B-010 · Seguiment d'ús de la plataforma (connexions, API, connectors, cues)
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
+- **Descripció:** petició d'usuari (2026-08-12): un seguiment operatiu de què passa a la plataforma — connexions/sessions actives, ús de l'API (crides per identitat/endpoint/dia, ràtios d'error, rate limits assolits), crides a connectors externs (latència, errors, quota — ja previst a [08-hub-integracions.md](08-hub-integracions.md) §1) i estat de les cues (jobs encuats/en execució/fallits, temps d'espera). Part de la matèria primera ja existeix (`audit_log`, `jobs`, `sync_runs`, logs estructurats amb `trace_id`); falta agregar-la i exposar-la.
+- **Com desenvolupar-la:** dues capes complementàries: (1) mètriques OpenTelemetry/Prometheus previstes a [03-arquitectura.md](03-arquitectura.md) §3 (comptadors per endpoint, connector i cua) per a Grafana; (2) un endpoint d'administració de resum (`/admin/usage`?) i pantalla a la zona d'Administració que consumeixi agregats de BD per a qui no tingui Grafana. Decidir retenció d'agregats (taula de comptadors diaris vs. només mètriques efímeres).
+- **Specs afectades:** [03-arquitectura.md](03-arquitectura.md) §6, [08-hub-integracions.md](08-hub-integracions.md) §1, [10-ui.md](10-ui.md) §4 (zona Administració); spec de feature nova quan es triï.
+
 ---
 
 ## Tancades
