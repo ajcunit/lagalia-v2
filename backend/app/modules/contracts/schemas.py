@@ -171,6 +171,25 @@ class ContractCreate(BaseModel):
     department_ids: list[int] = []
 
 
+class ExportFilters(BaseModel):
+    q: str | None = Field(default=None, max_length=200)
+    department_id: int | None = None
+    unassigned: bool | None = None
+    contract_type: str | None = None
+    status: str | None = None
+    internal_status: InternalStatus | None = None
+    expiry_warning: bool | None = None
+    possibly_finished: bool | None = None
+    year: int | None = None
+    contractor_id: int | None = None
+
+
+class ExportRequest(BaseModel):
+    format: Literal["csv", "xlsx"] = "csv"
+    view: Literal["user", "all"] = "user"
+    filters: ExportFilters = Field(default_factory=ExportFilters)
+
+
 class BulkAssignRequest(BaseModel):
     contract_ids: list[int] = Field(min_length=1, max_length=500)
     department_ids: list[int] = Field(min_length=1, max_length=20)

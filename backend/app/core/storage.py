@@ -24,6 +24,8 @@ class Storage(Protocol):
 
     async def exists(self, key: str) -> bool: ...
 
+    async def get(self, key: str) -> bytes: ...
+
 
 class FilesystemStorage:
     def __init__(self, base_path: str) -> None:
@@ -42,6 +44,9 @@ class FilesystemStorage:
 
     async def exists(self, key: str) -> bool:
         return await asyncio.to_thread(self._path(key).exists)
+
+    async def get(self, key: str) -> bytes:
+        return await asyncio.to_thread(self._path(key).read_bytes)
 
 
 class S3Storage:
@@ -74,6 +79,13 @@ class S3Storage:
             return True
 
         return await asyncio.to_thread(_head)
+
+    async def get(self, key: str) -> bytes:
+        def _get() -> bytes:
+            response = self._client.get_object(Bucket=self._bucket, Key=key)
+            return bytes(response["Body"].read())
+
+        return await asyncio.to_thread(_get)
 
 
 def get_storage() -> Storage:

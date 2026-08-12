@@ -72,10 +72,6 @@ async def create_ephemeral_token(
     session: SessionDep,
     ctx: ContextDep,
 ) -> EphemeralTokenResponse:
-    if body.purpose == "download":
-        # Arriba amb les exportacions (vegeu spec jobs-queue.md, fora d'abast).
-        raise Problem(403, "Propòsit encara no disponible", "forbidden")
-
     try:
         job_id = uuid.UUID(body.resource)
     except ValueError:

@@ -11,6 +11,9 @@ import os
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production-0123456789")
 os.environ.setdefault("ENCRYPTION_KEY", base64.b64encode(b"\x00" * 32).decode())
 os.environ.setdefault("ENVIRONMENT", "development")
+# Cua pròpia dels tests: un worker viu de desenvolupament no ha d'executar
+# els jobs que els tests encuen (trepitjaria l'estat que fixen a mà).
+os.environ["JOBS_QUEUE_NAME"] = "arq:test-queue"
 
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402

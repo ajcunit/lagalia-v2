@@ -358,6 +358,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contracts/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Encua l'exportació del llistat filtrat (CSV o XLSX)
+         * @description L'abast efectiu (view + rol) es resol a l'encuament: l'export conté
+         *     només el que l'usuari veu. La descàrrega es fa amb token efímer.
+         */
+        post: operations["createContractsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Descarrega el fitxer d'una exportació completada
+         * @description Autorització per token efímer d'un sol ús (`POST /auth/ephemeral`,
+         *     propòsit `download`, recurs = id del job). Mai el JWT de sessió.
+         */
+        get: operations["downloadContractsExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contracts/bulk/assign-departments": {
         parameters: {
             query?: never;
@@ -964,6 +1006,34 @@ export interface components {
             type?: string | null;
             amount?: string | null;
         };
+        ExportRequest: {
+            /**
+             * @default csv
+             * @enum {string}
+             */
+            format: "csv" | "xlsx";
+            /**
+             * @default user
+             * @enum {string}
+             */
+            view: "user" | "all";
+            /** @description Mateixos filtres que el llistat de contractes. */
+            filters?: {
+                q?: string | null;
+                /** Format: int64 */
+                department_id?: number | null;
+                unassigned?: boolean | null;
+                contract_type?: string | null;
+                status?: string | null;
+                /** @enum {string|null} */
+                internal_status?: "normal" | "pending_review" | "approved" | "rejected" | null;
+                expiry_warning?: boolean | null;
+                possibly_finished?: boolean | null;
+                year?: number | null;
+                /** Format: int64 */
+                contractor_id?: number | null;
+            };
+        };
         BulkAssignRequest: {
             contract_ids: number[];
             department_ids: number[];
@@ -1188,6 +1258,7 @@ export interface components {
     };
     parameters: {
         ResourceId: number;
+        ResourceUuid: string;
         /** @description Elements per pàgina. */
         PageSize: number;
         /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
@@ -1839,6 +1910,61 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    createContractsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Job d'exportació encuat */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    downloadContractsExport: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceUuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fitxer exportat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
         };

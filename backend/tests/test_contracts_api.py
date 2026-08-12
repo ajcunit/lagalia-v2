@@ -120,9 +120,76 @@ async def test_idor_detail_and_subresources_are_404(
     headers = login_headers(api_client, world["employee_b"].email)
     contract_id = world["contract_a"]
 
-    for path in ("", "/history", "/extensions", "/modifications"):
+    subresources = (
+        "",
+        "/history",
+        "/extensions",
+        "/modifications",
+        "/criteria",
+        "/committee",
+        "/documents",
+    )
+    for path in subresources:
         response = api_client.get(f"/api/v1/contracts/{contract_id}{path}", headers=headers)
         assert response.status_code == 404, f"IDOR obert a {path or '/detall'}"
+
+
+async def test_enrichment_subresources_content(
+    api_client: TestClient, world: dict[str, Any]
+) -> None:
+    contract_id = world["contract_a"]
+    async with session_factory() as session:
+        await session.execute(
+            text(
+                "INSERT INTO award_criteria (contract_id, position, name, weight, breakdown) "
+                "VALUES (:c, 1, 'Preu', 50, '{\"desglossament\": []}'::jsonb), "
+                "(:c, 2, 'Judici de valor', 40, NULL)"
+            ),
+            {"c": contract_id},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO committee_members (contract_id, first_name, last_name, role) "
+                "VALUES (:c, 'Anna', 'Puig Serra', 'Presidenta')"
+            ),
+            {"c": contract_id},
+        )
+        await session.execute(
+            text(
+                "INSERT INTO phase_documents (contract_id, phase, title, size, download_url, "
+                "storage_key) VALUES "
+                "(:c, 'licitacio', 'PCAP.pdf', 522847, 'https://portal/d/1', 'contracts/x/1'), "
+                "(:c, 'adjudicacio', 'Acta.pdf', 1000, 'https://portal/d/2', NULL)"
+            ),
+            {"c": contract_id},
+        )
+        await session.commit()
+
+    headers = login_headers(api_client, world["employee_a"].email)
+
+    criteria = api_client.get(f"/api/v1/contracts/{contract_id}/criteria", headers=headers)
+    assert criteria.status_code == 200
+    rows = criteria.json()["data"]
+    assert [r["name"] for r in rows] == ["Preu", "Judici de valor"]
+    assert rows[0]["weight"] == "50.00"
+    assert rows[0]["breakdown"] == {"desglossament": []}
+
+    committee = api_client.get(f"/api/v1/contracts/{contract_id}/committee", headers=headers)
+    assert committee.status_code == 200
+    member = committee.json()["data"][0]
+    assert member["last_name"] == "Puig Serra"
+    assert member["role"] == "Presidenta"
+
+    documents = api_client.get(f"/api/v1/contracts/{contract_id}/documents", headers=headers)
+    assert documents.status_code == 200
+    docs = documents.json()["data"]
+    assert len(docs) == 2
+    by_title = {d["title"]: d for d in docs}
+    assert by_title["PCAP.pdf"]["has_copy"] is True
+    assert by_title["Acta.pdf"]["has_copy"] is False
+    assert by_title["PCAP.pdf"]["size"] == 522847
+    # storage_key és infraestructura: mai a la resposta.
+    assert "storage_key" not in by_title["PCAP.pdf"]
 
 
 async def test_detail_visible_for_member_manager_and_admin(

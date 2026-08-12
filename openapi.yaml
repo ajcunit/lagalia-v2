@@ -608,6 +608,57 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /contracts/exports:
+    post:
+      tags: [contracts]
+      operationId: createContractsExport
+      summary: Encua l'exportació del llistat filtrat (CSV o XLSX)
+      description: |
+        L'abast efectiu (view + rol) es resol a l'encuament: l'export conté
+        només el que l'usuari veu. La descàrrega es fa amb token efímer.
+      x-required-scopes: [contracts:export]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExportRequest" }
+      responses:
+        "202":
+          description: Job d'exportació encuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /contracts/exports/{id}/download:
+    get:
+      tags: [contracts]
+      operationId: downloadContractsExport
+      summary: Descarrega el fitxer d'una exportació completada
+      description: |
+        Autorització per token efímer d'un sol ús (`POST /auth/ephemeral`,
+        propòsit `download`, recurs = id del job). Mai el JWT de sessió.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceUuid"
+        - name: token
+          in: query
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 128 }
+      responses:
+        "200":
+          description: Fitxer exportat
+          content:
+            text/csv:
+              schema: { type: string }
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /contracts/bulk/assign-departments:
     post:
       tags: [contracts]
@@ -1249,6 +1300,12 @@ components:
       required: true
       schema: { type: integer, format: int64, minimum: 1 }
 
+    ResourceUuid:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
     PageSize:
       name: page[size]
       in: query
@@ -1593,6 +1650,34 @@ components:
         approved_at: { type: [string, "null"], format: date }
         type: { type: [string, "null"] }
         amount: { type: [string, "null"] }
+
+    ExportRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [csv, xlsx]
+          default: csv
+        view:
+          type: string
+          enum: [user, all]
+          default: user
+        filters:
+          type: object
+          description: Mateixos filtres que el llistat de contractes.
+          properties:
+            q: { type: [string, "null"], maxLength: 200 }
+            department_id: { type: [integer, "null"], format: int64 }
+            unassigned: { type: [boolean, "null"] }
+            contract_type: { type: [string, "null"] }
+            status: { type: [string, "null"] }
+            internal_status:
+              type: [string, "null"]
+              enum: [normal, pending_review, approved, rejected, null]
+            expiry_warning: { type: [boolean, "null"] }
+            possibly_finished: { type: [boolean, "null"] }
+            year: { type: [integer, "null"] }
+            contractor_id: { type: [integer, "null"], format: int64 }
 
     BulkAssignRequest:
       type: object

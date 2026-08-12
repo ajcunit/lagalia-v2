@@ -178,6 +178,8 @@ export const ca = {
   "contracts.bulk.apply": "Aplica",
   "contracts.bulk.cancel": "Neteja la selecció",
   "contracts.bulk.done": "{updated} contractes actualitzats",
+  "contracts.export": "Exporta CSV",
+  "contracts.exporting": "Exportant…",
   "contracts.bulk.selectAll": "Selecciona tots els de la pàgina",
   "contracts.bulk.selectOne": "Selecciona {code}",
   "contract.phase.futura": "Futura",
