@@ -3,7 +3,18 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,9 +47,17 @@ class Job(Base):
     """
 
     __tablename__ = "jobs"
+    __table_args__ = (
+        Index(
+            "uq_jobs_dedup_key_active",
+            "dedup_key",
+            unique=True,
+            postgresql_where=text("dedup_key IS NOT NULL AND status IN ('queued', 'running')"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    type: Mapped[str] = mapped_column(String(100))
+    type: Mapped[str] = mapped_column(String(100), index=True)
     payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     status: Mapped[JobStatus] = mapped_column(
         Enum(
@@ -47,6 +66,7 @@ class Job(Base):
             values_callable=lambda e: [m.value for m in e],
         ),
         server_default="queued",
+        index=True,
     )
     progress: Mapped[int] = mapped_column(Integer, server_default="0")
     progress_message: Mapped[str | None] = mapped_column(String(500))
@@ -55,7 +75,7 @@ class Job(Base):
     dedup_key: Mapped[str | None] = mapped_column(String(200))
     attempts: Mapped[int] = mapped_column(Integer, server_default="0")
     created_by: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="SET NULL")
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
