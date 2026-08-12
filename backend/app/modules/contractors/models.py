@@ -28,7 +28,8 @@ class Contractor(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     canonical_name: Mapped[str] = mapped_column(String(500))
-    tax_id: Mapped[str | None] = mapped_column(String(20), index=True)
+    # Fins a 100: la font de vegades hi posa NIFs múltiples o text (run 26).
+    tax_id: Mapped[str | None] = mapped_column(String(100), index=True)
     nationality: Mapped[str | None] = mapped_column(String(100))
     company_type: Mapped[str | None] = mapped_column(String(100))
     third_sector: Mapped[bool] = mapped_column(Boolean, server_default="false")
