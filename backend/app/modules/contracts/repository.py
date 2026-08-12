@@ -14,10 +14,13 @@ from app.core.authz import ScopeInfo
 from app.core.pagination import decode_cursor, encode_cursor
 from app.modules.contractors.models import Contractor
 from app.modules.contracts.models import (
+    AwardCriterion,
+    CommitteeMember,
     Contract,
     ContractHistoryEntry,
     Extension,
     Modification,
+    PhaseDocument,
     contract_departments,
     contract_managers,
 )
@@ -218,5 +221,32 @@ async def modifications_of(session: AsyncSession, contract_id: int) -> list[Modi
         select(Modification)
         .where(Modification.contract_id == contract_id)
         .order_by(Modification.number.asc())
+    )
+    return list((await session.execute(stmt)).scalars())
+
+
+async def criteria_of(session: AsyncSession, contract_id: int) -> list[AwardCriterion]:
+    stmt = (
+        select(AwardCriterion)
+        .where(AwardCriterion.contract_id == contract_id)
+        .order_by(AwardCriterion.position.asc())
+    )
+    return list((await session.execute(stmt)).scalars())
+
+
+async def committee_of(session: AsyncSession, contract_id: int) -> list[CommitteeMember]:
+    stmt = (
+        select(CommitteeMember)
+        .where(CommitteeMember.contract_id == contract_id)
+        .order_by(CommitteeMember.id.asc())
+    )
+    return list((await session.execute(stmt)).scalars())
+
+
+async def documents_of(session: AsyncSession, contract_id: int) -> list[PhaseDocument]:
+    stmt = (
+        select(PhaseDocument)
+        .where(PhaseDocument.contract_id == contract_id)
+        .order_by(PhaseDocument.phase.asc(), PhaseDocument.id.asc())
     )
     return list((await session.execute(stmt)).scalars())

@@ -61,6 +61,45 @@ export function useContractModifications(id: number) {
   });
 }
 
+export function useContractCriteria(id: number) {
+  return useQuery({
+    queryKey: ["contract-criteria", id],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contracts/{id}/criteria", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+}
+
+export function useContractCommittee(id: number) {
+  return useQuery({
+    queryKey: ["contract-committee", id],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contracts/{id}/committee", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+}
+
+export function useContractDocuments(id: number) {
+  return useQuery({
+    queryKey: ["contract-documents", id],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contracts/{id}/documents", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+}
+
 export function useContractHistory(id: number) {
   return useQuery({
     queryKey: ["contract-history", id],

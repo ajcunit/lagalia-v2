@@ -12,6 +12,8 @@ from app.core.problems import Problem
 from app.modules.contracts import repository, service
 from app.modules.contracts.models import InternalStatus
 from app.modules.contracts.schemas import (
+    AwardCriterionResponse,
+    CommitteeMemberResponse,
     ContractCreate,
     ContractDetail,
     ContractSummary,
@@ -21,6 +23,7 @@ from app.modules.contracts.schemas import (
     ModificationResponse,
     PagedContractsResponse,
     PagedHistoryResponse,
+    PhaseDocumentResponse,
 )
 from app.modules.users.dependencies import (
     CurrentSession,
@@ -178,3 +181,30 @@ async def get_contract_modifications(
     await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
     modifications = await repository.modifications_of(session, id)
     return {"data": [ModificationResponse.from_modification(m) for m in modifications]}
+
+
+@router.get("/contracts/{id}/criteria", operation_id="getContractCriteria")
+async def get_contract_criteria(
+    id: ResourceId, session: SessionDep, authz_ctx: ReadDep
+) -> dict[str, list[AwardCriterionResponse]]:
+    await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
+    criteria = await repository.criteria_of(session, id)
+    return {"data": [AwardCriterionResponse.from_criterion(c) for c in criteria]}
+
+
+@router.get("/contracts/{id}/committee", operation_id="getContractCommittee")
+async def get_contract_committee(
+    id: ResourceId, session: SessionDep, authz_ctx: ReadDep
+) -> dict[str, list[CommitteeMemberResponse]]:
+    await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
+    members = await repository.committee_of(session, id)
+    return {"data": [CommitteeMemberResponse.from_member(m) for m in members]}
+
+
+@router.get("/contracts/{id}/documents", operation_id="getContractDocuments")
+async def get_contract_documents(
+    id: ResourceId, session: SessionDep, authz_ctx: ReadDep
+) -> dict[str, list[PhaseDocumentResponse]]:
+    await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
+    documents = await repository.documents_of(session, id)
+    return {"data": [PhaseDocumentResponse.from_document(d) for d in documents]}
