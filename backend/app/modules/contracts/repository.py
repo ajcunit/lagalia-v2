@@ -225,6 +225,23 @@ async def modifications_of(session: AsyncSession, contract_id: int) -> list[Modi
     return list((await session.execute(stmt)).scalars())
 
 
+async def is_manager(session: AsyncSession, contract_id: int, user_id: int) -> bool:
+    stmt = select(contract_managers.c.contract_id).where(
+        contract_managers.c.contract_id == contract_id,
+        contract_managers.c.user_id == user_id,
+    )
+    return (await session.execute(stmt)).first() is not None
+
+
+async def get_many(session: AsyncSession, contract_ids: list[int]) -> list[Contract]:
+    stmt = (
+        select(Contract)
+        .options(selectinload(Contract.departments))
+        .where(Contract.id.in_(contract_ids))
+    )
+    return list((await session.execute(stmt)).scalars())
+
+
 async def criteria_of(session: AsyncSession, contract_id: int) -> list[AwardCriterion]:
     stmt = (
         select(AwardCriterion)

@@ -5,6 +5,7 @@ contracts:update (tots els camps) de contracts:update_warning (només
 warning_months_override, dins d'abast).
 """
 
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authz
 from app.core.problems import Problem
+from app.integrations import hub
+from app.jobs.models import Job
+from app.jobs.service import enqueue_job
 from app.modules.audit.models import AuditActorType
 from app.modules.audit.service import record_audit
 from app.modules.contracts import repository
@@ -21,12 +25,14 @@ from app.modules.contracts.models import (
     ContractHistoryEntry,
     ContractSource,
 )
-from app.modules.contracts.schemas import ContractCreate, ContractUpdate
+from app.modules.contracts.schemas import BulkAssignRequest, ContractCreate, ContractUpdate
 from app.modules.departments.repository import get_many as get_departments
 from app.modules.users.models import User
 from app.modules.users.service import RequestContext
 
 _WARNING_ONLY_FIELDS = {"warning_months_override"}
+
+FINISHED_STATUS = "Finalitzat"
 
 
 def _not_found() -> Problem:
@@ -150,6 +156,179 @@ async def create_contract(
     )
     await session.commit()
     return contract
+
+
+async def _require_alert_grant(
+    session: AsyncSession, contract_id: int, user: User, ctx: RequestContext
+) -> Contract:
+    """contracts:close_alert: MANAGED = només si és responsable del contracte."""
+    grant = authz.evaluate(user, "contracts:close_alert")
+    if grant is None:
+        await _audit_denied(session, user, contract_id, "contracts:close_alert", ctx)
+        raise Problem(403, "Sense permís per gestionar alertes", "forbidden")
+
+    # Visibilitat (404 fora d'abast) amb l'abast normal de l'usuari.
+    scope = (
+        authz.ScopeInfo(type="all") if grant.access == authz.Access.ALL else authz.scope_for(user)
+    )
+    contract = await get_scoped_contract(session, contract_id, user, scope)
+
+    if grant.access == authz.Access.MANAGED:
+        if not await repository.is_manager(session, contract_id, user.id):
+            await _audit_denied(session, user, contract_id, "contracts:close_alert", ctx)
+            raise Problem(403, "Només el responsable del contracte pot fer-ho", "forbidden")
+    return contract
+
+
+def _history(
+    contract: Contract, field: str, old: Any, new: Any, user_id: int
+) -> ContractHistoryEntry:
+    return ContractHistoryEntry(
+        contract_id=contract.id,
+        field=field,
+        old_value=None if old is None else str(old),
+        new_value=None if new is None else str(new),
+        user_id=user_id,
+        change_type=ChangeType.MANUAL,
+    )
+
+
+async def finish_contract(
+    session: AsyncSession, contract_id: int, user: User, ctx: RequestContext
+) -> Contract:
+    contract = await _require_alert_grant(session, contract_id, user, ctx)
+    if contract.status == FINISHED_STATUS:
+        raise Problem(409, "El contracte ja està finalitzat", "conflict")
+
+    session.add(_history(contract, "status", contract.status, FINISHED_STATUS, user.id))
+    contract.status = FINISHED_STATUS
+    contract.expiry_warning = False
+    contract.possibly_finished = False
+    await session.flush()
+    await record_audit(
+        session,
+        actor_type=AuditActorType.USER,
+        action="contracts.finish",
+        success=True,
+        actor_id=user.id,
+        resource_type="contract",
+        resource_id=str(contract.id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+    )
+    await session.commit()
+    return contract
+
+
+async def dismiss_expiry(
+    session: AsyncSession, contract_id: int, user: User, ctx: RequestContext
+) -> Contract:
+    contract = await _require_alert_grant(session, contract_id, user, ctx)
+    if not contract.expiry_warning and not contract.possibly_finished:
+        raise Problem(409, "El contracte no té cap alerta activa", "conflict")
+
+    session.add(_history(contract, "alert_dismissed", None, "dismissed", user.id))
+    contract.alert_dismissed_at = datetime.now(UTC)
+    contract.alert_dismissed_end_date = contract.calculated_end_date
+    contract.expiry_warning = False
+    contract.possibly_finished = False
+    await session.flush()
+    await record_audit(
+        session,
+        actor_type=AuditActorType.USER,
+        action="contracts.dismiss_expiry",
+        success=True,
+        actor_id=user.id,
+        resource_type="contract",
+        resource_id=str(contract.id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+    )
+    await session.commit()
+    return contract
+
+
+async def enqueue_enrichment(
+    session: AsyncSession, contract_id: int, user: User, ctx: RequestContext
+) -> Job:
+    if authz.evaluate(user, "contracts:enrich") is None:
+        await _audit_denied(session, user, contract_id, "contracts:enrich", ctx)
+        raise Problem(403, "Sense permís per enriquir contractes", "forbidden")
+    contract = await get_scoped_contract(session, contract_id, user, authz.ScopeInfo(type="all"))
+    if not contract.phase_urls:
+        raise Problem(409, "El contracte no té fases publicades per enriquir", "conflict")
+
+    # 409 connector-disabled si el connector pscp està desactivat.
+    await hub.get_connector(session, "pscp")
+
+    return await enqueue_job(
+        session,
+        job_type="enrich.contract",
+        payload={"contract_id": contract_id, "force": True},
+        created_by=user.id,
+        dedup_key=f"enrich.contract:{contract_id}",
+    )
+
+
+async def bulk_assign_departments(
+    session: AsyncSession,
+    data: BulkAssignRequest,
+    user: User,
+    ctx: RequestContext,
+) -> dict[str, Any]:
+    if authz.evaluate(user, "contracts:bulk_assign") is None:
+        await _audit_denied(session, user, 0, "contracts:bulk_assign", ctx)
+        raise Problem(403, "Sense permís per a l'assignació massiva", "forbidden")
+
+    departments = await get_departments(session, data.department_ids)
+    if len(departments) != len(set(data.department_ids)):
+        raise Problem(422, "Algun departament no existeix", "validation")
+
+    contracts = await repository.get_many(session, data.contract_ids)
+    missing = sorted(set(data.contract_ids) - {c.id for c in contracts})
+
+    updated = 0
+    for contract in contracts:
+        before = sorted(d.code for d in contract.departments)
+        if data.mode == "replace":
+            new_departments = list(departments)
+        else:
+            current = {d.id for d in contract.departments}
+            new_departments = list(contract.departments) + [
+                d for d in departments if d.id not in current
+            ]
+        after = sorted(d.code for d in new_departments)
+        if before == after:
+            continue
+        session.add(_history(contract, "departments", ", ".join(before), ", ".join(after), user.id))
+        contract.departments = new_departments
+        updated += 1
+
+    if updated:
+        await session.flush()
+    await record_audit(
+        session,
+        actor_type=AuditActorType.USER,
+        action="contracts.bulk_assign",
+        success=True,
+        actor_id=user.id,
+        resource_type="contract",
+        resource_id="bulk",
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+        details={
+            "mode": data.mode,
+            "department_ids": data.department_ids,
+            "requested": len(data.contract_ids),
+            "updated": updated,
+            "missing": missing,
+        },
+    )
+    await session.commit()
+    return {"updated": updated, "unchanged": len(contracts) - updated, "missing": missing}
 
 
 async def _audit_denied(

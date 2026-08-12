@@ -23,6 +23,29 @@ export function Badge(props: {
   );
 }
 
+export function Button(props: {
+  children: ReactNode;
+  onClick: () => void;
+  tone?: "accent" | "danger" | "neutral";
+  disabled?: boolean;
+}) {
+  const tones = {
+    accent: "bg-accent text-accent-ink hover:opacity-90",
+    danger: "bg-danger text-accent-ink hover:opacity-90",
+    neutral: "border border-line bg-surface text-ink hover:bg-surface-sunken",
+  } as const;
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      disabled={props.disabled}
+      className={`rounded-md px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${tones[props.tone ?? "neutral"]}`}
+    >
+      {props.children}
+    </button>
+  );
+}
+
 export function EmptyState(props: { icon?: string; title: string; detail?: string }) {
   return (
     <div className="py-16 text-center">

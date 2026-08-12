@@ -11,6 +11,7 @@ import app.integrations.pscp.enrich  # noqa: F401 — registra enrich.contract/b
 import app.integrations.socrata.sync  # noqa: F401 — registra sync.contracts
 import app.integrations.socrata.sync_cpv  # noqa: F401 — registra sync.cpv
 import app.integrations.socrata.sync_rpc  # noqa: F401 — registra extensions i menors
+import app.modules.contracts.alerts  # noqa: F401 — registra alerts.recompute
 from app.jobs.registry import JobContext, job
 
 

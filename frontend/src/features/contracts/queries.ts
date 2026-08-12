@@ -1,7 +1,74 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
 import type { paths } from "../../api/generated/schema";
+
+function useInvalidateContract(id: number) {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ["contract", id] });
+    void queryClient.invalidateQueries({ queryKey: ["contract-history", id] });
+    void queryClient.invalidateQueries({ queryKey: ["contracts"] });
+  };
+}
+
+export function useFinishContract(id: number) {
+  const invalidate = useInvalidateContract(id);
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/contracts/{id}/actions/finish", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useDismissExpiry(id: number) {
+  const invalidate = useInvalidateContract(id);
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/contracts/{id}/actions/dismiss-expiry", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useEnrichContract(id: number) {
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/contracts/{id}/actions/enrich", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+}
+
+export function useBulkAssignDepartments() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      contract_ids: number[];
+      department_ids: number[];
+      mode: "add" | "replace";
+    }) => {
+      const { data, error } = await api.POST("/contracts/bulk/assign-departments", { body });
+      if (error !== undefined) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["contracts"] });
+    },
+  });
+}
 
 export type ContractsListParams = NonNullable<
   paths["/contracts"]["get"]["parameters"]["query"]

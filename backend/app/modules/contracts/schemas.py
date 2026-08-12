@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -169,6 +169,18 @@ class ContractCreate(BaseModel):
     duration_months: int | None = Field(default=None, ge=1)
     cpv_code: str | None = Field(default=None, max_length=255)
     department_ids: list[int] = []
+
+
+class BulkAssignRequest(BaseModel):
+    contract_ids: list[int] = Field(min_length=1, max_length=500)
+    department_ids: list[int] = Field(min_length=1, max_length=20)
+    mode: Literal["add", "replace"] = "add"
+
+
+class BulkAssignResult(BaseModel):
+    updated: int
+    unchanged: int
+    missing: list[int]
 
 
 class ContractUpdate(BaseModel):

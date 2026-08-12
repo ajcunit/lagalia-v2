@@ -2,10 +2,15 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthProvider";
-import { Badge, EmptyState, Skeleton } from "../../components/ui";
+import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
-import { useContracts, useDepartmentOptions, type ContractsListParams } from "./queries";
+import {
+  useBulkAssignDepartments,
+  useContracts,
+  useDepartmentOptions,
+  type ContractsListParams,
+} from "./queries";
 
 const SORTABLE: Array<{ key: string; labelKey: Parameters<typeof t>[0] }> = [
   { key: "file_code", labelKey: "contracts.col.fileCode" },
@@ -62,6 +67,53 @@ export function ContractsList() {
   };
   const contracts = useContracts(params);
   const departments = useDepartmentOptions();
+
+  const canBulkAssign = permissions?.actions.includes("contracts:bulk_assign") ?? false;
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkDepartment, setBulkDepartment] = useState("");
+  const [bulkMode, setBulkMode] = useState<"add" | "replace">("add");
+  const bulkAssign = useBulkAssignDepartments();
+
+  function toggleSelected(id: number) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const pageIds = contracts.data?.data.map((c) => c.id) ?? [];
+  const allSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+
+  function toggleAll() {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (allSelected) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  function applyBulkAssign() {
+    const departmentId = Number(bulkDepartment);
+    if (!departmentId || selected.size === 0) return;
+    bulkAssign.mutate(
+      {
+        contract_ids: [...selected],
+        department_ids: [departmentId],
+        mode: bulkMode,
+      },
+      {
+        onSuccess: (result) => {
+          window.alert(t("contracts.bulk.done", { updated: result.updated }));
+          setSelected(new Set());
+        },
+        onError: (error) =>
+          window.alert(t("contract.action.error", { message: String(error) })),
+      },
+    );
+  }
 
   const activeFilters = ["department", "year", "type", "internal", "expiry", "finished", "unassigned"]
     .filter((key) => searchParams.get(key))
@@ -185,6 +237,16 @@ export function ContractsList() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-left text-xs text-muted">
+                {canBulkAssign && (
+                  <th scope="col" className="w-8 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      aria-label={t("contracts.bulk.selectAll")}
+                      checked={allSelected}
+                      onChange={toggleAll}
+                    />
+                  </th>
+                )}
                 {SORTABLE.slice(0, 1).map((col) => (
                   <SortHeader key={col.key} col={col} sort={sort} onSort={toggleSort} />
                 ))}
@@ -205,6 +267,16 @@ export function ContractsList() {
             <tbody>
               {contracts.data.data.map((contract) => (
                 <tr key={contract.id} className="border-b border-line last:border-0 hover:bg-surface-sunken">
+                  {canBulkAssign && (
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        aria-label={t("contracts.bulk.selectOne", { code: contract.file_code })}
+                        checked={selected.has(contract.id)}
+                        onChange={() => toggleSelected(contract.id)}
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-2 whitespace-nowrap">
                     <Link
                       to={`/contracts/${contract.id}`}
@@ -248,6 +320,54 @@ export function ContractsList() {
           </table>
         )}
       </div>
+
+      {canBulkAssign && selected.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label={t("contracts.bulk.assign")}
+          className="sticky bottom-4 mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface-raised p-3 shadow-card"
+        >
+          <span className="text-sm font-medium text-ink">
+            {t("contracts.bulk.selected", { count: selected.size })}
+          </span>
+          <select
+            aria-label={t("contracts.bulk.assign")}
+            value={bulkDepartment}
+            onChange={(e) => setBulkDepartment(e.target.value)}
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+          >
+            <option value="">{t("contracts.bulk.assign")}</option>
+            {departments.data?.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+          <div role="group" aria-label={t("contracts.bulk.assign")} className="flex rounded-md border border-line">
+            {(["add", "replace"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setBulkMode(mode)}
+                aria-pressed={bulkMode === mode}
+                className={`px-2.5 py-1.5 text-sm first:rounded-l-md last:rounded-r-md ${
+                  bulkMode === mode ? "bg-accent text-accent-ink" : "bg-surface text-ink"
+                }`}
+              >
+                {t(mode === "add" ? "contracts.bulk.mode.add" : "contracts.bulk.mode.replace")}
+              </button>
+            ))}
+          </div>
+          <Button
+            tone="accent"
+            onClick={applyBulkAssign}
+            disabled={!bulkDepartment || bulkAssign.isPending}
+          >
+            {t("contracts.bulk.apply")}
+          </Button>
+          <Button onClick={() => setSelected(new Set())}>{t("contracts.bulk.cancel")}</Button>
+        </div>
+      )}
 
       <div className="mt-3 flex items-center justify-end gap-2">
         <button

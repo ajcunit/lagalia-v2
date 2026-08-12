@@ -551,6 +551,84 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /contracts/{id}/actions/finish:
+    post:
+      tags: [contracts]
+      operationId: finishContract
+      summary: Finalitza el contracte (estat → Finalitzat)
+      x-required-scopes: [contracts:close_alert]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Contracte actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /contracts/{id}/actions/dismiss-expiry:
+    post:
+      tags: [contracts]
+      operationId: dismissContractExpiry
+      summary: Descarta l'alerta de venciment (persistent fins que canviï la data final)
+      x-required-scopes: [contracts:close_alert]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Contracte actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /contracts/{id}/actions/enrich:
+    post:
+      tags: [contracts]
+      operationId: enrichContract
+      summary: Encua l'enriquiment del contracte (job enrich.contract)
+      x-required-scopes: [contracts:enrich]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "202":
+          description: Job encuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /contracts/bulk/assign-departments:
+    post:
+      tags: [contracts]
+      operationId: bulkAssignDepartments
+      summary: Assignació massiva de departaments
+      x-required-scopes: [contracts:bulk_assign]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkAssignRequest" }
+      responses:
+        "200":
+          description: Resum de l'assignació
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BulkAssignResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /contracts/{id}/criteria:
     get:
       tags: [contracts]
@@ -1225,6 +1303,12 @@ components:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
 
+    Conflict:
+      description: L'acció entra en conflicte amb l'estat actual del recurs
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
     ValidationError:
       description: Dades d'entrada no vàlides
       content:
@@ -1509,6 +1593,36 @@ components:
         approved_at: { type: [string, "null"], format: date }
         type: { type: [string, "null"] }
         amount: { type: [string, "null"] }
+
+    BulkAssignRequest:
+      type: object
+      required: [contract_ids, department_ids]
+      properties:
+        contract_ids:
+          type: array
+          items: { type: integer, format: int64 }
+          minItems: 1
+          maxItems: 500
+        department_ids:
+          type: array
+          items: { type: integer, format: int64 }
+          minItems: 1
+          maxItems: 20
+        mode:
+          type: string
+          enum: [add, replace]
+          default: add
+
+    BulkAssignResult:
+      type: object
+      required: [updated, unchanged, missing]
+      properties:
+        updated: { type: integer }
+        unchanged: { type: integer }
+        missing:
+          type: array
+          description: Ids de contracte demanats que no existeixen.
+          items: { type: integer, format: int64 }
 
     AwardCriterion:
       type: object

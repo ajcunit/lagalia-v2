@@ -1,6 +1,6 @@
 """Endpoints de contractes. Prims: abast i regles als serveis/repositori."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,10 +9,13 @@ from app.core import authz
 from app.core.db import get_session
 from app.core.pagination import PageMeta
 from app.core.problems import Problem
+from app.jobs.schemas import JobResponse
 from app.modules.contracts import repository, service
 from app.modules.contracts.models import InternalStatus
 from app.modules.contracts.schemas import (
     AwardCriterionResponse,
+    BulkAssignRequest,
+    BulkAssignResult,
     CommitteeMemberResponse,
     ContractCreate,
     ContractDetail,
@@ -181,6 +184,58 @@ async def get_contract_modifications(
     await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
     modifications = await repository.modifications_of(session, id)
     return {"data": [ModificationResponse.from_modification(m) for m in modifications]}
+
+
+async def _detail(session: AsyncSession, contract: Any) -> ContractDetail:
+    return ContractDetail.build(
+        contract,
+        await repository.siblings(session, contract),
+        await repository.counters(session, contract.id),
+    )
+
+
+@router.post("/contracts/{id}/actions/finish", operation_id="finishContract")
+async def finish_contract(
+    id: ResourceId,
+    session: SessionDep,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    ctx: ContextDep,
+) -> ContractDetail:
+    contract = await service.finish_contract(session, id, current.user, ctx)
+    return await _detail(session, contract)
+
+
+@router.post("/contracts/{id}/actions/dismiss-expiry", operation_id="dismissContractExpiry")
+async def dismiss_contract_expiry(
+    id: ResourceId,
+    session: SessionDep,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    ctx: ContextDep,
+) -> ContractDetail:
+    contract = await service.dismiss_expiry(session, id, current.user, ctx)
+    return await _detail(session, contract)
+
+
+@router.post("/contracts/{id}/actions/enrich", operation_id="enrichContract", status_code=202)
+async def enrich_contract(
+    id: ResourceId,
+    session: SessionDep,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    ctx: ContextDep,
+) -> JobResponse:
+    job = await service.enqueue_enrichment(session, id, current.user, ctx)
+    return JobResponse.from_job(job)
+
+
+@router.post("/contracts/bulk/assign-departments", operation_id="bulkAssignDepartments")
+async def bulk_assign_departments(
+    body: BulkAssignRequest,
+    session: SessionDep,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    ctx: ContextDep,
+) -> BulkAssignResult:
+    result = await service.bulk_assign_departments(session, body, current.user, ctx)
+    return BulkAssignResult(**result)
 
 
 @router.get("/contracts/{id}/criteria", operation_id="getContractCriteria")
