@@ -179,7 +179,7 @@ async def sync_contracts(ctx: JobContext) -> dict[str, Any]:
 
     async with session_factory() as session:
         ine10 = await _ine10(session)
-        since = None if full else await _last_success_started_at(session)
+        last_success = None if full else await _last_success_started_at(session)
         run = SyncRun(kind=SyncKind.CONTRACTS, trigger=trigger, started_at=datetime.now(UTC))
         session.add(run)
         await session.commit()
@@ -199,8 +199,12 @@ async def sync_contracts(ctx: JobContext) -> dict[str, Any]:
             raise TypeError("El hub ha resolt un connector inesperat per a 'socrata'")
 
         query = SoqlQuery(connector.config["dataset_contracts"]).where_ine10("codi_ine10", ine10)
-        if since is not None:
-            query = query.where_gte_timestamp("data_actualitzacio", since.replace(tzinfo=None))
+        # Incremental només si el dataset ho permet (08 §2.1): camp configurable.
+        incremental_field = connector.config.get("incremental_field")
+        if last_success is not None and incremental_field:
+            query = query.where_gte_timestamp(
+                str(incremental_field), last_success.replace(tzinfo=None)
+            )
         query = query.order_by("codi_expedient")
         endpoint = f"{connector.config['base_url']}/resource/{query.dataset_id}.json"
 

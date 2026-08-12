@@ -55,7 +55,10 @@ async def fake_socrata(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[FakeSoc
     async with session_factory() as session:
         record = await hub.ensure_registered(session, "socrata")
         was_enabled = record.enabled
+        was_config = record.config
         record.enabled = True
+        # El dataset simulat sí que té data_actualitzacio: incremental actiu.
+        record.config = {"incremental_field": "data_actualitzacio"}
         existing = (
             await session.execute(text("SELECT id FROM settings WHERE key = 'org.ine10_code'"))
         ).scalar_one_or_none()
@@ -73,8 +76,10 @@ async def fake_socrata(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[FakeSoc
     async with engine.begin() as conn:
         if created_setting:
             await conn.execute(text("DELETE FROM settings WHERE key = 'org.ine10_code'"))
-        if not was_enabled:
-            await conn.execute(text("UPDATE connectors SET enabled = false WHERE slug = 'socrata'"))
+        await conn.execute(
+            text("UPDATE connectors SET enabled = :e, config = :c WHERE slug = 'socrata'"),
+            {"e": was_enabled, "c": json.dumps(was_config) if was_config else None},
+        )
     await engine.dispose()
 
 

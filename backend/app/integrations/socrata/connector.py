@@ -18,6 +18,10 @@ MANIFEST = Manifest(
         "dataset_rpc": "hb6v-jcbf",
         "dataset_cpv": "wxdw-5eyv",
         "min_interval_seconds": 0.5,
+        # Camp d'actualització per a sync incremental "quan el dataset ho
+        # permet" (08 §2.1). Verificat 2026-08-12: el dataset real NO té
+        # data_actualitzacio → per defecte, sync complet.
+        "incremental_field": None,
     },
     credentials=["app_token"],
 )

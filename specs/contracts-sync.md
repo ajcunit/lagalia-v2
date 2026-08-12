@@ -22,7 +22,7 @@ Regles verificables:
 - **Job `sync.contracts`** (idempotent, `dedup_key`):
   1. crea `sync_run` (`running`, trigger del payload);
   2. client via hub (desactivat → el job falla amb el 409 explicat);
-  3. **incremental** per `data_actualitzacio >=` inici de l'últim run amb èxit (payload `full: true` el força complet); filtre sempre per `codi_ine10` de settings (`org.ine10_code`; si falta → error clar);
+  3. **incremental** per camp d'actualització `>=` inici de l'últim run amb èxit, **només si el connector té `incremental_field` configurat** — verificat contra l'API real (2026-08-12): el dataset `ybgg-dgi6` **no té** `data_actualitzacio` (0 de 1000 registres), així que per defecte el sync és complet, com preveu [08](../docs/08-hub-integracions.md) §2.1 («quan el dataset ho permet»); payload `full: true` força complet igualment; filtre sempre per `codi_ine10` de settings (`org.ine10_code`; si falta → error clar);
   4. per registre: mapa → upsert per (`file_code`, `status`, `lot`); hash igual → `unchanged`; diferent → actualització camp a camp + **una entrada d'historial `sync` per camp canviat**; nou → herència de departaments del mateix expedient, regles d'associació, resolució d'adjudicatari;
   5. errors per registre → `sync_item_logs` i es continua (run `partial`);
   6. progrés a `set_progress` per pàgines; comptadors finals (`new/updated/unchanged/total_source`) i estat `success|partial|failed`.
