@@ -59,10 +59,20 @@ async def _enrich_one(
 
     seen_criteria: set[str] = set()
     seen_members: set[tuple[str | None, str | None]] = set()
+    skipped_phases: list[str] = []
     for phase_name, url in phase_urls.items():
         if not url:
             continue
-        payload = await client.fetch_phase(str(url))
+        try:
+            payload = await client.fetch_phase(str(url))
+        except ConnectorError as exc:
+            # Expedients antics amb enllaços caducats a la font: es continua
+            # amb les fases que responguin (spec pscp-enrichment).
+            skipped_phases.append(phase_name)
+            logger.warning(
+                "pscp_phase_skipped", contract_id=contract.id, phase=phase_name, error=str(exc)
+            )
+            continue
         enrichment[phase_name] = extract.extract_scalars(phase_name, payload)
         # El mateix criteri/membre pot aparèixer a més d'una fase: es dedueix.
         for criterion in extract.collect_criteria(payload):
@@ -78,6 +88,11 @@ async def _enrich_one(
         for document in extract.collect_documents(payload, client.base_url):
             document["phase"] = phase_name
             documents.append(document)
+
+    if not enrichment and skipped_phases:
+        raise ConnectorError(
+            f"cap fase disponible a la font (totes caducades: {', '.join(skipped_phases)})"
+        )
 
     # Escalars promocionats (l'última fase que en tingui, guanya).
     for scalars in enrichment.values():
@@ -141,6 +156,7 @@ async def _enrich_one(
     await session.flush()
     return {
         "phases": len(enrichment),
+        "skipped_phases": skipped_phases,
         "criteria": len(criteria),
         "committee": len(committee),
         "documents": len(documents),

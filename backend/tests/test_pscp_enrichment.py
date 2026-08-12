@@ -233,6 +233,20 @@ async def test_enrich_contract_end_to_end(pscp_world: dict[str, Any]) -> None:
     assert "phases" in await _run_enrich({"contract_id": contract_id, "force": True})
 
 
+async def test_stale_phase_is_skipped_but_rest_enriches(pscp_world: dict[str, Any]) -> None:
+    # La fase d'adjudicació «caduca» (404 a la font): s'enriqueix amb la resta.
+    pscp_world["fake"].phases.pop("adjudicacio")
+
+    result = await _run_enrich({"contract_id": pscp_world["contract_id"]})
+    assert result["phases"] == 1
+    assert result["skipped_phases"] == ["adjudicacio"]
+
+    # Si cap fase respon, el job falla amb error explícit.
+    pscp_world["fake"].phases.clear()
+    with pytest.raises(ConnectorError, match="cap fase disponible"):
+        await _run_enrich({"contract_id": pscp_world["contract_id"], "force": True})
+
+
 async def test_document_host_outside_domain_is_rejected() -> None:
     client = PscpClient(BASE, min_interval_seconds=0, max_document_bytes=1024)
 

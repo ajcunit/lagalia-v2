@@ -83,3 +83,9 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 ## Descartades
 
 *(cap encara)*
+### B-012 · Feedback del resultat dels jobs llançats des de la fitxa
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** S
+- **Descripció:** el botó «Enriqueix» de la fitxa encua el job i avisa que està encuat, però l'usuari no sap si ha acabat, si ha fallat (p. ex. fases caducades a la font) ni quan cal recarregar. Detectat en ús real (2026-08-12): dos jobs fallits invisibles per a l'usuari.
+- **Com desenvolupar-la:** subscriure la fitxa a l'SSE de progrés del job (`GET /jobs/{id}/events`, ja existeix amb token efímer) i, en acabar: refrescar les queries del contracte si èxit, o mostrar l'error del job si fallada. Reutilitzable per a exports i sync.
+- **Specs afectades:** [contract-actions.md](../specs/contract-actions.md), [10-ui.md](10-ui.md).
+

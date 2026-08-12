@@ -24,6 +24,7 @@ Regles verificables:
   - `committee_members` només sota claus que continguin «mesa» (mai `personesContacte` de l'òrgan);
   - `phase_documents` per (contracte, `source_doc_id`) amb títol, fase, `download_url` i mida; descàrrega a storage **opcional** (payload `download_documents`, defecte cert, amb límit de mida configurable).
 - **Jobs**: `enrich.contract` (payload `contract_id`, `force`) i `enrich.batch` (`force` re-enriqueix; si no, només `enriched_at IS NULL` amb `phase_urls`); seqüencial amb el throttling del connector, progrés observable, `sync_run` kind `enrichment` amb comptadors, errors per expedient a `sync_item_logs`.
+- **Fases caducades**: els expedients antics poden tenir enllaços de fase que ja no responen a la font (404 verificat, p. ex. 4322/2022). Una fase morta **s'omet amb avís** i s'enriqueix amb la resta (`skipped_phases` al resultat); si **cap** fase respon, el job falla amb un error explícit.
 - El sync de contractes **no** encua enriquiment automàtic encara (arriba quan s'activi el connector en producció; anotat).
 
 ## Canvis d'API
