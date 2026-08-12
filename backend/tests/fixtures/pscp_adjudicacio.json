@@ -1,0 +1,383 @@
+{
+ "versio": "1.0.0",
+ "codiExpedient": "2744/2026",
+ "idExpedient": "87dc4cb4-eed2-40a2-9142-90d0aa04603a",
+ "dataPublicacioPlanificada": "2026-08-04T09:01:08.335Z",
+ "organ": {
+  "nom": "Ajuntament de Cunit",
+  "nif": "P4305200J",
+  "direccioPostal": "C/ Major, 12",
+  "localitat": "Altres/Diversos, No Consta",
+  "codiPostal": "99999",
+  "nuts": "OT",
+  "web": "www.cunit.cat",
+  "telefon": "977674080",
+  "fax": "977674148",
+  "email": "secretaria@cunit.cat",
+  "personesContacte": [
+   {
+    "nom": "Matilde",
+    "cognom": "Garcia Gimenez",
+    "carrec": "Cap de Secció",
+    "telefon": "977674080",
+    "email": "secretaria@cunit.cat"
+   }
+  ],
+  "centralCompres": false,
+  "tipusPoderAdjudicador": 1500006,
+  "observacions": {},
+  "horari": {
+   "ca": "De dilluns a divendres, de 9:00 a 13:30 hores"
+  },
+  "organContractacioId": 12628431,
+  "activitatPrincipalOrgan": {
+   "id": 1051243,
+   "ca": "Serveis de caràcter general",
+   "es": "Servicios de carácter general"
+  }
+ },
+ "publicacio": {
+  "fase": {
+   "id": 1000042,
+   "ca": "Adjudicació",
+   "es": "Adjudicación",
+   "en": "Adjudication",
+   "oc": "Adjudicacion"
+  },
+  "expedientId": "87dc4cb4-eed2-40a2-9142-90d0aa04603a",
+  "teLots": false,
+  "dadesBasiquesPublicacio": {
+   "fasePublicacio": {
+    "id": 1000042,
+    "ca": "Adjudicació",
+    "es": "Adjudicación",
+    "en": "Adjudication",
+    "oc": "Adjudicacion"
+   },
+   "normativaAplicable": {
+    "id": 1008186,
+    "ca": "LCSP (contractes del sector públic)",
+    "en": "LCSP (public sector contracts)",
+    "oc": "LCSP (contractes deth sector public)"
+   },
+   "codiExpedient": "2744/2026",
+   "denominacio": {
+    "ca": "Servei de dinamització juvenil de Cunit"
+   },
+   "descripcio": {
+    "ca": "Servei de dinamització juvenil de Cunit"
+   },
+   "observacions": {},
+   "tipusPublicacioExpedient": {
+    "id": 1000000,
+    "ca": "Contracte",
+    "en": "Contract",
+    "oc": "Contracte"
+   },
+   "tipusTramitacio": {
+    "id": 470,
+    "ca": "Ordinària",
+    "es": "Ordinaria",
+    "en": "Ordinary",
+    "oc": "Ordinària"
+   },
+   "tipusContracte": {
+    "id": 393,
+    "ca": "Serveis",
+    "es": "Servicios",
+    "en": "Services",
+    "oc": "Servicis"
+   },
+   "procedimentAdjudicacio": {
+    "id": 401,
+    "ca": "Obert",
+    "es": "Abierto",
+    "en": "Open",
+    "oc": "Dubèrt"
+   },
+   "publicacioAgregada": false,
+   "accesExclusiu": false,
+   "tipusOfertaElectronica": {
+    "id": 413,
+    "ca": "Sobre digital",
+    "es": "Sobre digital",
+    "en": "Digital envelope",
+    "oc": "Envolopa digitau"
+   },
+   "descripcioAltres": {},
+   "compraPublicaInnovacio": false,
+   "compraPublicaPrecomercial": false,
+   "contracteMixt": false,
+   "justificacioTramitacioUrgencia": {}
+  },
+  "dadesPublicacio": {
+   "pressupostLicitacio": 92561.37,
+   "observacions": {},
+   "valorEstimatContracte": 188796.18,
+   "iva": 21,
+   "varisTipusIva": false,
+   "pressupostBaseLicitacioAmbIVA": 111999.26,
+   "contracteRelacionatFinanciatFonsUnioEuropea": false,
+   "contractacioConjunta": false
+  },
+  "dadesPublicacioLot": [
+   {
+    "pressupostLicitacio": 92561.37,
+    "publicacioExpedientId": 300854701,
+    "denominacioExpedientReferencia": {},
+    "dataAdjudicacio": "2026-08-02T22:00:00.000Z",
+    "terminiFormalitzacioContracte": {
+     "ca": "La formalització del contracte en document administratiu no podrà efectuar-se abans que transcorri el termini fixat a l'article 50.1.d) per la interposició de recurs especial."
+    },
+    "importAdjudicacio": 87933.3,
+    "ofertaAdjudicatariaIncursa": false,
+    "observacions": {},
+    "peuDeRecurs": {
+     "ca": "Si es vol impugnar aquesta resolució, que posa fi a la via administrativa, procedeix interposar recurs contenciós administratiu davant el Jutjat Contenciós Administratiu de Tarragona, en el termini de dos mesos a comptar des del dia següent de la seva publicació.\n\nAlternativament i de forma potestativa, es pot interposar recurs especial en matèria de contractació davant el Tribunal Català de Contractes del Sector Públic en el termini de quinze dies hàbils a comptar des del dia hàbil següent al de la remissió de la seva publicació."
+    },
+    "adrecaEnllacMesInformacioRecurs": {},
+    "empresesAdjudicataries": [
+     {
+      "denominacio": "TALLER D'ART, CULTURA I CREACIÓ",
+      "tipusIdentificador": {
+       "id": 542,
+       "ca": "NIF",
+       "en": "NIF (Tax Identification Number)",
+       "oc": "NIF"
+      },
+      "identificador": "G65643405",
+      "tipusEmpresaUnificat": [
+       {
+        "id": 748,
+        "ca": "PIME",
+        "en": "SME",
+        "oc": "PIME"
+       },
+       {
+        "id": 1008406,
+        "ca": "Cap de les anteriors",
+        "es": "Ninguna de las anteriores",
+        "en": "None of the the previous options",
+        "oc": "Cap des anteriors"
+       }
+      ],
+      "pais": {
+       "id": 65,
+       "ca": "Espanya",
+       "es": "España",
+       "en": "Spain"
+      },
+      "provincia": {
+       "id": 303,
+       "ca": "Barcelona",
+       "es": "Barcelona",
+       "en": "Barcelona",
+       "oc": "null"
+      },
+      "municipi": {
+       "id": 1000948,
+       "ca": "Barcelona",
+       "es": "Barcelona",
+       "en": "Barcelona",
+       "oc": "null"
+      },
+      "informacioUte": [],
+      "telefon": "626919682",
+      "email": "info@taccbcn.com",
+      "codiPostal": "08028"
+     }
+    ],
+    "resolucioAdjudicacio": {
+     "ca": [
+      {
+       "id": 302504002,
+       "titol": "Certificat d'acord adjudicació dinamització juvenil.pdf",
+       "path": "cp5sojpm-aArPSKS5SRxu5y5YKkt6-AnnF-rjRuem2MQ9DtsgRq7ebmkB1o-STFE-wCCe5cIWwdJiUPf7-MdyLn2vWYfZoXOUguN5wNAb_K1p9LObGHUUBghe1sSfvsI4FWNPlYjMN7WIcDj7rDiITlhvz73HdFbB97FTj0LUiDXeR9B3TYZUFvHZ8a9RtL1w31j83IgHUFYV4Bp6UuZGkJUq1SbvPJ_hGVl33NjOSwI2QVHFIo7KKovPg--JvtUwhS089Eq_TwlaA9ZH6LwZIFanBuObJQx6f9X73b4xSA6tB4ZT_VtOtwny0YK8-NmxFVoaxE-GL6Rh8TR0PvmGQ==",
+       "hash": "A981ED92493EA0AC0F9AFADE264B6CDB",
+       "idioma": "ca",
+       "mida": 2007419
+      }
+     ],
+     "es": [],
+     "en": [],
+     "oc": []
+    },
+    "altraDocumentacio": {
+     "ca": [],
+     "es": [],
+     "en": [],
+     "oc": []
+    },
+    "importAdjudicacioIva": 106399.29,
+    "ivaAdjudicacio": 21,
+    "varisTipusIvaAdjudicacio": false,
+    "valorEstimatContracte": 188796.18,
+    "iva": 21,
+    "varisTipusIva": false,
+    "pressupostBaseLicitacioAmbIVA": 111999.26,
+    "cpvPrincipal": {
+     "codi": "92000000-1",
+     "ca": "Serveis d'esplai, culturals i esportius",
+     "es": "Servicios de esparcimiento, culturales y deportivos",
+     "en": "Recreational, cultural and sporting services",
+     "oc": "Servicis de léser, culturaus e esportius"
+    },
+    "cpvsSecundaris": [],
+    "llocExecucio": {
+     "codiNuts": "ES514",
+     "ca": "Cunit"
+    },
+    "reservaSocial": false,
+    "duradaTermini": {
+     "anys": 1,
+     "mesos": 0,
+     "dies": 0,
+     "observacions": {}
+    },
+    "teDiversosCriterisAdjudicacio": true,
+    "criterisAdjudicacio": [
+     {
+      "index": 0,
+      "criteri": {
+       "id": 1008427,
+       "ca": "Preu"
+      },
+      "ponderacio": 50,
+      "observacions": {
+       "ca": "Segons apartat I del quadre de característiques del PCAP"
+      },
+      "desglossament": [
+       {
+        "tipusCriteri": {
+         "id": 1008359,
+         "ca": "Preu",
+         "es": "Precio",
+         "en": "Price",
+         "oc": "Prètz"
+        },
+        "puntuacio": 50,
+        "descripcioCriteri": {
+         "ca": "Segons apartat I del quadre de característiques del PCAP"
+        },
+        "identificador": "137495962066698"
+       }
+      ]
+     },
+     {
+      "index": 1,
+      "criteri": {
+       "id": 1008428,
+       "ca": "Resta de criteris de valoració automàtica"
+      },
+      "ponderacio": 10,
+      "observacions": {},
+      "desglossament": [
+       {
+        "tipusCriteri": {
+         "id": 1008373,
+         "ca": "Altres criteris qualitatius",
+         "es": "Otros criterios cualitativos",
+         "en": "Other qualitative criteria",
+         "oc": "D’auti critèris qualitatius"
+        },
+        "puntuacio": 10,
+        "descripcioCriteri": {
+         "ca": "Segons apartat I del quadre de característiques del PCAP"
+        },
+        "identificador": "137495962069014"
+       }
+      ]
+     },
+     {
+      "index": 2,
+      "criteri": {
+       "id": 1008429,
+       "ca": "Criteris de valoració sotmesos a judici de valor",
+       "es": "Criterios de valoración sometidos a juicio de valor",
+       "en": "Valuation criteria subject to value judgment",
+       "oc": "Critèris d'avaloracion sometudi a jutjament de valor"
+      },
+      "ponderacio": 40,
+      "observacions": {},
+      "desglossament": [
+       {
+        "tipusCriteri": {
+         "id": 1008373,
+         "ca": "Altres criteris qualitatius",
+         "es": "Otros criterios cualitativos",
+         "en": "Other qualitative criteria",
+         "oc": "D’auti critèris qualitatius"
+        },
+        "puntuacio": 40,
+        "descripcioCriteri": {
+         "ca": "Segons apartat I del quadre de característiques del PCAP"
+        },
+        "identificador": "137495962069989"
+       }
+      ]
+     }
+    ],
+    "revisioPreus": {
+     "id": 1008438,
+     "ca": "No prevista revisió de preus"
+    },
+    "preuUnitari": false,
+    "prescripcionsTecniquesSocials": true,
+    "prescripcionsTecniquesAmbientals": false,
+    "totalOfertesRebudes": 3,
+    "plurianualitats": [],
+    "llistatPrescripcionsTecniquesSocials": [
+     {
+      "prescripcioTecnicaSocial": {
+       "id": 1600845,
+       "ca": "Condicions laborals",
+       "es": "Condiciones laborales",
+       "en": "Working conditions",
+       "oc": "Condicions laboraus"
+      }
+     }
+    ],
+    "descripcioLicitacio": {},
+    "subcontractacions": [],
+    "canonExplotacio": {},
+    "metodeUtilitzatCalculValorEstimat": {}
+   }
+  ],
+  "dadesExpedient": {
+   "idiomaPerDefecte": {
+    "id": 1000031,
+    "ca": "Català",
+    "es": "Catalan",
+    "en": "Catalan",
+    "oc": "Catalan"
+   },
+   "expedientId": "87dc4cb4-eed2-40a2-9142-90d0aa04603a",
+   "lleiAssociada": "Llei 2017/2019",
+   "noAdmetrePreguntes": false,
+   "esPublicacioAntiga": false,
+   "tipusOfertaElectronica": 413,
+   "esReduit": false
+  },
+  "publicacionsOficials": [],
+  "motiuEsmena": {}
+ },
+ "pathPdf": "XdhEpHjH-tOj7v3t4HE-CAXVdmP9_Q-1FiCypcc7Synx2SJFqGP5ZuqyeiOPvQOSyWu9LPnOD7nVOgs9OlBjhTNnvAbIXSMltCoHQRg7bQDy01Q7B_MHAfrhIBnxtwR2vJAewGzODlXBaLbLKmMYm8RTpWi78nkxwUDRTjQkIJ4DAhm-MMiHCt7JtQeJn3ZF599SGKIQLHkzDqWShAliSwahSnzIThIABx7Ja3Q-58Eh-56N0iryL-8LhZlBiPfcbbJS8Ki37Z8zXvlTeuqu6VU3wekyMF2vfSgmV1DnJ3TWqXi3yhFCz-eaF2U3jLDwZXs4LgPLVU8GDs51RQdF3A==",
+ "pathCertificacio": "PM4zGpdRrY3Bkb4Y7h-V0wYmxEwFGHriOUgvVXvEr3u3VdyR9XwlD8hMK5ssNVafNYbshzH4MrIDiE3c08VkYneJngTov1PjiZ5-roCc5DDptM1rJ8Y5bktUVeb_HNjPx43AHK_MaZ_taneJOf5jcM8ijNtVyutG8MtGjLONTn16PZJ6yrbXvZ-4mDasNgl61ZNtQFZ3B76IsOFjOgN-WXr51emLiOZJmucTTC9xj00bjUNu7-XF5gmc-Tv-bZeyUbMnSJfyR4k8N_POxGWutuhlUUio-cc8LzoQhSw3IctLwyoKOS_4eWhIfnB6CN00Rslf11i8qZU9ppSpbzW2rg==",
+ "pathJson": "RVrj04rZiRjAX_CghsTGFXNUMp7hDMLEEF-SXNO2OZzlqIJbUZvssm3NuYdEFLW4Q7cYVTd1n3bZcwOaKlNYJbDxiBkIlokGY7QhEepT77eZisLr1XVc-VSzrvWSMREMqGBvcQeoJ1VopWRIRjwBGXu-1h31vKWGlz3G6uAl_sJtrL4hoaXDbV6RWglCMh2fwdN1x96Y52g8GrQJ2OUqGu8LY6FWx_0hiEONPhJqWpwM3SbS8jLj7sjc8Lao3kQrTQP-pXO6q7lhj2YcUozHT2fQ2tetbi2X-i-UsfB8qJn14dWGm63SqEZOZpdYo-50iW7k54kStwqYp6IUWS2llA==",
+ "dataPublicacioReal": "2026-08-04T09:04:16.225Z",
+ "dadesExpedient": {
+  "idiomaPerDefecte": {
+   "id": 1000031,
+   "ca": "Català",
+   "es": "Catalan",
+   "en": "Catalan",
+   "oc": "Catalan"
+  },
+  "expedientId": "87dc4cb4-eed2-40a2-9142-90d0aa04603a",
+  "lleiAssociada": "Llei 2017/2019",
+  "noAdmetrePreguntes": false,
+  "esPublicacioAntiga": false,
+  "tipusOfertaElectronica": 413,
+  "esReduit": false
+ }
+}
