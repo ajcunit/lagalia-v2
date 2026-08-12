@@ -7,6 +7,9 @@ import { Shell } from "./components/Shell";
 import { t } from "./i18n";
 import { DepartmentsAdmin } from "./features/admin/DepartmentsAdmin";
 import { UsersAdmin } from "./features/admin/UsersAdmin";
+import { ContractorDetail } from "./features/contractors/ContractorDetail";
+import { ContractorDuplicates } from "./features/contractors/ContractorDuplicates";
+import { ContractorsList } from "./features/contractors/ContractorsList";
 import { ContractDetail } from "./features/contracts/ContractDetail";
 import { ContractsList } from "./features/contracts/ContractsList";
 import { MinorDetail } from "./features/minors/MinorDetail";
@@ -45,6 +48,9 @@ export function App() {
               <Route path="/contracts/:id" element={<ContractDetail />} />
               <Route path="/minor-contracts" element={<MinorsList />} />
               <Route path="/minor-contracts/:id" element={<MinorDetail />} />
+              <Route path="/contractors" element={<ContractorsList />} />
+              <Route path="/contractors/duplicates" element={<ContractorDuplicates />} />
+              <Route path="/contractors/:id" element={<ContractorDetail />} />
               <Route path="/search" element={<UnderConstruction />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
