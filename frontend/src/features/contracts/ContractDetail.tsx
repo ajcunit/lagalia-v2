@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
@@ -22,6 +24,7 @@ import {
   useDismissExpiry,
   useEnrichContract,
   useFinishContract,
+  useJobStatus,
 } from "./queries";
 
 function yesNo(value: boolean | null | undefined): string {
@@ -50,6 +53,21 @@ export function ContractDetail() {
   const { permissions } = useAuth();
   const actions = permissions?.actions ?? [];
 
+  // Seguiment del job d'enriquiment fins a estat terminal (B-012, v. sondeig).
+  const [enrichJobId, setEnrichJobId] = useState<string | null>(null);
+  const enrichJob = useJobStatus(enrichJobId);
+  const jobStatus = enrichJob.data?.status;
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (jobStatus === "success") {
+      setEnrichJobId(null);
+      void queryClient.invalidateQueries({ queryKey: ["contract", id] });
+      void queryClient.invalidateQueries({ queryKey: ["contract-criteria", id] });
+      void queryClient.invalidateQueries({ queryKey: ["contract-committee", id] });
+      void queryClient.invalidateQueries({ queryKey: ["contract-documents", id] });
+    }
+  }, [jobStatus, id, queryClient]);
+
   if (contract.isPending) return <Skeleton rows={12} />;
   if (contract.isError || !contract.data) {
     return <EmptyState icon="🔒" title={t("contract.notFound")} />;
@@ -67,11 +85,12 @@ export function ContractDetail() {
   };
   const onEnrich = () => {
     enrich.mutate(undefined, {
-      onSuccess: () => window.alert(t("contract.action.enrichQueued")),
+      onSuccess: (job) => setEnrichJobId(job.id),
       onError: (error) =>
         window.alert(t("contract.action.error", { message: String(error) })),
     });
   };
+  const enriching = enrich.isPending || jobStatus === "queued" || jobStatus === "running";
 
   return (
     <div className="max-w-5xl">
@@ -93,8 +112,8 @@ export function ContractDetail() {
         </div>
         <span className="flex items-center gap-1.5">
           {canEnrich && data.phase_urls && Object.keys(data.phase_urls).length > 0 && (
-            <Button onClick={onEnrich} disabled={enrich.isPending}>
-              {t("contract.action.enrich")}
+            <Button onClick={onEnrich} disabled={enriching}>
+              {enriching ? t("contract.action.enriching") : t("contract.action.enrich")}
             </Button>
           )}
           {data.expiry_warning && <Badge tone="warning">{t("contracts.badge.expiry")}</Badge>}
@@ -104,6 +123,17 @@ export function ContractDetail() {
           <Badge tone="accent">{data.status}</Badge>
         </span>
       </div>
+
+      {jobStatus === "failed" && (
+        <div
+          role="alert"
+          className="mt-4 rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-ink"
+        >
+          {t("contract.action.enrichFailed", {
+            message: enrichJob.data?.error ?? "error desconegut",
+          })}
+        </div>
+      )}
 
       {data.possibly_finished && (
         <div

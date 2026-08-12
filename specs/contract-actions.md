@@ -44,7 +44,7 @@ Migració `0009`: `contracts.alert_dismissed_at` (timestamptz) i `contracts.aler
 
 ## UI (fitxa i llistat)
 
-- Fitxa: banner vermell si `possibly_finished` (accions *Finalitzar* i *Descartar l'alerta*, amb confirmació) i groc si `expiry_warning` (acció *Descartar l'alerta*); botó *Enriquir* (si el rol pot) que encua el job i refresca.
+- Fitxa: banner vermell si `possibly_finished` (accions *Finalitzar* i *Descartar l'alerta*, amb confirmació) i groc si `expiry_warning` (acció *Descartar l'alerta*); botó *Enriquir* (si el rol pot) que encua el job i **en segueix l'estat** (sondeig de `GET /jobs/{id}` fins a estat terminal): èxit → refresc automàtic de la fitxa; fallada → l'error del job visible en un banner (B-012; la versió SSE queda anotada al backlog).
 - Llistat: selecció múltiple amb caselles i barra flotant amb *Assigna departaments* (selector + add/replace), només per a rols amb `contracts:bulk_assign`.
 
 ## Fora d'abast

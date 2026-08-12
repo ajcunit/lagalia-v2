@@ -52,6 +52,25 @@ export function useEnrichContract(id: number) {
   });
 }
 
+export function useJobStatus(jobId: string | null) {
+  return useQuery({
+    queryKey: ["job", jobId],
+    enabled: jobId !== null,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/jobs/{id}", {
+        params: { path: { id: jobId ?? "" } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+    // Sondeig fins a estat terminal (B-012; la versió SSE arribarà després).
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "queued" || status === "running" ? 2000 : false;
+    },
+  });
+}
+
 export function useBulkAssignDepartments() {
   const queryClient = useQueryClient();
   return useMutation({
