@@ -66,6 +66,12 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** dues capes complementàries: (1) mètriques OpenTelemetry/Prometheus previstes a [03-arquitectura.md](03-arquitectura.md) §3 (comptadors per endpoint, connector i cua) per a Grafana; (2) un endpoint d'administració de resum (`/admin/usage`?) i pantalla a la zona d'Administració que consumeixi agregats de BD per a qui no tingui Grafana. Decidir retenció d'agregats (taula de comptadors diaris vs. només mètriques efímeres).
 - **Specs afectades:** [03-arquitectura.md](03-arquitectura.md) §6, [08-hub-integracions.md](08-hub-integracions.md) §1, [10-ui.md](10-ui.md) §4 (zona Administració); spec de feature nova quan es triï.
 
+### B-011 · Normalització de noms d'adjudicatari a la ingesta i revisió de duplicats agrupada
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
+- **Descripció:** el primer sync real (2026-08-12, run 19) confirma la brutícia de la font: un mateix NIF apareix amb fins a **53 variants de nom** (puntuació, majúscules, «S.L» vs «S.L.»), cosa que crea un contractor per variant i fa esclatar els parells de duplicats de manera quadràtica (8.481 parells pendents — irrevisables un a un).
+- **Com desenvolupar-la:** (1) normalització de noms a `resolve_contractor` abans de comparar (casefold, treure puntuació i formes societàries) perquè les variants trivials s'adjuntin al canònic com a àlies en lloc de crear contractor; (2) la pantalla de duplicats agrupa **per NIF** (un grup = un cas) en lloc de parells; (3) acció de fusió en bloc que converteix variants en `contractor_aliases`.
+- **Specs afectades:** [contracts-sync.md](../specs/contracts-sync.md), [04-model-de-dades.md](04-model-de-dades.md) §2, [02-especificacio-funcional.md](02-especificacio-funcional.md) (duplicats d'adjudicatari).
+
 ---
 
 ## Tancades

@@ -136,7 +136,7 @@ class Contract(Base, TimestampMixin):
     source: Mapped[ContractSource] = mapped_column(_SOURCE, server_default="external", index=True)
     gestiona_file_id: Mapped[str | None] = mapped_column(String(100))
     ine10_code: Mapped[str | None] = mapped_column(String(10))
-    dir3_code: Mapped[str | None] = mapped_column(String(20))
+    dir3_code: Mapped[str | None] = mapped_column(String(50))
 
     # Bàsics
     subject: Mapped[str | None] = mapped_column(Text)
@@ -179,8 +179,9 @@ class Contract(Base, TimestampMixin):
     possibly_finished: Mapped[bool] = mapped_column(Boolean, server_default="false")
     warning_months_override: Mapped[int | None] = mapped_column(Integer)
 
-    # Classificació
-    cpv_code: Mapped[str | None] = mapped_column(String(20), index=True)
+    # Classificació. cpv_code fins a 255: la font de vegades hi concatena
+    # diversos codis (verificat contra l'API real, sync_run 19).
+    cpv_code: Mapped[str | None] = mapped_column(String(255), index=True)
     cpv_description: Mapped[str | None] = mapped_column(Text)
     nuts_code: Mapped[str | None] = mapped_column(String(10))
     nuts_description: Mapped[str | None] = mapped_column(String(255))
