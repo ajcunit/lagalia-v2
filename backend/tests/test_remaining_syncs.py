@@ -366,23 +366,23 @@ async def test_sync_minor_contracts_end_to_end(fake_rpc: FakeSocrata) -> None:
 async def test_sync_cpv_end_to_end(fake_rpc: FakeSocrata) -> None:
     fake_rpc.datasets["wxdw-5eyv"] = [
         {
-            "cpv_divisi": "98000000-3",
+            "cpv_divisi": "TS000000-0",
             "descripci_divisi": "Altres serveis",
-            "cpv_grup": "98300000-6",
+            "cpv_grup": "TS300000-0",
             "descripci_grup": "Serveis diversos",
-            "cpv_classe": "98310000-9",
+            "cpv_classe": "TS310000-0",
             "descripci_classe": "Bugaderia",
-            "cpv_categoria": "98311000-6",
+            "cpv_categoria": "TS311000-0",
             "descripci_categoria": "Recollida de roba",
         },
         {
-            "cpv_divisi": "98000000-3",
+            "cpv_divisi": "TS000000-0",
             "descripci_divisi": "Altres serveis",
-            "cpv_grup": "98300000-6",
+            "cpv_grup": "TS300000-0",
             "descripci_grup": "Serveis diversos",
-            "cpv_classe": "98310000-9",
+            "cpv_classe": "TS310000-0",
             "descripci_classe": "Bugaderia",
-            "cpv_categoria": "98312000-3",
+            "cpv_categoria": "TS312000-0",
             "descripci_categoria": "Neteja de tèxtils",
         },
     ]
@@ -398,7 +398,7 @@ async def test_sync_cpv_end_to_end(fake_rpc: FakeSocrata) -> None:
                     await conn.execute(
                         text(
                             "SELECT code, parent_code, level FROM cpv_codes "
-                            "WHERE code LIKE '983%' OR code = '98000000-3' ORDER BY code"
+                            "WHERE code LIKE 'TS3%' OR code = 'TS000000-0' ORDER BY code"
                         )
                     )
                 )
@@ -407,9 +407,9 @@ async def test_sync_cpv_end_to_end(fake_rpc: FakeSocrata) -> None:
             )
         await engine.dispose()
         by_code = {r["code"]: r for r in parents}
-        assert by_code["98300000-6"]["parent_code"] == "98000000-3"
-        assert by_code["98311000-6"]["parent_code"] == "98310000-9"
-        assert by_code["98311000-6"]["level"] == "Category"
+        assert by_code["TS300000-0"]["parent_code"] == "TS000000-0"
+        assert by_code["TS311000-0"]["parent_code"] == "TS310000-0"
+        assert by_code["TS311000-0"]["level"] == "Category"
 
         result = await _run(sync_cpv)
         assert result["unchanged"] == 5
@@ -419,7 +419,7 @@ async def test_sync_cpv_end_to_end(fake_rpc: FakeSocrata) -> None:
             await conn.execute(
                 text(
                     "DELETE FROM cpv_codes WHERE code IN "
-                    "('98000000-3','98300000-6','98310000-9','98311000-6','98312000-3')"
+                    "('TS000000-0','TS300000-0','TS310000-0','TS311000-0','TS312000-0')"
                 )
             )
         await engine.dispose()

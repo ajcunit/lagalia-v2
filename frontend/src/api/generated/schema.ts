@@ -206,6 +206,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Llistat de contractes (abast departamental)
+         * @description L'abast s'aplica al servidor: amb accés departamental només es veuen
+         *     els contractes dels departaments propis o dels quals s'és responsable.
+         */
+        get: operations["listContracts"];
+        put?: never;
+        /** Alta manual d'un contracte */
+        post: operations["createContract"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Detall d'un contracte (amb lots germans i comptadors)
+         * @description Fora de l'abast departamental la resposta és `404`.
+         */
+        get: operations["getContract"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edició parcial segons la matriu de permisos
+         * @description Amb `contracts:update` (admin, gestió de contractació) tots els camps;
+         *     amb només `contracts:update_warning` (responsable de departament, dins
+         *     del seu abast), únicament `warning_months_override`.
+         */
+        patch: operations["updateContract"];
+        trace?: never;
+    };
+    "/contracts/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historial de canvis */
+        get: operations["getContractHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/{id}/extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pròrrogues del contracte */
+        get: operations["getContractExtensions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/{id}/modifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Modificacions del contracte */
+        get: operations["getContractModifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/{id}": {
         parameters: {
             query?: never;
@@ -420,6 +521,145 @@ export interface components {
          * @example 4305160009
          */
         Ine10Code: string;
+        ContractorRef: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            tax_id?: string | null;
+        };
+        ContractSummary: {
+            /** Format: int64 */
+            id: number;
+            file_code: string;
+            status: string;
+            lot: string;
+            subject?: string | null;
+            contract_type?: string | null;
+            procedure?: string | null;
+            contractor?: components["schemas"]["ContractorRef"] | null;
+            /** @description Decimal serialitzat */
+            award_amount?: string | null;
+            /** Format: date-time */
+            published_at?: string | null;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            calculated_end_date?: string | null;
+            expiry_warning: boolean;
+            possibly_finished: boolean;
+            /** @enum {string} */
+            internal_status: "normal" | "pending_review" | "approved" | "rejected";
+            department_ids?: number[];
+        };
+        Contract: components["schemas"]["ContractSummary"] & {
+            /** @enum {string} */
+            source: "local" | "external";
+            processing_type?: string | null;
+            awarding_body?: string | null;
+            awarding_department?: string | null;
+            raw_contractor_name?: string | null;
+            tender_amount?: string | null;
+            award_amount_vat?: string | null;
+            estimated_value?: string | null;
+            budget_no_vat?: string | null;
+            budget_vat?: string | null;
+            /** Format: date */
+            formalized_at?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            duration_months?: number | null;
+            warning_months_override?: number | null;
+            cpv_code?: string | null;
+            cpv_description?: string | null;
+            nuts_code?: string | null;
+            nuts_description?: string | null;
+            financing?: string | null;
+            links?: {
+                [key: string]: string;
+            } | null;
+            phase_urls?: {
+                [key: string]: string;
+            } | null;
+            received_offers?: number | null;
+            is_harmonized?: boolean | null;
+            allows_extensions?: boolean | null;
+            allows_modifications?: boolean | null;
+            social_reserve?: boolean | null;
+            subcontracting_allowed?: boolean | null;
+            /** Format: date-time */
+            first_synced_at?: string | null;
+            /** Format: date-time */
+            last_synced_at?: string | null;
+            /** @description Lots germans (mateix expedient). */
+            siblings?: components["schemas"]["ContractSummary"][];
+            counters: {
+                extensions: number;
+                modifications: number;
+                history: number;
+            };
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ContractCreate: {
+            file_code: string;
+            /** @default  */
+            status: string;
+            /** @default  */
+            lot: string;
+            subject: string;
+            contract_type?: string;
+            procedure?: string;
+            processing_type?: string;
+            award_amount?: string;
+            tender_amount?: string;
+            /** Format: date */
+            formalized_at?: string;
+            duration_months?: number;
+            cpv_code?: string;
+            department_ids?: number[];
+        };
+        ContractUpdate: {
+            subject?: string;
+            contract_type?: string | null;
+            procedure?: string | null;
+            processing_type?: string | null;
+            /** @enum {string} */
+            internal_status?: "normal" | "pending_review" | "approved" | "rejected";
+            warning_months_override?: number | null;
+        };
+        ContractHistoryEntry: {
+            /** Format: int64 */
+            id: number;
+            field: string;
+            old_value?: string | null;
+            new_value?: string | null;
+            /** Format: int64 */
+            user_id?: number | null;
+            /** @enum {string} */
+            change_type: "sync" | "manual" | "validation" | "gestiona_webhook";
+            /** Format: date-time */
+            changed_at: string;
+        };
+        ContractExtension: {
+            /** Format: int64 */
+            id: number;
+            number: number;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            amount?: string | null;
+            fiscal_year?: number | null;
+        };
+        ContractModification: {
+            /** Format: int64 */
+            id: number;
+            number: number;
+            /** Format: date */
+            approved_at?: string | null;
+            type?: string | null;
+            amount?: string | null;
+        };
         /**
          * @description Treball en segon pla. Mai inclou el `payload` d'entrada: només
          *     estat, progrés i resultat.
@@ -936,6 +1176,236 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listContracts: {
+        parameters: {
+            query?: {
+                /** @description Elements per pàgina. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                /**
+                 * @description Abast demanat. `user` (per defecte) limita als departaments propis;
+                 *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
+                 *     permet — es valida al servidor, no és una preferència del client.
+                 */
+                view?: components["parameters"]["ViewScope"];
+                /** @description Cerca lliure per expedient, objecte o adjudicatari. */
+                q?: string;
+                sort?: "published_at" | "-published_at" | "calculated_end_date" | "-calculated_end_date" | "award_amount" | "-award_amount" | "file_code" | "-file_code";
+                "filter[department_id]"?: number;
+                /** @description Només contractes sense cap departament assignat. */
+                "filter[unassigned]"?: boolean;
+                "filter[contract_type]"?: string;
+                "filter[status]"?: string;
+                "filter[internal_status]"?: "normal" | "pending_review" | "approved" | "rejected";
+                "filter[expiry_warning]"?: boolean;
+                "filter[possibly_finished]"?: boolean;
+                /** @description Exercici (any de publicació). */
+                "filter[year]"?: number;
+                "filter[contractor_id]"?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pàgina de contractes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractSummary"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createContract: {
+        parameters: {
+            query?: never;
+            header?: {
+                /**
+                 * @description Clau única del client per evitar duplicats en reintents. Repetir la
+                 *     mateixa clau retorna el resultat original en comptes de crear un recurs nou.
+                 */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractCreate"];
+            };
+        };
+        responses: {
+            /** @description Contracte creat */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Contract"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Ja existeix un contracte amb la mateixa clau natural */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contracte */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Contract"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractUpdate"];
+            };
+        };
+        responses: {
+            /** @description Contracte actualitzat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Contract"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getContractHistory: {
+        parameters: {
+            query?: {
+                /** @description Elements per pàgina. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Historial (descendent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractHistoryEntry"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContractExtensions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pròrrogues */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractExtension"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContractModifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Modificacions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractModification"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getJob: {

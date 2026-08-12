@@ -48,6 +48,8 @@ tags:
     description: Salut i estat
   - name: jobs
     description: Treballs en segon pla (cua, progrés, cancel·lació)
+  - name: contracts
+    description: Contractes majors (nucli de contractació)
 
 security:
   - bearerAuth: []
@@ -334,6 +336,216 @@ paths:
                     type: boolean
                     description: Si l'usuari pot demanar abast complet (Vista Admin).
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ─────────────────────────── contracts ───────────────────────────
+  /contracts:
+    get:
+      tags: [contracts]
+      operationId: listContracts
+      summary: Llistat de contractes (abast departamental)
+      description: |
+        L'abast s'aplica al servidor: amb accés departamental només es veuen
+        els contractes dels departaments propis o dels quals s'és responsable.
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - $ref: "#/components/parameters/ViewScope"
+        - name: q
+          in: query
+          description: Cerca lliure per expedient, objecte o adjudicatari.
+          schema: { type: string, maxLength: 200 }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [published_at, -published_at, calculated_end_date, -calculated_end_date,
+                   award_amount, -award_amount, file_code, -file_code]
+            default: "-published_at"
+        - name: filter[department_id]
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: filter[unassigned]
+          in: query
+          description: Només contractes sense cap departament assignat.
+          schema: { type: boolean }
+        - name: filter[contract_type]
+          in: query
+          schema: { type: string }
+        - name: filter[status]
+          in: query
+          schema: { type: string }
+        - name: filter[internal_status]
+          in: query
+          schema: { type: string, enum: [normal, pending_review, approved, rejected] }
+        - name: filter[expiry_warning]
+          in: query
+          schema: { type: boolean }
+        - name: filter[possibly_finished]
+          in: query
+          schema: { type: boolean }
+        - name: filter[year]
+          in: query
+          description: Exercici (any de publicació).
+          schema: { type: integer }
+        - name: filter[contractor_id]
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Pàgina de contractes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractSummary" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [contracts]
+      operationId: createContract
+      summary: Alta manual d'un contracte
+      x-required-scopes: [contracts:create]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContractCreate" }
+      responses:
+        "201":
+          description: Contracte creat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: Ja existeix un contracte amb la mateixa clau natural
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /contracts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [contracts]
+      operationId: getContract
+      summary: Detall d'un contracte (amb lots germans i comptadors)
+      description: Fora de l'abast departamental la resposta és `404`.
+      x-required-scopes: [contracts:read]
+      responses:
+        "200":
+          description: Contracte
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [contracts]
+      operationId: updateContract
+      summary: Edició parcial segons la matriu de permisos
+      description: |
+        Amb `contracts:update` (admin, gestió de contractació) tots els camps;
+        amb només `contracts:update_warning` (responsable de departament, dins
+        del seu abast), únicament `warning_months_override`.
+      x-required-scopes: [contracts:update, contracts:update_warning]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContractUpdate" }
+      responses:
+        "200":
+          description: Contracte actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /contracts/{id}/history:
+    get:
+      tags: [contracts]
+      operationId: getContractHistory
+      summary: Historial de canvis
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Historial (descendent)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractHistoryEntry" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /contracts/{id}/extensions:
+    get:
+      tags: [contracts]
+      operationId: getContractExtensions
+      summary: Pròrrogues del contracte
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Pròrrogues
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractExtension" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /contracts/{id}/modifications:
+    get:
+      tags: [contracts]
+      operationId: getContractModifications
+      summary: Modificacions del contracte
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Modificacions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractModification" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # ───────────────────────────── jobs ─────────────────────────────
   /jobs/{id}:
@@ -798,6 +1010,148 @@ components:
       pattern: "^[0-9]{10}$"
       description: Codi INE de 10 dígits de l'ens.
       examples: ["4305160009"]
+
+    ContractorRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        tax_id: { type: [string, "null"] }
+
+    ContractSummary:
+      type: object
+      required: [id, file_code, status, lot, internal_status, expiry_warning, possibly_finished]
+      properties:
+        id: { type: integer, format: int64 }
+        file_code: { type: string }
+        status: { type: string }
+        lot: { type: string }
+        subject: { type: [string, "null"] }
+        contract_type: { type: [string, "null"] }
+        procedure: { type: [string, "null"] }
+        contractor: { oneOf: [{ $ref: "#/components/schemas/ContractorRef" }, { type: "null" }] }
+        award_amount: { type: [string, "null"], description: Decimal serialitzat }
+        published_at: { type: [string, "null"], format: date-time }
+        start_date: { type: [string, "null"], format: date }
+        calculated_end_date: { type: [string, "null"], format: date }
+        expiry_warning: { type: boolean }
+        possibly_finished: { type: boolean }
+        internal_status: { type: string, enum: [normal, pending_review, approved, rejected] }
+        department_ids:
+          type: array
+          items: { type: integer, format: int64 }
+
+    Contract:
+      allOf:
+        - $ref: "#/components/schemas/ContractSummary"
+        - type: object
+          required: [source, counters]
+          properties:
+            source: { type: string, enum: [local, external] }
+            processing_type: { type: [string, "null"] }
+            awarding_body: { type: [string, "null"] }
+            awarding_department: { type: [string, "null"] }
+            raw_contractor_name: { type: [string, "null"] }
+            tender_amount: { type: [string, "null"] }
+            award_amount_vat: { type: [string, "null"] }
+            estimated_value: { type: [string, "null"] }
+            budget_no_vat: { type: [string, "null"] }
+            budget_vat: { type: [string, "null"] }
+            formalized_at: { type: [string, "null"], format: date }
+            end_date: { type: [string, "null"], format: date }
+            duration_months: { type: [integer, "null"] }
+            warning_months_override: { type: [integer, "null"] }
+            cpv_code: { type: [string, "null"] }
+            cpv_description: { type: [string, "null"] }
+            nuts_code: { type: [string, "null"] }
+            nuts_description: { type: [string, "null"] }
+            financing: { type: [string, "null"] }
+            links: { type: [object, "null"], additionalProperties: { type: string } }
+            phase_urls: { type: [object, "null"], additionalProperties: { type: string } }
+            received_offers: { type: [integer, "null"] }
+            is_harmonized: { type: [boolean, "null"] }
+            allows_extensions: { type: [boolean, "null"] }
+            allows_modifications: { type: [boolean, "null"] }
+            social_reserve: { type: [boolean, "null"] }
+            subcontracting_allowed: { type: [boolean, "null"] }
+            first_synced_at: { type: [string, "null"], format: date-time }
+            last_synced_at: { type: [string, "null"], format: date-time }
+            siblings:
+              type: array
+              description: Lots germans (mateix expedient).
+              items: { $ref: "#/components/schemas/ContractSummary" }
+            counters:
+              type: object
+              required: [extensions, modifications, history]
+              properties:
+                extensions: { type: integer }
+                modifications: { type: integer }
+                history: { type: integer }
+            created_at: { type: string, format: date-time }
+
+    ContractCreate:
+      type: object
+      required: [file_code, subject]
+      properties:
+        file_code: { type: string, minLength: 1, maxLength: 100 }
+        status: { type: string, maxLength: 100, default: "" }
+        lot: { type: string, maxLength: 50, default: "" }
+        subject: { type: string, minLength: 3 }
+        contract_type: { type: string }
+        procedure: { type: string }
+        processing_type: { type: string }
+        award_amount: { type: string }
+        tender_amount: { type: string }
+        formalized_at: { type: string, format: date }
+        duration_months: { type: integer, minimum: 1 }
+        cpv_code: { type: string, maxLength: 255 }
+        department_ids:
+          type: array
+          items: { type: integer, format: int64 }
+
+    ContractUpdate:
+      type: object
+      properties:
+        subject: { type: string, minLength: 3 }
+        contract_type: { type: [string, "null"] }
+        procedure: { type: [string, "null"] }
+        processing_type: { type: [string, "null"] }
+        internal_status: { type: string, enum: [normal, pending_review, approved, rejected] }
+        warning_months_override: { type: [integer, "null"], minimum: 0 }
+
+    ContractHistoryEntry:
+      type: object
+      required: [id, field, change_type, changed_at]
+      properties:
+        id: { type: integer, format: int64 }
+        field: { type: string }
+        old_value: { type: [string, "null"] }
+        new_value: { type: [string, "null"] }
+        user_id: { type: [integer, "null"], format: int64 }
+        change_type: { type: string, enum: [sync, manual, validation, gestiona_webhook] }
+        changed_at: { type: string, format: date-time }
+
+    ContractExtension:
+      type: object
+      required: [id, number]
+      properties:
+        id: { type: integer, format: int64 }
+        number: { type: integer }
+        start_date: { type: [string, "null"], format: date }
+        end_date: { type: [string, "null"], format: date }
+        amount: { type: [string, "null"] }
+        fiscal_year: { type: [integer, "null"] }
+
+    ContractModification:
+      type: object
+      required: [id, number]
+      properties:
+        id: { type: integer, format: int64 }
+        number: { type: integer }
+        approved_at: { type: [string, "null"], format: date }
+        type: { type: [string, "null"] }
+        amount: { type: [string, "null"] }
 
     Job:
       type: object
