@@ -2,11 +2,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Select, func, select, tuple_, update
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import decode_cursor, encode_cursor, keyset_condition
 from app.modules.users.models import RefreshToken, User, UserRole, user_departments
 
 # Camps d'ordre admesos a GET /users (contracte: name, -created_at...).
@@ -133,9 +133,9 @@ async def list_users(
 
     if cursor is not None:
         last_value, last_id = decode_cursor(cursor)
-        keyset: Any = tuple_(column, User.id)
-        boundary = (last_value, int(last_id))
-        stmt = stmt.where(keyset < boundary if descending else keyset > boundary)
+        stmt = stmt.where(
+            keyset_condition(column, User.id, last_value, last_id, descending=descending)
+        )
 
     rows = list((await session.execute(stmt.limit(page_size + 1))).scalars())
     next_cursor = None

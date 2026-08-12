@@ -114,6 +114,33 @@ async def test_departmental_scope_on_listing(api_client: TestClient, world: dict
     assert manager_view["meta"]["total"] == 1  # responsable sense departament
 
 
+async def test_cursor_pagination_over_typed_sort_fields(
+    api_client: TestClient, world: dict[str, Any]
+) -> None:
+    """Regressió: el cursor serialitza el valor d'ordre com a text; el keyset
+    ha de fer CAST al tipus de la columna (timestamptz/numeric) o la p2 peta."""
+    headers = login_headers(api_client, world["admin"].email)
+    tag = world["tag"]
+
+    for sort in ("-published_at", "-award_amount", "-calculated_end_date"):
+        first = api_client.get(
+            "/api/v1/contracts",
+            params={"q": tag, "view": "all", "sort": sort, "page[size]": 1},
+            headers=headers,
+        )
+        assert first.status_code == 200, first.text
+        cursor = first.json()["meta"]["next_cursor"]
+        assert cursor, f"esperava next_cursor amb sort={sort}"
+
+        second = api_client.get(
+            "/api/v1/contracts",
+            params={"q": tag, "view": "all", "sort": sort, "page[size]": 1, "page[cursor]": cursor},
+            headers=headers,
+        )
+        assert second.status_code == 200, f"sort={sort}: {second.text}"
+        assert second.json()["data"][0]["id"] != first.json()["data"][0]["id"]
+
+
 async def test_idor_detail_and_subresources_are_404(
     api_client: TestClient, world: dict[str, Any]
 ) -> None:

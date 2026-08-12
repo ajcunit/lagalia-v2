@@ -1,9 +1,9 @@
 from typing import Any
 
-from sqlalchemy import Select, func, select, tuple_
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.pagination import decode_cursor, encode_cursor
+from app.core.pagination import decode_cursor, encode_cursor, keyset_condition
 from app.modules.departments.models import Department
 
 
@@ -47,7 +47,9 @@ async def list_departments(
     )
     if cursor is not None:
         last_name, last_id = decode_cursor(cursor)
-        stmt = stmt.where(tuple_(Department.name, Department.id) > (last_name, int(last_id)))
+        stmt = stmt.where(
+            keyset_condition(Department.name, Department.id, last_name, last_id, descending=False)
+        )
 
     rows = list((await session.execute(stmt.limit(page_size + 1))).scalars())
     next_cursor = None
