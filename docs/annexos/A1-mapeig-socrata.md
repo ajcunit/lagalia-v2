@@ -34,7 +34,7 @@ Dataset: `https://analisi.transparenciacatalunya.cat/resource/ybgg-dgi6.json` (c
 |---|---|---|
 | **Estat**: primer valor no buit | `resultat` \|\| `fase_publicacio` | `estat_actual` / `status` |
 | `valor_estimat_contracte` | → | `preu_licitar` / `tender_amount` |
-| `import_adjudicacio_sense` | → | `preu_adjudicar` / `award_amount` **i també** `import_licitar_sense_iva` (duplicitat de la v1: revisar a la v2) |
+| `import_adjudicacio_sense` | → | `preu_adjudicar` / `award_amount` **i també** `import_licitar_sense_iva` (duplicitat de la v1: revisar a la v2) — *resolució v2: es descarta la duplicitat, només `award_amount` ([contracts-sync.md](../../specs/contracts-sync.md))* |
 | `import_adjudicacio_amb_iva` | → | `import_adjudicacio_amb_iva` / `award_amount_vat` |
 | `pressupost_licitacio_sense` | → | `pressupost_licitacio_sense_iva` / `budget_no_vat` |
 | `pressupost_licitacio_sense_1` | → | `pressupost_licitacio_sense_iva_expedient` |

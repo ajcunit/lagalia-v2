@@ -19,6 +19,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Identity,
+    Index,
     Integer,
     Numeric,
     String,
@@ -116,6 +117,14 @@ class Contract(Base, TimestampMixin):
     __tablename__ = "contracts"
     __table_args__ = (
         UniqueConstraint("file_code", "status", "lot", name="uq_contracts_natural_key"),
+        # Declarats aquí perquè l'autogenerate d'Alembic no els vegi com a orfes.
+        Index("ix_contracts_raw_gin", "raw", postgresql_using="gin"),
+        Index(
+            "ix_contracts_subject_trgm",
+            "subject",
+            postgresql_using="gin",
+            postgresql_ops={"subject": "gin_trgm_ops"},
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
@@ -134,6 +143,8 @@ class Contract(Base, TimestampMixin):
     contract_type: Mapped[str | None] = mapped_column(String(100))
     procedure: Mapped[str | None] = mapped_column(String(100))
     processing_type: Mapped[str | None] = mapped_column(String(100))
+    awarding_body: Mapped[str | None] = mapped_column(String(500))
+    awarding_department: Mapped[str | None] = mapped_column(String(500), index=True)
 
     # Adjudicatari
     contractor_id: Mapped[int | None] = mapped_column(
@@ -393,6 +404,14 @@ class CpvLevel(enum.StrEnum):
 
 class CpvCode(Base, TimestampMixin):
     __tablename__ = "cpv_codes"
+    __table_args__ = (
+        Index(
+            "ix_cpv_codes_description_trgm",
+            "description",
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True)

@@ -40,7 +40,7 @@ Manté la clau natural v1 i el gruix de camps, reorganitzats:
 | Grup | Camps |
 |---|---|
 | Identitat | `file_code` (codi_expedient), `status` (estat_actual), `lot`, **UNIQUE(file_code, status, lot)**; `source` enum `local\|external`; `gestiona_file_id`, `ine10_code`, `dir3_code` |
-| Bàsics | `subject`, `contract_type`, `procedure`, `processing_type` |
+| Bàsics | `subject`, `contract_type`, `procedure`, `processing_type`, `awarding_body`, `awarding_department` (avaluats per les regles d'associació, A1 §8) |
 | Adjudicatari | `contractor_id FK → contractors` 🔁 (la v1 duplicava nom/NIF a cada fila; v2 normalitza, conservant `raw_contractor_name` per traçabilitat) |
 | Imports | `tender_amount`, `award_amount`, `award_amount_vat`, `estimated_value`, `budget_no_vat`, `budget_vat` (NUMERIC(15,2)) |
 | Dates | `published_at`, `updated_at_source`, `formalized_at`, `start_date`, `end_date`, `calculated_end_date`, notice dates (`prior/tender/award/formalization_notice_date`), `cancellation_date` |
