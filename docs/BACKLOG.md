@@ -23,9 +23,9 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** provar contra l'entorn de proves abans de la Fase 2; documentar el contracte definitiu a [08-hub-integracions.md](08-hub-integracions.md) §2.3 i escriure'n la spec de feature amb els contract tests que farà servir també el mode `n8n_bridge`.
 
 ### B-003 · Decidir emmagatzematge d'objectes: sistema de fitxers o MinIO
-- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** S
+- **Prioritat:** P2 · **Estat:** Parcialment resolta (PR pscp-enrichment) · **Mida:** S
 - **Descripció:** [03-arquitectura.md](03-arquitectura.md) §2.6 deixa obert si els documents descarregats i generats van a disc muntat o a MinIO (S3).
-- **Com desenvolupar-la:** decidir segons la infraestructura municipal disponible i la política de còpies; l'abstracció d'emmagatzematge s'ha d'escriure igualment perquè el canvi sigui de configuració.
+- **Com desenvolupar-la:** l'abstracció ja existeix (`core/storage.py`, backends `filesystem` i `s3` seleccionables amb `STORAGE_BACKEND`; vegeu [specs/pscp-enrichment.md](../specs/pscp-enrichment.md)); queda només la decisió d'infraestructura per a producció segons la política de còpies municipal.
 
 ### B-004 · Dataset d'or per avaluar el classificador CPV
 - **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M

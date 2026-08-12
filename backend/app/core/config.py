@@ -39,6 +39,14 @@ class Settings(BaseSettings):
 
     rate_limit_login: str = "5/minute"
 
+    # Emmagatzematge d'objectes (B-003: la tria és configuració).
+    storage_backend: Literal["filesystem", "s3"] = "filesystem"
+    storage_local_path: str = "./storage"
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_bucket: str = "lagalia"
+    s3_access_key: SecretStr = SecretStr("")
+    s3_secret_key: SecretStr = SecretStr("")
+
     log_level: str = "INFO"
     log_format: Literal["json", "console"] = "json"
 

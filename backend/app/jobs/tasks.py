@@ -7,6 +7,7 @@ aquí només hi ha el heartbeat que prova la maquinària de punta a punta.
 from datetime import UTC, datetime
 from typing import Any
 
+import app.integrations.pscp.enrich  # noqa: F401 — registra enrich.contract/batch
 import app.integrations.socrata.sync  # noqa: F401 — registra sync.contracts
 import app.integrations.socrata.sync_cpv  # noqa: F401 — registra sync.cpv
 import app.integrations.socrata.sync_rpc  # noqa: F401 — registra extensions i menors
