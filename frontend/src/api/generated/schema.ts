@@ -307,6 +307,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contracts/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** KPIs del dashboard (dins l'abast de l'usuari) */
+        get: operations["getContractsStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contracts/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Valors distincts per als filtres del llistat */
+        get: operations["getContractsFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contracts/{id}/actions/finish": {
         parameters: {
             query?: never;
@@ -1005,6 +1039,44 @@ export interface components {
             approved_at?: string | null;
             type?: string | null;
             amount?: string | null;
+        };
+        ContractStats: {
+            totals: {
+                contracts: number;
+                new_this_month: number;
+                expiry_warning: number;
+                possibly_finished: number;
+                /** @description Decimal serialitzat com a cadena. */
+                awarded_total: string;
+                unique_contractors: number;
+            };
+            minors: {
+                count: number;
+                amount: string;
+            };
+            by_status: {
+                status: string;
+                count: number;
+            }[];
+            by_department: {
+                /** Format: int64 */
+                id: number;
+                name: string;
+                count: number;
+            }[];
+            top_contractors: {
+                /** Format: int64 */
+                id: number;
+                name: string;
+                amount: string;
+                count: number;
+            }[];
+        };
+        ContractFacets: {
+            statuses: string[];
+            contract_types: string[];
+            procedures: string[];
+            years: number[];
         };
         ExportRequest: {
             /**
@@ -1834,6 +1906,66 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getContractsStats: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Abast demanat. `user` (per defecte) limita als departaments propis;
+                 *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
+                 *     permet — es valida al servidor, no és una preferència del client.
+                 */
+                view?: components["parameters"]["ViewScope"];
+                "filter[year]"?: number;
+                "filter[amount_min]"?: number;
+                "filter[amount_max]"?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estadístiques */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractStats"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getContractsFacets: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Abast demanat. `user` (per defecte) limita als departaments propis;
+                 *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
+                 *     permet — es valida al servidor, no és una preferència del client.
+                 */
+                view?: components["parameters"]["ViewScope"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Facets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractFacets"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     finishContract: {

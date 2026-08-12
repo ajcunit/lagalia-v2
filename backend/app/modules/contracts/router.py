@@ -25,6 +25,8 @@ from app.modules.contracts.schemas import (
     CommitteeMemberResponse,
     ContractCreate,
     ContractDetail,
+    ContractFacets,
+    ContractStats,
     ContractSummary,
     ContractUpdate,
     ExportRequest,
@@ -113,6 +115,40 @@ async def list_contracts(
         data=[ContractSummary.from_contract(c) for c in contracts],
         meta=PageMeta(total=total, next_cursor=next_cursor),
     )
+
+
+@router.get("/contracts/stats", operation_id="getContractsStats")
+async def get_contracts_stats(
+    session: SessionDep,
+    authz_ctx: ReadDep,
+    ctx: ContextDep,
+    view: Annotated[str, Query(pattern="^(user|all)$")] = "user",
+    year: Annotated[int | None, Query(alias="filter[year]")] = None,
+    amount_min: Annotated[float | None, Query(alias="filter[amount_min]", ge=0)] = None,
+    amount_max: Annotated[float | None, Query(alias="filter[amount_max]", ge=0)] = None,
+) -> ContractStats:
+    scope = await _effective_scope(session, authz_ctx, view, ctx)
+    data = await repository.stats(
+        session,
+        scope=scope,
+        user_id=authz_ctx.user.id,
+        year=year,
+        amount_min=amount_min,
+        amount_max=amount_max,
+    )
+    return ContractStats.model_validate(data)
+
+
+@router.get("/contracts/facets", operation_id="getContractsFacets")
+async def get_contracts_facets(
+    session: SessionDep,
+    authz_ctx: ReadDep,
+    ctx: ContextDep,
+    view: Annotated[str, Query(pattern="^(user|all)$")] = "user",
+) -> ContractFacets:
+    scope = await _effective_scope(session, authz_ctx, view, ctx)
+    data = await repository.facets(session, scope=scope, user_id=authz_ctx.user.id)
+    return ContractFacets.model_validate(data)
 
 
 @router.post("/contracts", operation_id="createContract", status_code=201)

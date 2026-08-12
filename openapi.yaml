@@ -551,6 +551,48 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /contracts/stats:
+    get:
+      tags: [contracts]
+      operationId: getContractsStats
+      summary: KPIs del dashboard (dins l'abast de l'usuari)
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ViewScope"
+        - name: filter[year]
+          in: query
+          schema: { type: integer }
+        - name: filter[amount_min]
+          in: query
+          schema: { type: number, minimum: 0 }
+        - name: filter[amount_max]
+          in: query
+          schema: { type: number, minimum: 0 }
+      responses:
+        "200":
+          description: Estadístiques
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContractStats" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /contracts/facets:
+    get:
+      tags: [contracts]
+      operationId: getContractsFacets
+      summary: Valors distincts per als filtres del llistat
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ViewScope"
+      responses:
+        "200":
+          description: Facets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContractFacets" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /contracts/{id}/actions/finish:
     post:
       tags: [contracts]
@@ -1650,6 +1692,71 @@ components:
         approved_at: { type: [string, "null"], format: date }
         type: { type: [string, "null"] }
         amount: { type: [string, "null"] }
+
+    ContractStats:
+      type: object
+      required: [totals, minors, by_status, by_department, top_contractors]
+      properties:
+        totals:
+          type: object
+          required: [contracts, new_this_month, expiry_warning, possibly_finished, awarded_total, unique_contractors]
+          properties:
+            contracts: { type: integer }
+            new_this_month: { type: integer }
+            expiry_warning: { type: integer }
+            possibly_finished: { type: integer }
+            awarded_total: { type: string, description: Decimal serialitzat com a cadena. }
+            unique_contractors: { type: integer }
+        minors:
+          type: object
+          required: [count, amount]
+          properties:
+            count: { type: integer }
+            amount: { type: string }
+        by_status:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties:
+              status: { type: string }
+              count: { type: integer }
+        by_department:
+          type: array
+          items:
+            type: object
+            required: [id, name, count]
+            properties:
+              id: { type: integer, format: int64 }
+              name: { type: string }
+              count: { type: integer }
+        top_contractors:
+          type: array
+          items:
+            type: object
+            required: [id, name, amount, count]
+            properties:
+              id: { type: integer, format: int64 }
+              name: { type: string }
+              amount: { type: string }
+              count: { type: integer }
+
+    ContractFacets:
+      type: object
+      required: [statuses, contract_types, procedures, years]
+      properties:
+        statuses:
+          type: array
+          items: { type: string }
+        contract_types:
+          type: array
+          items: { type: string }
+        procedures:
+          type: array
+          items: { type: string }
+        years:
+          type: array
+          items: { type: integer }
 
     ExportRequest:
       type: object

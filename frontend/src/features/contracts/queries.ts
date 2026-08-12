@@ -222,6 +222,39 @@ export function useContractHistory(id: number) {
   });
 }
 
+export function useContractsStats(params: { view?: "user" | "all"; year?: number }) {
+  return useQuery({
+    queryKey: ["contracts-stats", params],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contracts/stats", {
+        params: {
+          query: {
+            view: params.view,
+            "filter[year]": params.year,
+          },
+        },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useContractsFacets(view: "user" | "all" = "user") {
+  return useQuery({
+    queryKey: ["contracts-facets", view],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contracts/facets", {
+        params: { query: { view } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+}
+
 export function useDepartmentOptions() {
   return useQuery({
     queryKey: ["department-options"],

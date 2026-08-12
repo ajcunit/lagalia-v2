@@ -25,6 +25,7 @@ from app.modules.contracts.models import (
     contract_departments,
     contract_managers,
 )
+from app.modules.departments.models import Department
 
 SORTABLE_FIELDS = {
     "published_at": Contract.published_at,
@@ -253,6 +254,149 @@ async def iter_for_export(
             return
         yield rows
         last_id = rows[-1].id
+
+
+async def stats(
+    session: AsyncSession,
+    *,
+    scope: ScopeInfo,
+    user_id: int,
+    year: int | None = None,
+    amount_min: float | None = None,
+    amount_max: float | None = None,
+) -> dict[str, Any]:
+    """Agregacions del dashboard, totes sota el mateix predicat de visibilitat."""
+    from datetime import date as date_type
+
+    from app.modules.minor_contracts.models import MinorContract, minor_contract_departments
+
+    predicate = visibility_predicate(scope, user_id)
+
+    def scoped(stmt: Select[Any]) -> Select[Any]:
+        if predicate is not None:
+            stmt = stmt.where(predicate)
+        if year is not None:
+            stmt = stmt.where(extract("year", Contract.published_at) == year)
+        if amount_min is not None:
+            stmt = stmt.where(Contract.award_amount >= amount_min)
+        if amount_max is not None:
+            stmt = stmt.where(Contract.award_amount <= amount_max)
+        return stmt
+
+    month_start = date_type.today().replace(day=1)
+    totals = (
+        (
+            await session.execute(
+                scoped(
+                    select(
+                        func.count().label("contracts"),
+                        func.count()
+                        .filter(Contract.published_at >= month_start)
+                        .label("new_this_month"),
+                        func.count().filter(Contract.expiry_warning).label("expiry_warning"),
+                        func.count().filter(Contract.possibly_finished).label("possibly_finished"),
+                        func.coalesce(func.sum(Contract.award_amount), 0).label("awarded_total"),
+                        func.count(func.distinct(Contract.contractor_id)).label(
+                            "unique_contractors"
+                        ),
+                    ).select_from(Contract)
+                )
+            )
+        )
+        .mappings()
+        .one()
+    )
+
+    by_status = (
+        await session.execute(
+            scoped(select(Contract.status, func.count().label("count")).select_from(Contract))
+            .group_by(Contract.status)
+            .order_by(func.count().desc())
+        )
+    ).all()
+
+    by_department = (
+        await session.execute(
+            scoped(
+                select(Department.id, Department.name, func.count().label("count"))
+                .select_from(Contract)
+                .join(contract_departments, contract_departments.c.contract_id == Contract.id)
+                .join(Department, Department.id == contract_departments.c.department_id)
+            )
+            .group_by(Department.id, Department.name)
+            .order_by(func.count().desc())
+        )
+    ).all()
+
+    top_contractors = (
+        await session.execute(
+            scoped(
+                select(
+                    Contractor.id,
+                    Contractor.canonical_name,
+                    func.coalesce(func.sum(Contract.award_amount), 0).label("amount"),
+                    func.count().label("count"),
+                )
+                .select_from(Contract)
+                .join(Contractor, Contractor.id == Contract.contractor_id)
+            )
+            .group_by(Contractor.id, Contractor.canonical_name)
+            .order_by(func.coalesce(func.sum(Contract.award_amount), 0).desc())
+            .limit(10)
+        )
+    ).all()
+
+    # Menors: mateix abast departamental (sense responsables: no en tenen).
+    minors_stmt = select(
+        func.count().label("count"),
+        func.coalesce(func.sum(MinorContract.award_amount), 0).label("amount"),
+    ).select_from(MinorContract)
+    if scope.type != "all":
+        department_ids = scope.department_ids or []
+        minors_stmt = minors_stmt.where(
+            MinorContract.id.in_(
+                select(minor_contract_departments.c.minor_contract_id).where(
+                    minor_contract_departments.c.department_id.in_(department_ids)
+                )
+            )
+            if department_ids
+            else false()
+        )
+    if year is not None:
+        minors_stmt = minors_stmt.where(MinorContract.fiscal_year == year)
+    minors = (await session.execute(minors_stmt)).mappings().one()
+
+    return {
+        "totals": dict(totals),
+        "minors": dict(minors),
+        "by_status": [{"status": r.status, "count": r.count} for r in by_status],
+        "by_department": [{"id": r.id, "name": r.name, "count": r.count} for r in by_department],
+        "top_contractors": [
+            {"id": r.id, "name": r.canonical_name, "amount": r.amount, "count": r.count}
+            for r in top_contractors
+        ],
+    }
+
+
+async def facets(session: AsyncSession, *, scope: ScopeInfo, user_id: int) -> dict[str, list[Any]]:
+    predicate = visibility_predicate(scope, user_id)
+
+    async def distinct_of(column: Any, descending: bool = False) -> list[Any]:
+        stmt = select(func.distinct(column)).where(column.is_not(None))
+        if predicate is not None:
+            stmt = stmt.where(predicate)
+        stmt = stmt.order_by(column.desc() if descending else column.asc())
+        return [v for v in (await session.execute(stmt)).scalars() if v not in (None, "")]
+
+    return {
+        "statuses": await distinct_of(Contract.status),
+        "contract_types": await distinct_of(Contract.contract_type),
+        "procedures": await distinct_of(Contract.procedure),
+        "years": [
+            int(y)
+            for y in await distinct_of(extract("year", Contract.published_at), descending=True)
+        ],
+    }
 
 
 async def is_manager(session: AsyncSession, contract_id: int, user_id: int) -> bool:
