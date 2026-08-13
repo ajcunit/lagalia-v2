@@ -948,6 +948,70 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /contractors/duplicates/groups:
+    get:
+      tags: [contractors]
+      operationId: listContractorDuplicateGroups
+      summary: Grups de duplicats per NIF (un grup = un cas de revisió)
+      x-required-scopes: [duplicates:manage]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: q
+          in: query
+          description: Filtra per NIF o nom de qualsevol variant del grup.
+          schema: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: Grups pendents, ordenats per mida
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractorDuplicateGroup" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /contractors/duplicates/groups/resolve:
+    post:
+      tags: [contractors]
+      operationId: resolveContractorDuplicateGroup
+      summary: Resol un grup sencer (fusió en bloc al canònic triat, o rebuig)
+      x-required-scopes: [duplicates:manage]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tax_id, action]
+              properties:
+                tax_id: { type: string, maxLength: 100 }
+                action: { type: string, enum: [merge, reject] }
+                canonical_id:
+                  type: [integer, "null"]
+                  format: int64
+                  description: Obligatori amb action=merge; membre del grup.
+      responses:
+        "200":
+          description: Resum de la resolució
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [merged, rejected]
+                properties:
+                  merged: { type: integer }
+                  rejected: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /contractors/duplicates/{id}/actions/resolve:
     post:
       tags: [contractors]
@@ -1549,6 +1613,15 @@ components:
         resolved_by: { type: [integer, "null"], format: int64 }
         resolved_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
+
+    ContractorDuplicateGroup:
+      type: object
+      required: [tax_id, contractors]
+      properties:
+        tax_id: { type: string }
+        contractors:
+          type: array
+          items: { $ref: "#/components/schemas/ContractorRanking" }
 
     ContractorRef:
       type: object

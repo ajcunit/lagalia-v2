@@ -175,6 +175,56 @@ async def duplicates_page(
     return rows, total, next_cursor
 
 
+async def duplicate_groups(
+    session: AsyncSession, *, page_size: int, cursor: str | None, q: str | None = None
+) -> tuple[list[dict[str, Any]], int, str | None]:
+    """Grups de NIF amb parells pendents, ordenats per mida (B-011)."""
+    pending_1 = select(ContractorDuplicate.contractor_id_1).where(
+        ContractorDuplicate.status == ContractorDuplicateStatus.PENDING
+    )
+    pending_2 = select(ContractorDuplicate.contractor_id_2).where(
+        ContractorDuplicate.status == ContractorDuplicateStatus.PENDING
+    )
+    tax_ids_stmt = (
+        select(Contractor.tax_id, func.count().label("members"))
+        .where(
+            Contractor.tax_id.is_not(None),
+            Contractor.id.in_(pending_1.union(pending_2)),
+        )
+        .group_by(Contractor.tax_id)
+        .order_by(func.count().desc(), Contractor.tax_id.asc())
+    )
+    if q:
+        pattern = f"%{_escape_like(q)}%"
+        tax_ids_stmt = tax_ids_stmt.where(
+            Contractor.tax_id.ilike(pattern) | Contractor.canonical_name.ilike(pattern)
+        )
+    total = (
+        await session.execute(select(func.count()).select_from(tax_ids_stmt.subquery()))
+    ).scalar_one()
+
+    offset = 0
+    if cursor is not None:
+        offset_value, _ = decode_cursor(cursor)
+        offset = int(offset_value or 0)
+    tax_rows = (await session.execute(tax_ids_stmt.offset(offset).limit(page_size + 1))).all()
+    next_cursor = None
+    if len(tax_rows) > page_size:
+        tax_rows = tax_rows[:page_size]
+        next_cursor = encode_cursor([offset + page_size, 0])
+
+    groups: list[dict[str, Any]] = []
+    for tax_id, _members in tax_rows:
+        member_stmt = (
+            _ranking_base()
+            .where(Contractor.tax_id == tax_id)
+            .order_by(_total_amount.desc(), Contractor.id.asc())
+        )
+        members = [row_to_ranking(r) for r in (await session.execute(member_stmt)).all()]
+        groups.append({"tax_id": tax_id, "contractors": members})
+    return groups, total, next_cursor
+
+
 async def ranking_by_id(session: AsyncSession, contractor_id: int) -> dict[str, Any] | None:
     row = (await session.execute(_ranking_base().where(Contractor.id == contractor_id))).first()
     return row_to_ranking(row) if row else None

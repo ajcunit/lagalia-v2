@@ -580,6 +580,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contractors/duplicates/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Grups de duplicats per NIF (un grup = un cas de revisió) */
+        get: operations["listContractorDuplicateGroups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contractors/duplicates/groups/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resol un grup sencer (fusió en bloc al canònic triat, o rebuig) */
+        post: operations["resolveContractorDuplicateGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contractors/duplicates/{id}/actions/resolve": {
         parameters: {
             query?: never;
@@ -898,6 +932,10 @@ export interface components {
             resolved_at?: string | null;
             /** Format: date-time */
             created_at?: string;
+        };
+        ContractorDuplicateGroup: {
+            tax_id: string;
+            contractors: components["schemas"]["ContractorRanking"][];
         };
         ContractorRef: {
             /** Format: int64 */
@@ -2366,6 +2404,77 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listContractorDuplicateGroups: {
+        parameters: {
+            query?: {
+                /** @description Elements per pàgina. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                /** @description Filtra per NIF o nom de qualsevol variant del grup. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grups pendents, ordenats per mida */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractorDuplicateGroup"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    resolveContractorDuplicateGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tax_id: string;
+                    /** @enum {string} */
+                    action: "merge" | "reject";
+                    /**
+                     * Format: int64
+                     * @description Obligatori amb action=merge; membre del grup.
+                     */
+                    canonical_id?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Resum de la resolució */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        merged: number;
+                        rejected: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
         };
     };
     resolveContractorDuplicate: {
