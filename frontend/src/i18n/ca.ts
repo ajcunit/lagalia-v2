@@ -301,6 +301,8 @@ export const ca = {
   "config.settings": "Paràmetres",
   "config.health": "Salut",
   "config.checkHealth": "Comprova la connexió",
+  "config.sendTestEmail": "Envia'm un correu de prova",
+  "config.sendingTestEmail": "Enviant…",
   "config.saveConfig": "Desa la configuració",
   "config.credentials": "Credencials (només escriptura)",
   "config.credentialSet": "configurada",

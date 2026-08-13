@@ -231,3 +231,28 @@ async def check_connector_health(
     record.last_health_check = datetime.now(UTC)
     await session.commit()
     return {"status": status, "detail": detail}
+
+
+@router.post("/connectors/smtp/actions/send-test-email", operation_id="sendSmtpTestEmail")
+async def send_smtp_test_email(
+    session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Envia un correu de prova a l'admin autenticat. Diagnòstic explícit
+    d'admin, com el healthcheck: síncron i mai tomba l'API."""
+    to = authz_ctx.user.email
+    try:
+        connector = await hub.get_connector(session, "smtp")
+        await connector.send_mail(
+            [to],
+            "Prova de correu de LAGALia",
+            "Això és un correu de prova enviat des de la pantalla de configuració "
+            "de LAGALia. Si el llegeixes, el connector SMTP funciona.",
+        )
+        status, detail = "sent", f"correu enviat a {to}"
+    except Problem:
+        status, detail = "failed", "el connector smtp està desactivat"
+    except Exception as exc:  # mai ha de tombar l'API
+        status, detail = "failed", f"{type(exc).__name__}: {exc}"
+    await _audit(session, authz_ctx.user.id, "config.smtp_test_email", status, ctx)
+    await session.commit()
+    return {"status": status, "detail": detail}

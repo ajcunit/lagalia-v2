@@ -87,6 +87,16 @@ function ConnectorCard(props: { connector: Connector; canWrite: boolean }) {
       invalidate();
     },
   });
+  const testEmail = useMutation({
+    mutationFn: async () => {
+      const { data, error: err } = await api.POST("/connectors/smtp/actions/send-test-email", {});
+      if (err !== undefined) throw err;
+      return data;
+    },
+    onSuccess: (result) => {
+      setHealth(result.detail ? `${result.status}: ${result.detail}` : result.status);
+    },
+  });
 
   function saveConfig() {
     setError(null);
@@ -133,6 +143,11 @@ function ConnectorCard(props: { connector: Connector; canWrite: boolean }) {
             <Button disabled={check.isPending} onClick={() => check.mutate()}>
               {t("config.checkHealth")}
             </Button>
+            {c.slug === "smtp" && (
+              <Button disabled={testEmail.isPending} onClick={() => testEmail.mutate()}>
+                {testEmail.isPending ? t("config.sendingTestEmail") : t("config.sendTestEmail")}
+              </Button>
+            )}
           </span>
         )}
       </div>

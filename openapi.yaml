@@ -1041,6 +1041,26 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /connectors/smtp/actions/send-test-email:
+    post:
+      tags: [config]
+      operationId: sendSmtpTestEmail
+      summary: Envia un correu de prova a l'admin autenticat
+      x-required-scopes: [config:write]
+      responses:
+        "200":
+          description: Resultat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [sent, failed] }
+                  detail: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   # ───────────────────────── service-accounts ─────────────────────────
   /service-accounts:
     get:

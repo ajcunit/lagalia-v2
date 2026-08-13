@@ -1,5 +1,12 @@
 # Configuracio: parametres i connectors, amb pantalla (Estat: implementada)
 
+> Ampliacio 2026-08-13: `POST /connectors/smtp/actions/send-test-email` (config:write)
+> envia un correu de prova a l'admin autenticat i retorna `sent|failed` amb detall;
+> mai tomba l'API i s'audita (`config.smtp_test_email`). Boto «Envia'm un correu de
+> prova» a la targeta smtp. Diagnostic sincron explicit d'admin, com el healthcheck
+> (excepcio deliberada a la regla de cua per a crides externes: el resultat immediat
+> es el valor del boto).
+
 ## Context i objectiu
 
 Fins ara els connectors (socrata, pscp, smtp) i els parametres nomes es podien tocar per BD. API + pantalla de configuracio (02 §2.13; 08 §1).

@@ -104,6 +104,21 @@ async def test_connectors_config_api(api_client, make_user) -> None:  # type: ig
     assert updated.json()["credentials"] == {"username": True, "password": True}
     assert '"u"' not in updated.text and '"p"' not in updated.text
 
+    # Correu de prova: mai tomba l'API (connector desactivat/sense host →
+    # failed estructurat); employee → 403.
+    test_mail = api_client.post(
+        "/api/v1/connectors/smtp/actions/send-test-email", headers=admin
+    )
+    assert test_mail.status_code == 200, test_mail.text
+    assert test_mail.json()["status"] == "failed"
+    assert (
+        api_client.post(
+            "/api/v1/connectors/smtp/actions/send-test-email",
+            headers=login_headers(api_client, employee.email),
+        ).status_code
+        == 403
+    )
+
     # Paràmetres: secret emmascarat.
     put = api_client.put(
         "/api/v1/settings/test.config_api_secret",
