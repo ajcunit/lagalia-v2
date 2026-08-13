@@ -37,6 +37,7 @@ export const NAV_ZONES: NavZone[] = [
       { to: "/admin/departments", labelKey: "nav.departments", action: "departments:write" },
       { to: "/admin/webhooks", labelKey: "nav.webhooks", action: "webhooks:manage" },
       { to: "/admin/service-accounts", labelKey: "nav.serviceAccounts", action: "service_accounts:manage" },
+      { to: "/admin/sync", labelKey: "nav.sync", action: "sync:read" },
       { to: "/admin/config", labelKey: "nav.config", action: "config:write" },
       { to: "/admin/audit-log", labelKey: "nav.securityAudit", action: "audit_log:read" },
     ],

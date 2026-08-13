@@ -64,6 +64,8 @@ tags:
     description: Paràmetres i connectors (secrets sempre write-only)
   - name: audit
     description: Auditoria de seguretat (append-only, cadena de hash)
+  - name: sync
+    description: Sincronitzacions amb fonts externes (historial i llançament)
 
 security:
   - bearerAuth: []
@@ -1143,6 +1145,119 @@ paths:
                   detail: { type: string }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ───────────────────────── sync ─────────────────────────
+  /sync-runs:
+    get:
+      tags: [sync]
+      operationId: listSyncRuns
+      summary: Historial de sincronitzacions (keyset per id desc)
+      x-required-scopes: [sync:read]
+      parameters:
+        - name: page[size]
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: page[cursor]
+          in: query
+          schema: { type: string }
+        - name: filter[kind]
+          in: query
+          schema: { type: string, enum: [contracts, minor, cpv, extensions, enrichment] }
+        - name: filter[status]
+          in: query
+          schema: { type: string, enum: [running, success, failed, partial] }
+      responses:
+        "200":
+          description: Runs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/SyncRun" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /sync-runs/{id}/items:
+    get:
+      tags: [sync]
+      operationId: listSyncRunItems
+      summary: Detall per registre problemàtic d'un run
+      x-required-scopes: [sync:read]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: page[size]
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: page[cursor]
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Item logs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/SyncItem" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /sync-runs/actions/trigger:
+    post:
+      tags: [sync]
+      operationId: triggerSync
+      summary: Llança una sincronització (encua el job; el progrés es consulta a /jobs/{id})
+      x-required-scopes: [sync:execute]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind:
+                  type: string
+                  enum: [contracts, minor, cpv, extensions, enrichment]
+                full:
+                  type: boolean
+                  default: false
+                  description: Sync completa (ignora l'incremental); a enrichment, re-enriquir també els ja enriquits.
+                limit:
+                  type: [integer, "null"]
+                  minimum: 1
+                  maximum: 10000
+                  description: Només enrichment; limita el nombre d'expedients.
+      responses:
+        "202":
+          description: Job encuat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id, job_type]
+                properties:
+                  job_id: { type: string, format: uuid }
+                  job_type: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   # ───────────────────────── service-accounts ─────────────────────────
   /service-accounts:
@@ -2486,6 +2601,33 @@ components:
           description: "nom de credencial → is_set (mai el valor)."
         health_status: { type: [string, "null"] }
         last_health_check: { type: [string, "null"], format: date-time }
+
+    SyncRun:
+      type: object
+      required: [id, kind, trigger, status, new_count, updated_count, unchanged_count]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string, enum: [contracts, minor, cpv, extensions, enrichment] }
+        trigger: { type: string, enum: [manual, scheduled, api] }
+        status: { type: string, enum: [running, success, failed, partial] }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        new_count: { type: integer }
+        updated_count: { type: integer }
+        unchanged_count: { type: integer }
+        total_source: { type: [integer, "null"] }
+        endpoint: { type: [string, "null"] }
+        error_summary: { type: [object, "null"], additionalProperties: true }
+
+    SyncItem:
+      type: object
+      required: [id, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        file_code: { type: [string, "null"] }
+        outcome: { type: [string, "null"] }
+        message: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
 
     AuditEntry:
       type: object

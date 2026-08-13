@@ -695,6 +695,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sync-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historial de sincronitzacions (keyset per id desc) */
+        get: operations["listSyncRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync-runs/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detall per registre problemàtic d'un run */
+        get: operations["listSyncRunItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync-runs/actions/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Llança una sincronització (encua el job; el progrés es consulta a /jobs/{id}) */
+        post: operations["triggerSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/service-accounts": {
         parameters: {
             query?: never;
@@ -1418,6 +1469,37 @@ export interface components {
             health_status?: string | null;
             /** Format: date-time */
             last_health_check?: string | null;
+        };
+        SyncRun: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment";
+            /** @enum {string} */
+            trigger: "manual" | "scheduled" | "api";
+            /** @enum {string} */
+            status: "running" | "success" | "failed" | "partial";
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            new_count: number;
+            updated_count: number;
+            unchanged_count: number;
+            total_source?: number | null;
+            endpoint?: string | null;
+            error_summary?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        SyncItem: {
+            /** Format: int64 */
+            id: number;
+            file_code?: string | null;
+            outcome?: string | null;
+            message?: string | null;
+            /** Format: date-time */
+            created_at: string;
         };
         AuditEntry: {
             /** Format: int64 */
@@ -3282,6 +3364,110 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listSyncRuns: {
+        parameters: {
+            query?: {
+                "page[size]"?: number;
+                "page[cursor]"?: string;
+                "filter[kind]"?: "contracts" | "minor" | "cpv" | "extensions" | "enrichment";
+                "filter[status]"?: "running" | "success" | "failed" | "partial";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SyncRun"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listSyncRunItems: {
+        parameters: {
+            query?: {
+                "page[size]"?: number;
+                "page[cursor]"?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Item logs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["SyncItem"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    triggerSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment";
+                    /**
+                     * @description Sync completa (ignora l'incremental); a enrichment, re-enriquir també els ja enriquits.
+                     * @default false
+                     */
+                    full?: boolean;
+                    /** @description Només enrichment; limita el nombre d'expedients. */
+                    limit?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Job encuat */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        job_id: string;
+                        job_type: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
         };
     };
     listServiceAccounts: {

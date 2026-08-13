@@ -18,6 +18,7 @@ from app.modules.departments.router import router as departments_router
 from app.modules.minor_contracts.router import router as minor_contracts_router
 from app.modules.service_accounts.router import router as service_accounts_router
 from app.modules.setup.router import router as setup_router
+from app.modules.sync.router import router as sync_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
 from app.modules.webhooks.router import router as webhooks_router
@@ -77,4 +78,5 @@ api.include_router(webhooks_router)
 api.include_router(service_accounts_router)
 api.include_router(config_router)
 api.include_router(audit_router)
+api.include_router(sync_router)
 app.include_router(api)

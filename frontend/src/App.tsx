@@ -23,6 +23,7 @@ import { Login } from "./routes/Login";
 import { NotFound } from "./routes/NotFound";
 import { Setup } from "./routes/Setup";
 import { AuditLogAdmin } from "./features/audit/AuditLogAdmin";
+import { SyncAdmin } from "./features/sync/SyncAdmin";
 import { UnderConstruction } from "./routes/UnderConstruction";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ export function App() {
               <Route path="/admin/service-accounts" element={<ServiceAccountsAdmin />} />
               <Route path="/admin/config" element={<ConfigAdmin />} />
               <Route path="/admin/audit-log" element={<AuditLogAdmin />} />
+              <Route path="/admin/sync" element={<SyncAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
