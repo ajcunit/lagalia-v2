@@ -14,6 +14,7 @@ import { ContractDetail } from "./features/contracts/ContractDetail";
 import { ContractsList } from "./features/contracts/ContractsList";
 import { MinorDetail } from "./features/minors/MinorDetail";
 import { MinorsList } from "./features/minors/MinorsList";
+import { TasksPage } from "./features/tasks/TasksPage";
 import { Dashboard } from "./routes/Dashboard";
 import { Login } from "./routes/Login";
 import { NotFound } from "./routes/NotFound";
@@ -48,6 +49,7 @@ export function App() {
               <Route path="/contracts/:id" element={<ContractDetail />} />
               <Route path="/minor-contracts" element={<MinorsList />} />
               <Route path="/minor-contracts/:id" element={<MinorDetail />} />
+              <Route path="/tasks" element={<TasksPage />} />
               <Route path="/contractors" element={<ContractorsList />} />
               <Route path="/contractors/duplicates" element={<ContractorDuplicates />} />
               <Route path="/contractors/:id" element={<ContractorDetail />} />

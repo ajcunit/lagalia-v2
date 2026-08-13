@@ -13,6 +13,7 @@ import {
   formatDateTime,
   formatDuration,
 } from "../../lib/format";
+import { ContractTasks } from "../tasks/ContractTasks";
 import {
   useContract,
   useContractCommittee,
@@ -383,6 +384,10 @@ export function ContractDetail() {
           </SectionCard>
         </div>
       )}
+
+      <div className="mt-4">
+        <ContractTasks contractId={id} />
+      </div>
 
       {(documents.data?.data.length ?? 0) > 0 && (
         <div className="mt-4">
