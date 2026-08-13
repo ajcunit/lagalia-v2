@@ -54,6 +54,8 @@ tags:
     description: Contractes menors (amb liquidacions)
   - name: contractors
     description: Adjudicataris normalitzats (rànquing, fitxa, duplicats)
+  - name: tasks
+    description: Tasques i recordatoris de contracte (mòdul nou v2)
 
 security:
   - bearerAuth: []
@@ -882,6 +884,282 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }
 
   # ─────────────────────────── contractors ───────────────────────────
+  # ───────────────────────── tasks ─────────────────────────
+  /tasks:
+    get:
+      tags: [tasks]
+      operationId: listTasks
+      summary: Llista de tasques (abast per rol)
+      x-required-scopes: [tasks:read]
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageCursor"
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, in_progress, done, cancelled] }
+        - name: due_before
+          in: query
+          schema: { type: string, format: date }
+        - name: due_after
+          in: query
+          schema: { type: string, format: date }
+        - name: contract_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: minor_contract_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: assignee_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: department_id
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Pàgina de tasques (ordenades per venciment)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Task" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [tasks]
+      operationId: createTask
+      summary: Crea una tasca (associada a un contracte o menor dins d'abast)
+      x-required-scopes: [tasks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskCreate" }
+      responses:
+        "201":
+          description: Tasca creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /tasks/calendar:
+    get:
+      tags: [tasks]
+      operationId: getTasksCalendar
+      summary: Tasques d'un rang de dates (vista calendari)
+      x-required-scopes: [tasks:read]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: department_id
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Tasques del rang
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /tasks/suggestions:
+    get:
+      tags: [tasks]
+      operationId: getTaskSuggestions
+      summary: Tasques proposades per les alertes (acceptar = POST /tasks)
+      x-required-scopes: [tasks:read]
+      responses:
+        "200":
+          description: Suggeriments dins l'abast, sense duplicar tasques obertes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/TaskSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /tasks/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [tasks]
+      operationId: getTask
+      summary: Detall d'una tasca
+      x-required-scopes: [tasks:read]
+      responses:
+        "200":
+          description: Tasca
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [tasks]
+      operationId: updateTask
+      summary: Edita una tasca (historial per canvi)
+      x-required-scopes: [tasks:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskUpdate" }
+      responses:
+        "200":
+          description: Tasca actualitzada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [tasks]
+      operationId: deleteTask
+      summary: Esborra una tasca
+      x-required-scopes: [tasks:write]
+      responses:
+        "204": { description: Esborrada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /tasks/{id}/actions/complete:
+    post:
+      tags: [tasks]
+      operationId: completeTask
+      summary: Completa la tasca (si té RRULE, genera la següent ocurrència)
+      x-required-scopes: [tasks:update_status]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskCompleteRequest" }
+      responses:
+        "200":
+          description: Tasca completada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /tasks/{id}/actions/cancel:
+    post:
+      tags: [tasks]
+      operationId: cancelTask
+      summary: Cancel·la la tasca
+      x-required-scopes: [tasks:update_status]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskCompleteRequest" }
+      responses:
+        "200":
+          description: Tasca cancel·lada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /tasks/{id}/actions/reopen:
+    post:
+      tags: [tasks]
+      operationId: reopenTask
+      summary: Reobre una tasca feta o cancel·lada
+      x-required-scopes: [tasks:update_status]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Tasca reoberta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /tasks/{id}/actions/start:
+    post:
+      tags: [tasks]
+      operationId: startTask
+      summary: Passa la tasca a en curs
+      x-required-scopes: [tasks:update_status]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Tasca en curs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /tasks/{id}/history:
+    get:
+      tags: [tasks]
+      operationId: getTaskHistory
+      summary: Historial de canvis de la tasca
+      x-required-scopes: [tasks:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Canvis, el més recent primer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/TaskHistoryEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ───────────────────────── contractors ─────────────────────────
   /contractors:
     get:
       tags: [contractors]
@@ -1613,6 +1891,145 @@ components:
         resolved_by: { type: [integer, "null"], format: int64 }
         resolved_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
+
+    TaskReminderSpec:
+      type: object
+      required: [offset_days]
+      properties:
+        offset_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+          description: Dies abans del venciment (0 = el dia mateix).
+        channel:
+          type: string
+          enum: [email, webhook]
+          default: email
+
+    TaskReminder:
+      allOf:
+        - $ref: "#/components/schemas/TaskReminderSpec"
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+            sent_at: { type: [string, "null"], format: date-time }
+
+    Task:
+      type: object
+      required: [id, title, task_type, due_date, priority, status, assignees, reminders]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        description: { type: [string, "null"] }
+        task_type:
+          type: string
+          enum: [review, extension, settlement, guarantee_return, report, meeting, other]
+        due_date: { type: string, format: date }
+        due_time: { type: [string, "null"] }
+        priority: { type: string, enum: [low, normal, high] }
+        status: { type: string, enum: [pending, in_progress, done, cancelled] }
+        contract_id: { type: [integer, "null"], format: int64 }
+        minor_contract_id: { type: [integer, "null"], format: int64 }
+        department_id: { type: [integer, "null"], format: int64 }
+        recurrence:
+          type: [string, "null"]
+          description: RRULE (RFC 5545); en completar-se es genera la següent ocurrència.
+        parent_task_id: { type: [integer, "null"], format: int64 }
+        created_by: { type: [integer, "null"], format: int64 }
+        completed_by: { type: [integer, "null"], format: int64 }
+        completed_at: { type: [string, "null"], format: date-time }
+        resolution_notes: { type: [string, "null"] }
+        assignees:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: integer, format: int64 }
+              name: { type: string }
+        reminders:
+          type: array
+          items: { $ref: "#/components/schemas/TaskReminder" }
+        created_at: { type: string, format: date-time }
+
+    TaskCreate:
+      type: object
+      required: [title, due_date]
+      properties:
+        title: { type: string, minLength: 2, maxLength: 255 }
+        description: { type: string }
+        task_type:
+          type: string
+          enum: [review, extension, settlement, guarantee_return, report, meeting, other]
+          default: other
+        due_date: { type: string, format: date }
+        due_time: { type: [string, "null"] }
+        priority: { type: string, enum: [low, normal, high], default: normal }
+        contract_id: { type: [integer, "null"], format: int64 }
+        minor_contract_id:
+          type: [integer, "null"]
+          format: int64
+          description: Cal contracte O menor (com a mínim un).
+        department_id: { type: [integer, "null"], format: int64 }
+        recurrence: { type: [string, "null"], maxLength: 255 }
+        assignee_ids:
+          type: array
+          items: { type: integer, format: int64 }
+          maxItems: 20
+        reminders:
+          type: array
+          items: { $ref: "#/components/schemas/TaskReminderSpec" }
+          maxItems: 10
+
+    TaskUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 2, maxLength: 255 }
+        description: { type: [string, "null"] }
+        task_type:
+          type: string
+          enum: [review, extension, settlement, guarantee_return, report, meeting, other]
+        due_date: { type: string, format: date }
+        due_time: { type: [string, "null"] }
+        priority: { type: string, enum: [low, normal, high] }
+        department_id: { type: [integer, "null"], format: int64 }
+        recurrence: { type: [string, "null"], maxLength: 255 }
+        assignee_ids:
+          type: array
+          items: { type: integer, format: int64 }
+          maxItems: 20
+        reminders:
+          type: array
+          items: { $ref: "#/components/schemas/TaskReminderSpec" }
+          maxItems: 10
+
+    TaskCompleteRequest:
+      type: object
+      properties:
+        resolution_notes: { type: [string, "null"], maxLength: 2000 }
+
+    TaskHistoryEntry:
+      type: object
+      required: [id, field, changed_at]
+      properties:
+        id: { type: integer, format: int64 }
+        field: { type: string }
+        old_value: { type: [string, "null"] }
+        new_value: { type: [string, "null"] }
+        user_id: { type: [integer, "null"], format: int64 }
+        changed_at: { type: string, format: date-time }
+
+    TaskSuggestion:
+      type: object
+      required: [contract_id, file_code, task_type, title]
+      properties:
+        contract_id: { type: integer, format: int64 }
+        file_code: { type: string }
+        subject: { type: [string, "null"] }
+        task_type: { type: string, enum: [extension, settlement] }
+        title: { type: string }
+        due_date: { type: [string, "null"], format: date }
 
     ContractorDuplicateGroup:
       type: object

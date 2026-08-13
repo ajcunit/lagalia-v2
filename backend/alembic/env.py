@@ -17,6 +17,7 @@ from app.modules.contractors import models as contractors_models  # noqa: F401
 from app.modules.contracts import models as contracts_models  # noqa: F401
 from app.modules.departments import models as departments_models  # noqa: F401
 from app.modules.minor_contracts import models as minor_contracts_models  # noqa: F401
+from app.modules.tasks import models as tasks_models  # noqa: F401
 from app.modules.users import models as users_models  # noqa: F401
 
 config = context.config
