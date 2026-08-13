@@ -14,6 +14,7 @@ from app.modules.contractors.router import router as contractors_router
 from app.modules.contracts.router import router as contracts_router
 from app.modules.departments.router import router as departments_router
 from app.modules.minor_contracts.router import router as minor_contracts_router
+from app.modules.service_accounts.router import router as service_accounts_router
 from app.modules.setup.router import router as setup_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
@@ -71,4 +72,5 @@ api.include_router(minor_contracts_router)
 api.include_router(contractors_router)
 api.include_router(tasks_router)
 api.include_router(webhooks_router)
+api.include_router(service_accounts_router)
 app.include_router(api)
