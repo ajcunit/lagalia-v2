@@ -14,6 +14,7 @@ UI del mòdul de tasques ([tasks-core.md](tasks-core.md); [02](../docs/02-especi
 - **Dashboard**: widget «Properes tasques» (5 més pròximes, obertes) amb enllaç a /tasks.
 - **Suggeriments col·lapsats**: es mostren els 5 més urgents amb «Mostra'ls tots»; només a la vista llista (el calendari queda net).
 - **Feed iCal** (`GET /me/tasks.ics?key=…`): subscripció des d'Outlook amb **clau opaca revocable** per usuari (`POST /me/ical-key` genera o regenera — regenerar revoca l'anterior; `DELETE` la revoca). El feed conté les tasques obertes de l'usuari (assignades o creades per ell). Mai el JWT per query string. Botó «Subscripció iCal» a /tasks que copia l'enllaç.
+  - **Nota de desplegament**: l'Outlook web (i el «nou Outlook») baixen el feed des del núvol de Microsoft — cal que l'app sigui accessible per HTTPS des d'Internet (staging/producció); amb localhost només funcionen els clients d'escriptori (Outlook clàssic, Thunderbird). El reverse proxy ha de servir `/api/v1/me/tasks.ics` sense exigir sessió (la clau revocable és l'autorització).
 
 ## Fora d'abast
 
