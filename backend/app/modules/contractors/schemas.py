@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.pagination import PageMeta
 
@@ -46,6 +46,27 @@ class DuplicateResolveRequest(BaseModel):
 class PagedRankingResponse(BaseModel):
     data: list[ContractorRanking]
     meta: PageMeta
+
+
+class ContractorDuplicateGroup(BaseModel):
+    tax_id: str
+    contractors: list[ContractorRanking]
+
+
+class PagedDuplicateGroupsResponse(BaseModel):
+    data: list[ContractorDuplicateGroup]
+    meta: PageMeta
+
+
+class GroupResolveRequest(BaseModel):
+    tax_id: str = Field(min_length=1, max_length=100)
+    action: Literal["merge", "reject"]
+    canonical_id: int | None = None
+
+
+class GroupResolveResult(BaseModel):
+    merged: int
+    rejected: int
 
 
 class PagedDuplicatesResponse(BaseModel):

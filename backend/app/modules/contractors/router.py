@@ -19,9 +19,13 @@ from app.modules.audit.service import record_audit
 from app.modules.contractors import repository, service
 from app.modules.contractors.models import ContractorDuplicate, ContractorDuplicateStatus
 from app.modules.contractors.schemas import (
+    ContractorDuplicateGroup,
     ContractorDuplicateResponse,
     ContractorProfile,
     DuplicateResolveRequest,
+    GroupResolveRequest,
+    GroupResolveResult,
+    PagedDuplicateGroupsResponse,
     PagedDuplicatesResponse,
     PagedRankingResponse,
     ranking_from_dict,
@@ -95,6 +99,55 @@ async def list_contractor_duplicates(
     )
     data = [await _duplicate_response(session, d) for d in duplicates]
     return PagedDuplicatesResponse(data=data, meta=PageMeta(total=total, next_cursor=next_cursor))
+
+
+@router.get("/contractors/duplicates/groups", operation_id="listContractorDuplicateGroups")
+async def list_contractor_duplicate_groups(
+    session: SessionDep,
+    _authz: ManageDep,
+    page_size: Annotated[int, Query(alias="page[size]", ge=1, le=100)] = 25,
+    page_cursor: Annotated[str | None, Query(alias="page[cursor]")] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+) -> PagedDuplicateGroupsResponse:
+    groups, total, next_cursor = await repository.duplicate_groups(
+        session, page_size=page_size, cursor=page_cursor, q=q
+    )
+    return PagedDuplicateGroupsResponse(
+        data=[ContractorDuplicateGroup.model_validate(g) for g in groups],
+        meta=PageMeta(total=total, next_cursor=next_cursor),
+    )
+
+
+@router.post(
+    "/contractors/duplicates/groups/resolve", operation_id="resolveContractorDuplicateGroup"
+)
+async def resolve_contractor_duplicate_group(
+    body: GroupResolveRequest,
+    session: SessionDep,
+    authz_ctx: ManageDep,
+    ctx: ContextDep,
+) -> GroupResolveResult:
+    try:
+        result = await service.resolve_duplicate_group(
+            session, tax_id=body.tax_id, action=body.action, canonical_id=body.canonical_id
+        )
+    except ValueError as exc:
+        raise Problem(422, str(exc), "validation") from None
+    await record_audit(
+        session,
+        actor_type=AuditActorType.USER,
+        action="contractors.merge_group" if body.action == "merge" else "contractors.reject_group",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type="contractor_group",
+        resource_id=body.tax_id,
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+        details={"canonical_id": body.canonical_id, **result},
+    )
+    await session.commit()
+    return GroupResolveResult(**result)
 
 
 @router.post(
