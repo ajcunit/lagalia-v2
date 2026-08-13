@@ -56,6 +56,8 @@ tags:
     description: Adjudicataris normalitzats (rànquing, fitxa, duplicats)
   - name: tasks
     description: Tasques i recordatoris de contracte (mòdul nou v2)
+  - name: webhooks
+    description: Webhooks sortints signats (outbox transaccional)
 
 security:
   - bearerAuth: []
@@ -884,6 +886,155 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }
 
   # ─────────────────────────── contractors ───────────────────────────
+  # ───────────────────────── webhooks ─────────────────────────
+  /webhooks:
+    get:
+      tags: [webhooks]
+      operationId: listWebhooks
+      summary: Llista de webhooks sortints
+      x-required-scopes: [webhooks:manage]
+      responses:
+        "200":
+          description: Webhooks (el secret mai apareix; is_set)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Webhook" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [webhooks]
+      operationId: createWebhook
+      summary: Crea un webhook (el secret NOMÉS es mostra en aquesta resposta)
+      x-required-scopes: [webhooks:manage]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, url, events]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 255 }
+                url:
+                  type: string
+                  maxLength: 1000
+                  description: https obligatori (http només en desenvolupament).
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items: { type: string }
+                  description: Tipus d'esdeveniment (05-api §4) o "*".
+      responses:
+        "201":
+          description: Webhook creat, amb el secret en clar (única vegada)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Webhook"
+                  - type: object
+                    required: [secret]
+                    properties:
+                      secret: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /webhooks/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    patch:
+      tags: [webhooks]
+      operationId: updateWebhook
+      summary: Edita un webhook (nom, url, events, actiu)
+      x-required-scopes: [webhooks:manage]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 2, maxLength: 255 }
+                url: { type: string, maxLength: 1000 }
+                events:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items: { type: string }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Webhook actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Webhook" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [webhooks]
+      operationId: deleteWebhook
+      summary: Esborra un webhook
+      x-required-scopes: [webhooks:manage]
+      responses:
+        "204": { description: Esborrat }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /webhooks/{id}/deliveries:
+    get:
+      tags: [webhooks]
+      operationId: listWebhookDeliveries
+      summary: Històric d'enviaments del webhook
+      x-required-scopes: [webhooks:manage]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Deliveries, la més recent primer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/WebhookDelivery" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /webhooks/{id}/actions/test:
+    post:
+      tags: [webhooks]
+      operationId: testWebhook
+      summary: Encua un esdeveniment de prova cap a aquest webhook
+      x-required-scopes: [webhooks:manage]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "202":
+          description: Prova encuada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [queued] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ───────────────────────── tasks ─────────────────────────
   /tasks:
     get:
@@ -1939,6 +2090,32 @@ components:
         contractor_2: { $ref: "#/components/schemas/ContractorRanking" }
         resolved_by: { type: [integer, "null"], format: int64 }
         resolved_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+
+    Webhook:
+      type: object
+      required: [id, name, url, events, active, secret_is_set]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        url: { type: string }
+        events:
+          type: array
+          items: { type: string }
+        active: { type: boolean }
+        secret_is_set: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    WebhookDelivery:
+      type: object
+      required: [id, event_type, status, attempts]
+      properties:
+        id: { type: integer, format: int64 }
+        event_type: { type: string }
+        status: { type: string, enum: [pending, delivered, failed] }
+        attempts: { type: integer }
+        last_error: { type: [string, "null"] }
+        next_retry_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
 
     TaskReminderSpec:

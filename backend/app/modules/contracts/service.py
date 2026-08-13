@@ -34,6 +34,7 @@ from app.modules.contracts.schemas import (
 from app.modules.departments.repository import get_many as get_departments
 from app.modules.users.models import User
 from app.modules.users.service import RequestContext
+from app.modules.webhooks.service import emit_event, enqueue_dispatch
 
 _WARNING_ONLY_FIELDS = {"warning_months_override"}
 
@@ -210,6 +211,13 @@ async def finish_contract(
     contract.expiry_warning = False
     contract.possibly_finished = False
     await session.flush()
+    await emit_event(
+        session,
+        event_type="contract.finished",
+        aggregate="contract",
+        aggregate_id=contract.id,
+        data={"file_code": contract.file_code, "finished_by": user.id},
+    )
     await record_audit(
         session,
         actor_type=AuditActorType.USER,
@@ -223,6 +231,7 @@ async def finish_contract(
         trace_id=ctx.trace_id,
     )
     await session.commit()
+    await enqueue_dispatch(session)
     return contract
 
 

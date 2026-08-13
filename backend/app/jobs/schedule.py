@@ -16,4 +16,10 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=300,
         dedup_key="system.heartbeat",
     ),
+    # Reintents de deliveries pendents (l'emissió ja encua un dispatch).
+    ScheduledJob(
+        job_type="webhooks.dispatch",
+        interval_seconds=300,
+        dedup_key="webhooks.dispatch",
+    ),
 ]

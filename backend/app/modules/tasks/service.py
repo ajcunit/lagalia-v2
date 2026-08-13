@@ -403,8 +403,28 @@ async def change_status(
         session.add(follow_up)
 
     await session.flush()
+    if action == "complete":
+        from app.modules.webhooks.service import emit_event
+
+        await emit_event(
+            session,
+            event_type="task.completed",
+            aggregate="task",
+            aggregate_id=task.id,
+            data={
+                "title": task.title,
+                "task_type": task.task_type.value,
+                "contract_id": task.contract_id,
+                "minor_contract_id": task.minor_contract_id,
+                "completed_by": user.id,
+            },
+        )
     await _audit(session, user, f"tasks.{action}", task.id, ctx)
     await session.commit()
+    if action == "complete":
+        from app.modules.webhooks.service import enqueue_dispatch
+
+        await enqueue_dispatch(session)
     return await get_visible_task(session, task_id, user)
 
 

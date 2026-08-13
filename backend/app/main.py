@@ -17,6 +17,7 @@ from app.modules.minor_contracts.router import router as minor_contracts_router
 from app.modules.setup.router import router as setup_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
+from app.modules.webhooks.router import router as webhooks_router
 
 configure_logging(settings.log_level, settings.log_format)
 logger = structlog.get_logger()
@@ -69,4 +70,5 @@ api.include_router(contracts_router)
 api.include_router(minor_contracts_router)
 api.include_router(contractors_router)
 api.include_router(tasks_router)
+api.include_router(webhooks_router)
 app.include_router(api)

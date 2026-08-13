@@ -55,6 +55,7 @@ TRUTH_TABLE: dict[str, tuple[Cell, Cell, Cell, Cell]] = {
     # Configuració
     "config:read": (_A, _A, _A, _A),
     "config:write": (_A, None, None, None),
+    "webhooks:manage": (_A, None, None, None),
     # Pla anual
     "plan:read": (_A, _A, _D, (Access.DEPT, "can_plan")),
     "plan:write": (_A, _A, (Access.DEPT, "can_plan"), (Access.DEPT, "can_plan")),

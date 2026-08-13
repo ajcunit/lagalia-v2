@@ -119,6 +119,8 @@ PERMISSION_MATRIX: dict[str, dict[UserRole, Grant]] = {
         UserRole.EMPLOYEE: _ALL,
     },
     "config:write": {UserRole.ADMIN: _ALL},
+    # Webhooks sortints: mateixa fila d'A2 que «escriure configuració».
+    "webhooks:manage": {UserRole.ADMIN: _ALL},
     # Pla anual
     "plan:read": {
         UserRole.ADMIN: _ALL,

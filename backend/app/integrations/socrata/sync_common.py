@@ -96,7 +96,20 @@ async def finish_run(
         run.total_source = total_source
         run.endpoint = endpoint
         run.error_summary = error_summary
+
+        from app.modules.webhooks.service import emit_event
+
+        await emit_event(
+            session,
+            event_type="sync.completed",
+            aggregate="sync_run",
+            aggregate_id=run_id,
+            data={"kind": run.kind.value, "status": status.value, **counters},
+        )
         await session.commit()
+        from app.modules.webhooks.service import enqueue_dispatch
+
+        await enqueue_dispatch(session)
 
 
 async def fail_run(run_id: int, exc: Exception) -> None:
@@ -106,7 +119,20 @@ async def fail_run(run_id: int, exc: Exception) -> None:
             run.status = SyncStatus.FAILED
             run.finished_at = datetime.now(UTC)
             run.error_summary = {"error": f"{type(exc).__name__}: {exc}"}
+
+            from app.modules.webhooks.service import emit_event
+
+            await emit_event(
+                session,
+                event_type="sync.failed",
+                aggregate="sync_run",
+                aggregate_id=run_id,
+                data={"kind": run.kind.value, "error": f"{type(exc).__name__}: {exc}"},
+            )
             await session.commit()
+            from app.modules.webhooks.service import enqueue_dispatch
+
+            await enqueue_dispatch(session)
 
 
 async def log_item(run_id: int, file_code: str, outcome: str, message: str) -> None:
