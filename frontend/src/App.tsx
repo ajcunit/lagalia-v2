@@ -22,6 +22,7 @@ import { Dashboard } from "./routes/Dashboard";
 import { Login } from "./routes/Login";
 import { NotFound } from "./routes/NotFound";
 import { Setup } from "./routes/Setup";
+import { AuditLogAdmin } from "./features/audit/AuditLogAdmin";
 import { UnderConstruction } from "./routes/UnderConstruction";
 
 const queryClient = new QueryClient();
@@ -62,7 +63,7 @@ export function App() {
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />
               <Route path="/admin/service-accounts" element={<ServiceAccountsAdmin />} />
               <Route path="/admin/config" element={<ConfigAdmin />} />
-              <Route path="/admin/audit-log" element={<UnderConstruction />} />
+              <Route path="/admin/audit-log" element={<AuditLogAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

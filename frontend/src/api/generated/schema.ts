@@ -661,6 +661,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consulta de l'auditoria (keyset per id desc) */
+        get: operations["listAuditLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/audit-log/actions/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verifica la cadena de hash de l'auditoria */
+        post: operations["verifyAuditChain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/service-accounts": {
         parameters: {
             query?: never;
@@ -1384,6 +1418,27 @@ export interface components {
             health_status?: string | null;
             /** Format: date-time */
             last_health_check?: string | null;
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @enum {string} */
+            actor_type: "user" | "agent" | "system";
+            /** Format: int64 */
+            actor_id?: number | null;
+            /** @description Nom resolt si l'actor és un usuari existent. */
+            actor_name?: string | null;
+            action: string;
+            resource_type?: string | null;
+            resource_id?: string | null;
+            ip?: string | null;
+            trace_id?: string | null;
+            details?: {
+                [key: string]: unknown;
+            } | null;
+            success: boolean;
         };
         ServiceAccount: {
             /** Format: int64 */
@@ -3155,6 +3210,73 @@ export interface operations {
                         /** @enum {string} */
                         status: "sent" | "failed";
                         detail?: string | null;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAuditLog: {
+        parameters: {
+            query?: {
+                "page[size]"?: number;
+                "page[cursor]"?: string;
+                /** @description Prefix de l'acció (p. ex. `auth.`) */
+                "filter[action]"?: string;
+                "filter[actor_type]"?: "user" | "agent" | "system";
+                "filter[actor_id]"?: number;
+                "filter[success]"?: boolean;
+                "filter[resource_type]"?: string;
+                "filter[resource_id]"?: string;
+                "filter[trace_id]"?: string;
+                "filter[from]"?: string;
+                "filter[to]"?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entrades d'auditoria */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AuditEntry"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    verifyAuditChain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resultat de la verificació */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "ok" | "broken";
+                        checked: number;
+                        first_broken_id?: number;
+                        detail?: string;
                     };
                 };
             };
