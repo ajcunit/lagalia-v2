@@ -434,20 +434,32 @@ async def suggestions(session: AsyncSession, user: User) -> list[dict[str, Any]]
         (Contract.expiry_warning, TaskType.EXTENSION),
         (Contract.possibly_finished, TaskType.SETTLEMENT),
     ):
-        open_same_type = select(Task.contract_id).where(
-            Task.task_type == task_type,
-            Task.status.in_([TaskStatus.PENDING, TaskStatus.IN_PROGRESS]),
-            Task.contract_id.is_not(None),
+        # Una tasca oberta del mateix tipus sobre QUALSEVOL lot de
+        # l'expedient descarta el suggeriment sencer.
+        open_same_type = (
+            select(Contract.file_code)
+            .join(Task, Task.contract_id == Contract.id)
+            .where(
+                Task.task_type == task_type,
+                Task.status.in_([TaskStatus.PENDING, TaskStatus.IN_PROGRESS]),
+            )
         )
         stmt = (
             select(Contract.id, Contract.file_code, Contract.subject, Contract.calculated_end_date)
-            .where(flag, ~Contract.id.in_(open_same_type))
+            .where(flag, ~Contract.file_code.in_(open_same_type))
             .order_by(Contract.calculated_end_date.asc().nulls_last())
-            .limit(50)
+            .limit(200)
         )
         if predicate is not None:
             stmt = stmt.where(predicate)
+
+        # Dedup per expedient (els lots germans comparteixen file_code):
+        # es proposa una sola tasca, amb la data final més primerenca.
+        seen: set[str] = set()
         for row in (await session.execute(stmt)).all():
+            if row.file_code in seen:
+                continue
+            seen.add(row.file_code)
             results.append(
                 {
                     "contract_id": row.id,
@@ -458,4 +470,6 @@ async def suggestions(session: AsyncSession, user: User) -> list[dict[str, Any]]
                     "due_date": row.calculated_end_date,
                 }
             )
+            if len(seen) >= 50:
+                break
     return results
