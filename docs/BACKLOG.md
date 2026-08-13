@@ -91,3 +91,8 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** subscriure la fitxa a l'SSE de progrés del job (`GET /jobs/{id}/events`, ja existeix amb token efímer) i, en acabar: refrescar les queries del contracte si èxit, o mostrar l'error del job si fallada. Reutilitzable per a exports i sync.
 - **Specs afectades:** [contract-actions.md](../specs/contract-actions.md), [10-ui.md](10-ui.md).
 
+### B-013 · Identitat de màquina completa per a escriptures
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
+- **Descripció:** la fase 1 de les API keys ([specs/service-accounts.md](../specs/service-accounts.md)) cobreix els endpoints amb `Authorize(...)` (lectura); els d'escriptura usen la sessió d'usuari directament i responen 401 a una clau. Perquè n8n/agents puguin escriure (crear tasques, llançar syncs) cal estendre la identitat de màquina a `get_current_session` i als serveis que registren autoria.
+- **Com desenvolupar-la:** actor unificat (usuari | màquina) a les dependències; autoria d'escriptures amb `actor_type agent` + id del service account a `audit_log` i als camps `created_by` (nullable o taula d'autoria); revisar cas per cas els serveis que llegeixen `user.id`/`user.departments`.
+
