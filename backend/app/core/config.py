@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     rate_limit_login: str = "5/minute"
 
     # Emmagatzematge d'objectes (B-003: la tria és configuració).
+    # CA bundle per a destins interns amb certificat propi (webhooks n8n...).
+    # MAI verify=False (06 §2): fitxer PEM amb les CA públiques + la interna.
+    outbound_ca_bundle: str | None = None
+
     storage_backend: Literal["filesystem", "s3"] = "filesystem"
     storage_local_path: str = "./storage"
     s3_endpoint_url: str = "http://localhost:9000"

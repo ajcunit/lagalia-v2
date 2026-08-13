@@ -26,7 +26,19 @@ $env:PYTHONIOENCODING = "utf-8"
 uv run arq app.jobs.worker.WorkerSettings
 ```
 
-Amb `docker compose --profile app up` el worker ja s'aixeca com a servei.
+El tercer procés és el **scheduler** (encua els jobs periòdics: reintents
+de webhooks, escombrats). En desenvolupament, en un altre terminal:
+
+```bash
+.venv/Scripts/python -m app.jobs.scheduler        # Windows
+uv run python -m app.jobs.scheduler               # Linux/macOS
+```
+
+Amb `docker compose --profile app up`, worker i scheduler ja s'aixequen com a serveis.
+
+**TLS intern**: si un webhook apunta a un host amb certificat propi
+(p. ex. n8n municipal), configureu `OUTBOUND_CA_BUNDLE` amb un PEM que
+contingui les CA públiques + la interna. Mai `verify=False`.
 
 La configuració es llegeix de variables d'entorn (vegeu `.env.example` a l'arrel).
 L'aplicació **no arrenca** sense `SECRET_KEY` i `ENCRYPTION_KEY`.

@@ -30,6 +30,7 @@ Fase 2 ([05-api.md](../docs/05-api.md) §4, [04-model-de-dades.md](../docs/04-mo
 ### Seguretat
 
 - URL de destí: només `https://` (o `http://` cap a hosts privats explícitament en desenvolupament); el secret mai apareix en respostes ni logs (06 §2).
+- Destins amb CA interna: `OUTBOUND_CA_BUNDLE` (PEM amb CA públiques + interna). **Mai** `verify=False` (06 §2).
 - El payload no inclou mai secrets ni dades personals més enllà del que ja exposa l'API del recurs.
 - Cap enviament dins de requests d'usuari: tot via cua de jobs (prohibició de 06 §2).
 

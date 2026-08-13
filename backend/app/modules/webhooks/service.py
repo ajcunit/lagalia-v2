@@ -13,7 +13,7 @@ import structlog
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.crypto import decrypt_value
+from app.core.crypto import DecryptionError, decrypt_value
 from app.core.problems import Problem
 from app.modules.webhooks.models import (
     DeliveryStatus,
@@ -80,8 +80,15 @@ def sign(secret: str, timestamp: int, body: bytes) -> str:
 
 
 def _client() -> httpx.AsyncClient:
-    """Separat perquè els tests hi injectin un MockTransport."""
-    return httpx.AsyncClient(timeout=SEND_TIMEOUT_SECONDS)
+    """Separat perquè els tests hi injectin un MockTransport.
+
+    OUTBOUND_CA_BUNDLE permet confiar en CA internes (n8n municipal amb
+    certificat propi) SENSE desactivar mai la verificació (06 §2).
+    """
+    from app.core.config import settings
+
+    verify: bool | str = settings.outbound_ca_bundle or True
+    return httpx.AsyncClient(timeout=SEND_TIMEOUT_SECONDS, verify=verify)
 
 
 async def publish_outbox(session: AsyncSession) -> int:
@@ -162,7 +169,15 @@ async def send_due_deliveries(session: AsyncSession) -> dict[str, int]:
 
             body = json.dumps(delivery.payload, ensure_ascii=False).encode()
             timestamp = int(time.time())
-            secret = decrypt_value(webhook.secret_encrypted)
+            try:
+                secret = decrypt_value(webhook.secret_encrypted)
+            except DecryptionError:
+                # Clau de xifrat incorrecta (entorn/rotació): s'ajorna sense
+                # cremar intents — es recupera sol quan la clau sigui bona.
+                delivery.last_error = "secret indesxifrable (clau de xifrat de l'entorn?)"
+                delivery.next_retry_at = now + timedelta(seconds=BASE_BACKOFF_SECONDS * 4)
+                counters["retried"] += 1
+                continue
             headers = {
                 "Content-Type": "application/json",
                 "X-Webhook-Id": str(webhook.id),
