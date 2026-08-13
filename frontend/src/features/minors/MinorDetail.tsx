@@ -6,6 +6,7 @@ import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from
 import { useDepartmentOptions } from "../contracts/queries";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate, formatDateTime } from "../../lib/format";
+import { ContractTasks } from "../tasks/ContractTasks";
 import { useMinorContract, useUpdateMinorContract } from "./queries";
 
 const INTERNAL_STATUSES = ["normal", "pending_review", "approved", "rejected"] as const;
@@ -210,6 +211,10 @@ export function MinorDetail() {
             <p className="text-sm text-muted">{t("minors.noSettlement")}</p>
           )}
         </SectionCard>
+      </div>
+
+      <div className="mt-4">
+        <ContractTasks minorContractId={id} />
       </div>
     </div>
   );

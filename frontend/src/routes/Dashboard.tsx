@@ -4,8 +4,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { SectionCard, Skeleton } from "../components/ui";
 import { useContractsFacets, useContractsStats } from "../features/contracts/queries";
+import { useTasks } from "../features/tasks/queries";
 import { t } from "../i18n";
-import { formatCurrency } from "../lib/format";
+import { formatCurrency, formatDate } from "../lib/format";
 
 function KpiCard(props: { label: string; value: string; to: string }) {
   return (
@@ -43,6 +44,37 @@ function BarList(props: {
         </li>
       ))}
     </ul>
+  );
+}
+
+function UpcomingTasks() {
+  const { permissions } = useAuth();
+  const canRead = permissions?.actions.includes("tasks:read") ?? false;
+  const tasks = useTasks({ "page[size]": 5, status: "pending" });
+  if (!canRead || !tasks.data?.data.length) return null;
+  return (
+    <div className="mt-4">
+      <SectionCard title={t("dashboard.upcomingTasks")}>
+        <ul className="space-y-1.5 text-sm">
+          {tasks.data.data.map((task) => (
+            <li
+              key={task.id}
+              className="flex items-baseline justify-between gap-2 border-t border-line pt-1.5 first:border-0"
+            >
+              <span className="min-w-0 flex-1 truncate text-ink" title={task.title}>
+                {task.title}
+              </span>
+              <span className="shrink-0 tabular-nums text-muted">{formatDate(task.due_date)}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-sm">
+          <Link to="/tasks" className="text-accent underline-offset-2 hover:underline">
+            {t("dashboard.allTasks")} →
+          </Link>
+        </p>
+      </SectionCard>
+    </div>
   );
 }
 
@@ -129,6 +161,8 @@ export function Dashboard() {
               to={`${listBase}${yearParam}`}
             />
           </div>
+
+          <UpcomingTasks />
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <SectionCard title={t("dashboard.topContractors")}>
