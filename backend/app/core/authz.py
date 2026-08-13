@@ -7,9 +7,10 @@ cap `if user.role == ...` enlloc més.
 
 import enum
 from dataclasses import dataclass
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -23,6 +24,31 @@ from app.modules.users.dependencies import (
 )
 from app.modules.users.models import User, UserRole
 from app.modules.users.service import RequestContext
+
+if TYPE_CHECKING:
+    from app.modules.service_accounts.models import ServiceAccount
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def machine_principal(account: "ServiceAccount") -> User:
+    """Usuari sintètic de màquina, MAI persistit ni derivat d'un usuari real.
+
+    Només s'usa aigües avall en camins de lectura (l'abast ja és ALL i la
+    concessió ve dels scopes); rol PM per satisfer can_switch_view a les
+    llistes. Els endpoints d'escriptura (sessió d'usuari) donen 401 a les
+    claus — fase 2 a B-013.
+    """
+    principal = User(
+        name=f"service:{account.name}",
+        email=f"sa-{account.id}@service.local",
+        role=UserRole.PROCUREMENT_MANAGER,
+        active=True,
+        can_audit=False,
+        can_plan=False,
+    )
+    principal.id = 0  # sense identitat d'usuari real
+    return principal
 
 
 class Access(enum.StrEnum):
@@ -121,6 +147,7 @@ PERMISSION_MATRIX: dict[str, dict[UserRole, Grant]] = {
     "config:write": {UserRole.ADMIN: _ALL},
     # Webhooks sortints: mateixa fila d'A2 que «escriure configuració».
     "webhooks:manage": {UserRole.ADMIN: _ALL},
+    "service_accounts:manage": {UserRole.ADMIN: _ALL},
     # Pla anual
     "plan:read": {
         UserRole.ADMIN: _ALL,
@@ -258,10 +285,49 @@ class Authorize:
 
     async def __call__(
         self,
-        current: Annotated[CurrentSession, Depends(get_current_session)],
         session: Annotated[AsyncSession, Depends(get_session)],
         ctx: Annotated[RequestContext, Depends(get_request_context)],
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
     ) -> AuthzContext:
+        # API key de servei (sk_...): mateixa porta, identitat de màquina.
+        # L'scope és la concessió; l'abast és sempre global (06 §3, spec
+        # service-accounts). Mai personifiquen usuaris: usuari sintètic de
+        # màquina, auditoria com a agent.
+        if credentials is not None and credentials.credentials.startswith("sk_"):
+            from app.modules.service_accounts.service import resolve_key
+
+            account = await resolve_key(session, credentials.credentials)
+            if account is None:
+                raise Problem(401, "Credencials invàlides", "unauthorized")
+            if self.action not in account.scopes:
+                await record_audit(
+                    session,
+                    actor_type=AuditActorType.AGENT,
+                    action="authz.denied",
+                    success=False,
+                    resource_type="action",
+                    resource_id=self.action,
+                    ip=ctx.ip,
+                    user_agent=ctx.user_agent,
+                    trace_id=ctx.trace_id,
+                    details={"service_account_id": account.id, "name": account.name},
+                )
+                await session.commit()
+                raise _forbidden()
+            return AuthzContext(
+                user=machine_principal(account),
+                action=self.action,
+                access=Access.ALL,
+                scope=ScopeInfo(type="all"),
+            )
+
+        current = await get_current_session(credentials, session)
+        return await self.check(current, session, ctx)
+
+    async def check(
+        self, current: CurrentSession, session: AsyncSession, ctx: RequestContext
+    ) -> AuthzContext:
+        """Camí d'usuari (JWT); també és el punt d'entrada dels tests directes."""
         grant = evaluate(current.user, self.action)
         if grant is None:
             await _audit_denial(session, current.user, self.action, ctx)

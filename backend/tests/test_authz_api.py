@@ -169,7 +169,7 @@ async def test_denied_action_raises_403_and_is_audited(make_user: MakeUser) -> N
     authorize = authz.Authorize("config:write")
     async with session_factory() as session:
         with pytest.raises(Problem) as excinfo:
-            await authorize(current=current, session=session, ctx=ctx)
+            await authorize.check(current=current, session=session, ctx=ctx)
 
     assert excinfo.value.status_code == 403
 
@@ -186,7 +186,7 @@ async def test_authorized_action_returns_context(make_user: MakeUser) -> None:
 
     authorize = authz.Authorize("contracts:read")
     async with session_factory() as session:
-        result = await authorize(current=current, session=session, ctx=ctx)
+        result = await authorize.check(current=current, session=session, ctx=ctx)
 
     assert result.access == authz.Access.DEPT
     assert result.scope.type == "departments"

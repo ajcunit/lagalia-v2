@@ -542,6 +542,44 @@ export interface paths {
         patch: operations["updateMinorContract"];
         trace?: never;
     };
+    "/service-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Llista de service accounts (mai la clau; prefix i últim ús) */
+        get: operations["listServiceAccounts"];
+        put?: never;
+        /** Crea una API key (la clau NOMÉS es mostra en aquesta resposta) */
+        post: operations["createServiceAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoca i elimina la clau */
+        delete: operations["deleteServiceAccount"];
+        options?: never;
+        head?: never;
+        /** Edita (scopes, actiu, caducitat) */
+        patch: operations["updateServiceAccount"];
+        trace?: never;
+    };
     "/webhooks": {
         parameters: {
             query?: never;
@@ -1199,6 +1237,22 @@ export interface components {
             resolved_by?: number | null;
             /** Format: date-time */
             resolved_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        ServiceAccount: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            description?: string | null;
+            /** @description Primers 12 caràcters, per identificar. */
+            key_prefix: string;
+            scopes: string[];
+            active: boolean;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            last_used_at?: string | null;
             /** Format: date-time */
             created_at?: string;
         };
@@ -2752,6 +2806,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MinorContract"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listServiceAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comptes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ServiceAccount"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createServiceAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string | null;
+                    /** @description Accions de la matriu A2 (es validen). */
+                    scopes: string[];
+                    /** Format: date-time */
+                    expires_at?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Compte creat amb la clau en clar (única vegada) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAccount"] & {
+                        key: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    deleteServiceAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revocada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateServiceAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    description?: string | null;
+                    scopes?: string[];
+                    active?: boolean;
+                    /** Format: date-time */
+                    expires_at?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Actualitzat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAccount"];
                 };
             };
             401: components["responses"]["Unauthorized"];
