@@ -1159,6 +1159,55 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /me/ical-key:
+    post:
+      tags: [tasks]
+      operationId: rotateIcalKey
+      summary: Genera o regenera la clau del feed iCal (regenerar revoca l'anterior)
+      x-required-scopes: [tasks:read]
+      responses:
+        "201":
+          description: Clau nova
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, url]
+                properties:
+                  key: { type: string }
+                  url: { type: string, description: Ruta del feed amb la clau. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [tasks]
+      operationId: revokeIcalKey
+      summary: Revoca la clau del feed iCal
+      x-required-scopes: [tasks:read]
+      responses:
+        "204": { description: Revocada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /me/tasks.ics:
+    get:
+      tags: [tasks]
+      operationId: getTasksIcalFeed
+      summary: Feed iCal de les tasques obertes (subscripció Outlook)
+      description: |
+        Autorització per clau opaca revocable (`POST /me/ical-key`); mai el
+        JWT de sessió per query string.
+      security: []
+      parameters:
+        - name: key
+          in: query
+          required: true
+          schema: { type: string, minLength: 16, maxLength: 64 }
+      responses:
+        "200":
+          description: VCALENDAR amb les tasques obertes de l'usuari
+          content:
+            text/calendar:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   # ───────────────────────── contractors ─────────────────────────
   /contractors:
     get:

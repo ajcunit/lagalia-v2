@@ -72,6 +72,8 @@ class User(Base, TimestampMixin):
 
     # Xifrat aplicatiu AES-256-GCM (docs/06-seguretat.md §4); mai en clar.
     dni_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary)
+    # Clau opaca del feed iCal (revocable regenerant-la); mai el JWT.
+    ical_key: Mapped[str | None] = mapped_column(String(64), unique=True)
 
     can_audit: Mapped[bool] = mapped_column(Boolean, server_default="false")
     can_plan: Mapped[bool] = mapped_column(Boolean, server_default="false")

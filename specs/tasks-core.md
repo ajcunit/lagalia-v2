@@ -26,7 +26,7 @@ Primera peça de la Fase 2 i primer mòdul **nou** de la v2 ([02-especificacio-f
 - `GET/PATCH/DELETE /tasks/{id}` — el PATCH registra cada canvi a `task_history`.
 - `POST /tasks/{id}/actions/complete|cancel|reopen` — assignats o editors; `complete` amb `resolution_notes` opcional. **Recurrència**: en completar una tasca amb RRULE es genera la següent ocurrència (mateixos assignats i recordatoris pendents, `parent_task_id` a l'original).
 - `GET /contracts/{id}/tasks` i `GET /minor-contracts/{id}/tasks` — pestanya de la fitxa (abast del contracte).
-- `GET /tasks/suggestions` — proposades des de les alertes existents, dins l'abast: contracte amb `expiry_warning` → «Tramitar pròrroga / revisar venciment abans de {data final}» (tipus `extension`); `possibly_finished` → «Revisar finalització i liquidació» (tipus `settlement`). S'exclouen els contractes que ja tenen una tasca oberta del mateix tipus. **Acceptar** = crear la tasca amb `POST /tasks`; **descartar** l'alerta ja existeix (`dismiss-expiry`).
+- `GET /tasks/suggestions` — proposades des de les alertes existents, dins l'abast: contracte amb `expiry_warning` → «Tramitar pròrroga / revisar venciment abans de {data final}» (tipus `extension`); `possibly_finished` → «Revisar finalització i liquidació» (tipus `settlement`). Es dedupliquen per **expedient** (els lots germans comparteixen `file_code`: una sola proposta, amb la data final més primerenca) i s'exclouen els expedients amb una tasca oberta del mateix tipus sobre qualsevol dels seus lots. **Acceptar** = crear la tasca amb `POST /tasks`; **descartar** l'alerta ja existeix (`dismiss-expiry`).
 - Tota escriptura deixa `task_history` i `audit_log` (`tasks.create/update/delete/status`).
 
 ## Canvis d'API

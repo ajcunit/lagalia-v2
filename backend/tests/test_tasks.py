@@ -217,3 +217,66 @@ async def test_suggestions_from_alerts(api_client: TestClient, world: dict[str, 
         "data"
     ]
     assert not [s for s in outsider_suggestions if s["contract_id"] == world["contract"]]
+
+
+async def test_suggestions_dedupe_sibling_lots(
+    api_client: TestClient, world: dict[str, Any]
+) -> None:
+    dm = login_headers(api_client, world["dm"].email)
+    tag = world["tag"]
+    # Lot germà del mateix expedient, també amb alerta.
+    async with session_factory() as session:
+        sibling = (
+            await session.execute(
+                text(
+                    "INSERT INTO contracts (file_code, status, lot, subject, "
+                    "calculated_end_date, expiry_warning) "
+                    "VALUES (:f, 'Execució', 'L2', :s, :d, true) RETURNING id"
+                ),
+                {
+                    "f": f"TSK-{tag}/1",
+                    "s": f"Lot germà {tag}",
+                    "d": TODAY + timedelta(days=30),
+                },
+            )
+        ).scalar_one()
+        await session.execute(
+            text("INSERT INTO contract_departments (contract_id, department_id) VALUES (:c, :d)"),
+            {"c": sibling, "d": world["dept"]},
+        )
+        await session.commit()
+
+    suggestions = api_client.get("/api/v1/tasks/suggestions", headers=dm).json()["data"]
+    mine = [s for s in suggestions if s["file_code"] == f"TSK-{tag}/1"]
+    assert len(mine) == 1  # un sol suggeriment per expedient
+    # La data proposada és la més primerenca dels lots.
+    assert mine[0]["due_date"] == str(TODAY + timedelta(days=30))
+
+
+async def test_ical_feed_with_revocable_key(api_client: TestClient, world: dict[str, Any]) -> None:
+    dm = login_headers(api_client, world["dm"].email)
+    created = _create(api_client, dm, world, title=f"Tasca iCal {world['tag']}")
+    assert created.status_code == 201
+
+    # Sense clau vàlida: 401.
+    bad = api_client.get("/api/v1/me/tasks.ics", params={"key": "x" * 32})
+    assert bad.status_code == 401
+
+    # L'assignat genera la clau i el feed conté la seva tasca.
+    employee = login_headers(api_client, world["employee"].email)
+    key = api_client.post("/api/v1/me/ical-key", headers=employee).json()["key"]
+    feed = api_client.get("/api/v1/me/tasks.ics", params={"key": key})
+    assert feed.status_code == 200
+    assert feed.headers["content-type"].startswith("text/calendar")
+    assert f"Tasca iCal {world['tag']}" in feed.text
+    assert "BEGIN:VCALENDAR" in feed.text
+
+    # Regenerar revoca la clau anterior.
+    new_key = api_client.post("/api/v1/me/ical-key", headers=employee).json()["key"]
+    assert new_key != key
+    assert api_client.get("/api/v1/me/tasks.ics", params={"key": key}).status_code == 401
+    assert api_client.get("/api/v1/me/tasks.ics", params={"key": new_key}).status_code == 200
+
+    # Revocar del tot.
+    assert api_client.delete("/api/v1/me/ical-key", headers=employee).status_code == 204
+    assert api_client.get("/api/v1/me/tasks.ics", params={"key": new_key}).status_code == 401

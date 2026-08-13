@@ -3,12 +3,13 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authz
 from app.core.db import get_session
 from app.core.pagination import PageMeta
+from app.core.problems import Problem
 from app.modules.tasks import service
 from app.modules.tasks.models import TaskStatus
 from app.modules.tasks.schemas import (
@@ -181,6 +182,44 @@ async def start_task(
 ) -> TaskResponse:
     task = await service.change_status(session, id, "start", current.user, ctx)
     return TaskResponse.from_task(task)
+
+
+@router.post("/me/ical-key", operation_id="rotateIcalKey", status_code=201)
+async def rotate_ical_key(
+    session: SessionDep, current: CurrentDep, ctx: ContextDep
+) -> dict[str, str]:
+    """Genera o regenera la clau del feed (regenerar revoca l'anterior)."""
+    from app.modules.tasks import ical
+
+    key = await ical.rotate_key(session, current.user)
+    await session.commit()
+    return {"key": key, "url": f"/api/v1/me/tasks.ics?key={key}"}
+
+
+@router.delete("/me/ical-key", operation_id="revokeIcalKey", status_code=204)
+async def revoke_ical_key(session: SessionDep, current: CurrentDep) -> None:
+    from app.modules.tasks import ical
+
+    await ical.revoke_key(session, current.user)
+    await session.commit()
+
+
+@router.get("/me/tasks.ics", operation_id="getTasksIcalFeed")
+async def tasks_ical_feed(
+    session: SessionDep,
+    key: Annotated[str, Query(min_length=16, max_length=64)],
+) -> Response:
+    """Sense capçalera d'autenticació: la clau opaca revocable és l'accés."""
+    from app.modules.tasks import ical
+
+    feed = await ical.feed_for_key(session, key)
+    if feed is None:
+        raise Problem(401, "Clau de subscripció invàlida o revocada", "unauthorized")
+    return Response(
+        content=feed,
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": 'inline; filename="lagalia-tasques.ics"'},
+    )
 
 
 @router.get("/tasks/{id}/history", operation_id="getTaskHistory")

@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatDate } from "../../lib/format";
+import { api } from "../../api/client";
 import { statusLabel, taskTypeLabel } from "./labels";
 import {
   useCreateTask,
@@ -95,7 +96,31 @@ function TaskRow(props: { task: Task }) {
   );
 }
 
+function IcalButton() {
+  const [busy, setBusy] = useState(false);
+  async function subscribe() {
+    setBusy(true);
+    try {
+      const { data, error } = await api.POST("/me/ical-key");
+      if (error !== undefined) throw error;
+      const url = `${window.location.origin}${data.url}`;
+      await navigator.clipboard.writeText(url).catch(() => undefined);
+      window.prompt(t("tasks.ical.copied"), url);
+    } catch (err) {
+      window.alert(t("contract.action.error", { message: String(err) }));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Button onClick={() => void subscribe()} disabled={busy}>
+      {t("tasks.ical.subscribe")}
+    </Button>
+  );
+}
+
 function Suggestions() {
+  const [expanded, setExpanded] = useState(false);
   const { permissions } = useAuth();
   const canWrite = permissions?.actions.includes("tasks:write") ?? false;
   const suggestions = useTaskSuggestions(canWrite);
@@ -123,7 +148,7 @@ function Suggestions() {
     <div className="mt-4">
       <SectionCard title={t("tasks.suggestions.title")}>
         <ul className="space-y-2">
-          {suggestions.data.data.map((suggestion) => (
+          {(expanded ? suggestions.data.data : suggestions.data.data.slice(0, 5)).map((suggestion) => (
             <li
               key={`${suggestion.contract_id}-${suggestion.task_type}`}
               className="flex flex-wrap items-center justify-between gap-2 text-sm"
@@ -150,6 +175,17 @@ function Suggestions() {
             </li>
           ))}
         </ul>
+        {suggestions.data.data.length > 5 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="mt-2 text-sm text-accent underline-offset-2 hover:underline"
+          >
+            {expanded
+              ? t("tasks.suggestions.showLess")
+              : t("tasks.suggestions.showAll", { total: suggestions.data.data.length })}
+          </button>
+        )}
       </SectionCard>
     </div>
   );
@@ -203,7 +239,7 @@ function CalendarView() {
     <div className="mt-4">
       <div className="flex items-center justify-between">
         <Button onClick={() => setAnchor(shiftMonth(anchor, -1))}>←</Button>
-        <h2 className="text-lg font-semibold capitalize text-ink">{label}</h2>
+        <h2 className="text-lg font-semibold text-ink">{label.charAt(0).toUpperCase() + label.slice(1)}</h2>
         <Button onClick={() => setAnchor(shiftMonth(anchor, 1))}>→</Button>
       </div>
       {calendar.isPending ? (
@@ -228,7 +264,7 @@ function CalendarView() {
                   <td
                     key={di}
                     className={`h-24 border border-line p-1 align-top ${
-                      day === today ? "bg-accent-soft" : ""
+                      day === today ? "bg-accent-soft" : di >= 5 ? "bg-surface-sunken/50" : ""
                     }`}
                   >
                     {day && (
@@ -290,6 +326,8 @@ export function TasksPage() {
             <p className="text-sm text-muted">{t("tasks.total", { total: tasks.data.meta.total })}</p>
           )}
         </div>
+        <span className="flex items-center gap-2">
+        <IcalButton />
         <div role="group" aria-label={t("tasks.viewMode")} className="flex rounded-md border border-line">
           {(["list", "calendar"] as const).map((mode) => (
             <button
@@ -310,9 +348,10 @@ export function TasksPage() {
             </button>
           ))}
         </div>
+        </span>
       </div>
 
-      <Suggestions />
+      {view !== "calendar" && <Suggestions />}
 
       {view === "calendar" ? (
         <CalendarView />
