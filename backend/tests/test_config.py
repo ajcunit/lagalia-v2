@@ -60,3 +60,72 @@ def test_secrets_never_leak_in_repr() -> None:
 
     assert VALID_SECRET_KEY not in repr(settings)
     assert VALID_ENCRYPTION_KEY not in repr(settings)
+
+
+async def test_connectors_config_api(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    from tests.conftest import login_headers
+
+    admin_user = await make_user("admin")
+    employee = await make_user("employee")
+    admin = login_headers(api_client, admin_user.email)
+
+    # Llistat: hi ha smtp registrat i les credencials mai porten valor.
+    listing = api_client.get("/api/v1/connectors", headers=admin)
+    assert listing.status_code == 200, listing.text
+    smtp = next(c for c in listing.json()["data"] if c["slug"] == "smtp")
+    assert set(smtp["credentials"]) == {"username", "password"}
+    assert all(isinstance(v, bool) for v in smtp["credentials"].values())
+
+    # employee llegeix però no escriu.
+    assert (
+        api_client.get(
+            "/api/v1/connectors", headers=login_headers(api_client, employee.email)
+        ).status_code
+        == 200
+    )
+    denied = api_client.patch(
+        "/api/v1/connectors/smtp",
+        json={"enabled": True},
+        headers=login_headers(api_client, employee.email),
+    )
+    assert denied.status_code == 403
+
+    # Config validada contra el manifest; credencials write-only.
+    bad = api_client.patch(
+        "/api/v1/connectors/smtp", json={"config": {"inventada": 1}}, headers=admin
+    )
+    assert bad.status_code == 422
+    updated = api_client.put(
+        "/api/v1/connectors/smtp/credentials",
+        json={"credentials": {"username": "u", "password": "p"}},
+        headers=admin,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["credentials"] == {"username": True, "password": True}
+    assert '"u"' not in updated.text and '"p"' not in updated.text
+
+    # Paràmetres: secret emmascarat.
+    put = api_client.put(
+        "/api/v1/settings/test.config_api_secret",
+        json={"value": "supersecret", "is_secret": True},
+        headers=admin,
+    )
+    assert put.status_code == 200
+    assert put.json()["value"] is None and put.json()["is_set"] is True
+    listed = api_client.get("/api/v1/settings", headers=admin).json()["data"]
+    row = next(s for s in listed if s["key"] == "test.config_api_secret")
+    assert row["value"] is None
+
+    from sqlalchemy import text as sql_text
+
+    from app.core.db import session_factory
+
+    async with session_factory() as session:
+        await session.execute(sql_text("DELETE FROM settings WHERE key = 'test.config_api_secret'"))
+        await session.execute(
+            sql_text(
+                "DELETE FROM connector_credentials WHERE connector_id IN "
+                "(SELECT id FROM connectors WHERE slug = 'smtp')"
+            )
+        )
+        await session.commit()

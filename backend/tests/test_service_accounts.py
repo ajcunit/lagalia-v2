@@ -34,9 +34,7 @@ def _create(client: TestClient, headers: dict[str, str], tag: str, **overrides: 
     return client.post("/api/v1/service-accounts", json=payload, headers=headers)
 
 
-async def test_management_and_key_only_once(
-    api_client: TestClient, world: dict[str, Any]
-) -> None:
+async def test_management_and_key_only_once(api_client: TestClient, world: dict[str, Any]) -> None:
     admin = login_headers(api_client, world["admin"].email)
     tag = world["tag"]
 
@@ -118,7 +116,5 @@ async def test_machine_access_scopes_and_lifecycle(
     assert api_client.get("/api/v1/contracts", headers=machine).status_code == 401
 
     # Clau inventada → 401 (mateix error que un JWT invàlid).
-    fake = api_client.get(
-        "/api/v1/contracts", headers={"Authorization": "Bearer sk_" + "x" * 43}
-    )
+    fake = api_client.get("/api/v1/contracts", headers={"Authorization": "Bearer sk_" + "x" * 43})
     assert fake.status_code == 401
