@@ -27,5 +27,8 @@ async def consolidate_contractors(ctx: JobContext) -> dict[str, Any]:
             details=result,
         )
         await session.commit()
+        from app.modules.webhooks.service import enqueue_dispatch
+
+        await enqueue_dispatch(session)
     logger.info("contractors_consolidated", **result)
     return result

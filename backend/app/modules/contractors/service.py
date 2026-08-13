@@ -138,6 +138,21 @@ async def merge_contractors(session: AsyncSession, *, winner_id: int, loser_id: 
     await session.delete(loser)
     await session.flush()
 
+    from app.modules.webhooks.service import emit_event
+
+    await emit_event(
+        session,
+        event_type="contractor.merged",
+        aggregate="contractor",
+        aggregate_id=winner_id,
+        data={
+            "winner_id": winner_id,
+            "winner_name": winner.canonical_name,
+            "loser_name": loser.canonical_name,
+            "tax_id": winner.tax_id,
+        },
+    )
+
 
 async def _linked_counts(session: AsyncSession, contractor_ids: list[int]) -> dict[int, int]:
     """Contractes (majors + menors) vinculats per contractor."""

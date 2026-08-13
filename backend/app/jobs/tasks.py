@@ -14,6 +14,7 @@ import app.integrations.socrata.sync_rpc  # noqa: F401 — registra extensions i
 import app.modules.contractors.jobs  # noqa: F401 — registra contractors.consolidate
 import app.modules.contracts.alerts  # noqa: F401 — registra alerts.recompute
 import app.modules.contracts.exports  # noqa: F401 — registra export.contracts
+import app.modules.webhooks.jobs  # noqa: F401 — registra webhooks.dispatch
 from app.jobs.registry import JobContext, job
 
 
