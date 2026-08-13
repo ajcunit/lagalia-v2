@@ -66,6 +66,8 @@ tags:
     description: Auditoria de seguretat (append-only, cadena de hash)
   - name: sync
     description: Sincronitzacions amb fonts externes (historial i llançament)
+  - name: public-registry
+    description: SuperBuscador — registre públic de contractació de tot Catalunya
 
 security:
   - bearerAuth: []
@@ -1258,6 +1260,141 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/ValidationError" }
+
+
+  # ───────────────────────── public-registry ─────────────────────────
+  /public-registry/search:
+    get:
+      tags: [public-registry]
+      operationId: searchPublicRegistry
+      summary: Cerca al registre públic de tot Catalunya (proxy Socrata parametritzat)
+      x-required-scopes: [tools:use]
+      parameters:
+        - name: q
+          in: query
+          description: Cerca de text completa
+          schema: { type: string, maxLength: 200 }
+        - name: filter[organisme]
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: filter[contract_type]
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: filter[amount_min]
+          in: query
+          schema: { type: number, minimum: 0 }
+        - name: filter[amount_max]
+          in: query
+          schema: { type: number, minimum: 0 }
+        - name: filter[from]
+          in: query
+          schema: { type: string, format: date-time }
+        - name: filter[to]
+          in: query
+          schema: { type: string, format: date-time }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: Targetes de resultats
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/PublicContractCard" }
+                  meta:
+                    type: object
+                    required: [page, page_size, has_more]
+                    properties:
+                      page: { type: integer }
+                      page_size: { type: integer }
+                      has_more: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "502":
+          description: El registre públic no respon
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /public-registry/contracts/{file_code}:
+    get:
+      tags: [public-registry]
+      operationId: getPublicContract
+      summary: Fitxa externa (totes les files lot/fase del codi)
+      x-required-scopes: [tools:use]
+      parameters:
+        - name: file_code
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        "200":
+          description: Files del registre, mapades
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502":
+          description: El registre públic no respon
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /public-registry/phase:
+    get:
+      tags: [public-registry]
+      operationId: getPublicPhase
+      summary: JSON de fase (proxy validat per whitelist de host)
+      x-required-scopes: [tools:use]
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema: { type: string, minLength: 10, maxLength: 1000 }
+      responses:
+        "200":
+          description: Documents, mesa i criteris de la fase
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [documents, committee, criteria]
+                properties:
+                  documents:
+                    type: array
+                    items: { $ref: "#/components/schemas/PublicPhaseDocument" }
+                  committee:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+                  criteria:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "502":
+          description: El portal de contractació no respon
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
 
   # ───────────────────────── service-accounts ─────────────────────────
   /service-accounts:
@@ -2628,6 +2765,40 @@ components:
         outcome: { type: [string, "null"] }
         message: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
+
+    PublicContractCard:
+      type: object
+      required: [file_code, lot, status]
+      properties:
+        file_code: { type: string }
+        lot: { type: string }
+        subject: { type: [string, "null"] }
+        awarding_body: { type: [string, "null"] }
+        awarding_department: { type: [string, "null"] }
+        contract_type: { type: [string, "null"] }
+        procedure: { type: [string, "null"] }
+        status: { type: string }
+        published_at: { type: [string, "null"], format: date-time }
+        budget_vat: { type: [number, string, "null"] }
+        award_amount: { type: [number, string, "null"] }
+        contractor_name: { type: [string, "null"] }
+        contractor_nif: { type: [string, "null"] }
+        phase_urls:
+          type: [object, "null"]
+          additionalProperties: { type: string }
+        links:
+          type: [object, "null"]
+          additionalProperties: { type: string }
+
+    PublicPhaseDocument:
+      type: object
+      required: [source_doc_id, title, doc_type, download_url]
+      properties:
+        source_doc_id: { type: string }
+        title: { type: string }
+        doc_type: { type: string }
+        size: { type: [integer, "null"] }
+        download_url: { type: string }
 
     AuditEntry:
       type: object

@@ -24,7 +24,7 @@ import { NotFound } from "./routes/NotFound";
 import { Setup } from "./routes/Setup";
 import { AuditLogAdmin } from "./features/audit/AuditLogAdmin";
 import { SyncAdmin } from "./features/sync/SyncAdmin";
-import { UnderConstruction } from "./routes/UnderConstruction";
+import { SuperSearch } from "./features/search/SuperSearch";
 
 const queryClient = new QueryClient();
 
@@ -58,7 +58,7 @@ export function App() {
               <Route path="/contractors" element={<ContractorsList />} />
               <Route path="/contractors/duplicates" element={<ContractorDuplicates />} />
               <Route path="/contractors/:id" element={<ContractorDetail />} />
-              <Route path="/search" element={<UnderConstruction />} />
+              <Route path="/search" element={<SuperSearch />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />

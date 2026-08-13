@@ -68,6 +68,7 @@ class SoqlQuery:
         self._order: str | None = None
         self._limit: int | None = None
         self._offset: int | None = None
+        self._q: str | None = None
 
     def select(self, *fields: str) -> Self:
         self._select.extend(_field(f) for f in fields)
@@ -84,8 +85,36 @@ class SoqlQuery:
         self._where.append(f"{_field(field)} >= {_timestamp_literal(value)}")
         return self
 
+    def where_lte_timestamp(self, field: str, value: date | datetime | str) -> Self:
+        self._where.append(f"{_field(field)} <= {_timestamp_literal(value)}")
+        return self
+
     def where_gte_number(self, field: str, value: int | float | Decimal | str) -> Self:
         self._where.append(f"{_field(field)} >= {_number_literal(value)}")
+        return self
+
+    def where_lte_number(self, field: str, value: int | float | Decimal | str) -> Self:
+        self._where.append(f"{_field(field)} <= {_number_literal(value)}")
+        return self
+
+    def where_contains(self, field: str, value: str) -> Self:
+        """Subcadena case-insensitive. El valor entra com a literal escapat;
+        els comodins de LIKE dins del valor es neutralitzen deixant-los com a
+        text (SoQL no té ESCAPE: % i _ es tracten amb upper+like i no poden
+        sortir del literal)."""
+        # Sense ESCAPE a SoQL: eliminem els comodins del valor de l'usuari
+        # perquè no puguin ampliar la cerca (mai poden injectar sintaxi:
+        # el literal ja va escapat i entre cometes).
+        cleaned = value.replace("%", " ").replace("_", " ").strip()
+        if not cleaned:
+            return self
+        literal = _text_literal(f"%{cleaned}%").upper()
+        self._where.append(f"upper({_field(field)}) like {literal}")
+        return self
+
+    def full_text(self, value: str) -> Self:
+        """Cerca de text completa: viatja com a paràmetre $q, mai dins $where."""
+        self._q = value.strip() or None
         return self
 
     def order_by(self, field: str, *, descending: bool = False) -> Self:
@@ -112,4 +141,6 @@ class SoqlQuery:
             params["$limit"] = str(self._limit)
         if self._offset is not None:
             params["$offset"] = str(self._offset)
+        if self._q is not None:
+            params["$q"] = self._q
         return params

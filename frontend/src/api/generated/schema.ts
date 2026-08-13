@@ -746,6 +746,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public-registry/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cerca al registre públic de tot Catalunya (proxy Socrata parametritzat) */
+        get: operations["searchPublicRegistry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public-registry/contracts/{file_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fitxa externa (totes les files lot/fase del codi) */
+        get: operations["getPublicContract"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public-registry/phase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** JSON de fase (proxy validat per whitelist de host) */
+        get: operations["getPublicPhase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/service-accounts": {
         parameters: {
             query?: never;
@@ -1500,6 +1551,35 @@ export interface components {
             message?: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        PublicContractCard: {
+            file_code: string;
+            lot: string;
+            subject?: string | null;
+            awarding_body?: string | null;
+            awarding_department?: string | null;
+            contract_type?: string | null;
+            procedure?: string | null;
+            status: string;
+            /** Format: date-time */
+            published_at?: string | null;
+            budget_vat?: number | string | null;
+            award_amount?: number | string | null;
+            contractor_name?: string | null;
+            contractor_nif?: string | null;
+            phase_urls?: {
+                [key: string]: string;
+            } | null;
+            links?: {
+                [key: string]: string;
+            } | null;
+        };
+        PublicPhaseDocument: {
+            source_doc_id: string;
+            title: string;
+            doc_type: string;
+            size?: number | null;
+            download_url: string;
         };
         AuditEntry: {
             /** Format: int64 */
@@ -3468,6 +3548,136 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationError"];
+        };
+    };
+    searchPublicRegistry: {
+        parameters: {
+            query?: {
+                /** @description Cerca de text completa */
+                q?: string;
+                "filter[organisme]"?: string;
+                "filter[contract_type]"?: string;
+                "filter[amount_min]"?: number;
+                "filter[amount_max]"?: number;
+                "filter[from]"?: string;
+                "filter[to]"?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targetes de resultats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PublicContractCard"][];
+                        meta: {
+                            page: number;
+                            page_size: number;
+                            has_more: boolean;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+            /** @description El registre públic no respon */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getPublicContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Files del registre, mapades */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description El registre públic no respon */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getPublicPhase: {
+        parameters: {
+            query: {
+                url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documents, mesa i criteris de la fase */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents: components["schemas"]["PublicPhaseDocument"][];
+                        committee: {
+                            [key: string]: unknown;
+                        }[];
+                        criteria: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+            /** @description El portal de contractació no respon */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     listServiceAccounts: {
