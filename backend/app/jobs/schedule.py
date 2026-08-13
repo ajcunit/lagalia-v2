@@ -16,6 +16,12 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=300,
         dedup_key="system.heartbeat",
     ),
+    # Recordatoris de tasques: horari, idempotent (sent_at + dedupe diari).
+    ScheduledJob(
+        job_type="tasks.reminders",
+        interval_seconds=3600,
+        dedup_key="tasks.reminders",
+    ),
     # Reintents de deliveries pendents (l'emissió ja encua un dispatch).
     ScheduledJob(
         job_type="webhooks.dispatch",
