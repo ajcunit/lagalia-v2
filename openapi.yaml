@@ -60,6 +60,8 @@ tags:
     description: Webhooks sortints signats (outbox transaccional)
   - name: service-accounts
     description: API keys de servei amb scopes granulars
+  - name: config
+    description: Paràmetres i connectors (secrets sempre write-only)
 
 security:
   - bearerAuth: []
@@ -888,6 +890,157 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }
 
   # ─────────────────────────── contractors ───────────────────────────
+  # ───────────────────────── config ─────────────────────────
+  /settings:
+    get:
+      tags: [config]
+      operationId: listSettings
+      summary: Paràmetres (els secrets només is_set)
+      x-required-scopes: [config:read]
+      responses:
+        "200":
+          description: Paràmetres
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Setting" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /settings/{key}:
+    put:
+      tags: [config]
+      operationId: putSetting
+      summary: Crea o actualitza un paràmetre
+      x-required-scopes: [config:write]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 100 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value: {}
+                description: { type: [string, "null"], maxLength: 500 }
+                is_secret: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Paràmetre
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Setting" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /connectors:
+    get:
+      tags: [config]
+      operationId: listConnectors
+      summary: Connectors del hub amb estat i salut
+      x-required-scopes: [config:read]
+      responses:
+        "200":
+          description: Connectors
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Connector" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /connectors/{slug}:
+    patch:
+      tags: [config]
+      operationId: updateConnector
+      summary: Activa/desactiva i configura un connector
+      x-required-scopes: [config:write]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                config: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Connector
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Connector" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /connectors/{slug}/credentials:
+    put:
+      tags: [config]
+      operationId: putConnectorCredentials
+      summary: Desa credencials (write-only, xifrades)
+      x-required-scopes: [config:write]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credentials]
+              properties:
+                credentials:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "200":
+          description: Connector (credencials com a is_set)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Connector" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /connectors/{slug}/actions/healthcheck:
+    post:
+      tags: [config]
+      operationId: checkConnectorHealth
+      summary: Comprova la connexió del connector
+      x-required-scopes: [config:write]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+      responses:
+        "200":
+          description: Resultat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [healthy, failing, disabled] }
+                  detail: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ───────────────────────── service-accounts ─────────────────────────
   /service-accounts:
     get:
@@ -1990,6 +2143,12 @@ components:
       required: true
       schema: { type: integer, format: int64, minimum: 1 }
 
+    ConnectorSlug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string, minLength: 2, maxLength: 50, pattern: "^[a-z0-9_-]+$" }
+
     ResourceUuid:
       name: id
       in: path
@@ -2197,6 +2356,33 @@ components:
         resolved_by: { type: [integer, "null"], format: int64 }
         resolved_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
+
+    Setting:
+      type: object
+      required: [key, is_secret, is_set]
+      properties:
+        key: { type: string }
+        value: {}
+        description: { type: [string, "null"] }
+        is_secret: { type: boolean }
+        is_set: { type: boolean }
+
+    Connector:
+      type: object
+      required: [slug, name, enabled, mode, config, config_defaults, credentials]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        enabled: { type: boolean }
+        mode: { type: string }
+        config: { type: object, additionalProperties: true }
+        config_defaults: { type: object, additionalProperties: true }
+        credentials:
+          type: object
+          additionalProperties: { type: boolean }
+          description: "nom de credencial → is_set (mai el valor)."
+        health_status: { type: [string, "null"] }
+        last_health_check: { type: [string, "null"], format: date-time }
 
     ServiceAccount:
       type: object

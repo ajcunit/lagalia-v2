@@ -121,6 +121,19 @@ async def test_outbox_dispatch_signature_and_retry(
         )
         await session.commit()
 
+    # Hermetisme: aparca les deliveries pendents alienes (BD de dev compartida);
+    # el scheduler les reprendrà — només s'ajornen uns minuts.
+    async with session_factory() as session:
+        await session.execute(
+            text(
+                "UPDATE webhook_deliveries SET next_retry_at = now() + interval '15 minutes' "
+                "WHERE status = 'pending' AND webhook_id NOT IN "
+                "(SELECT id FROM outbound_webhooks WHERE name LIKE :p)"
+            ),
+            {"p": f"WH {tag}%"},
+        )
+        await session.commit()
+
     captured: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:

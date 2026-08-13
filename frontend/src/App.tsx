@@ -15,6 +15,7 @@ import { ContractsList } from "./features/contracts/ContractsList";
 import { MinorDetail } from "./features/minors/MinorDetail";
 import { MinorsList } from "./features/minors/MinorsList";
 import { TasksPage } from "./features/tasks/TasksPage";
+import { ConfigAdmin } from "./features/config/ConfigAdmin";
 import { ServiceAccountsAdmin } from "./features/service_accounts/ServiceAccountsAdmin";
 import { WebhooksAdmin } from "./features/webhooks/WebhooksAdmin";
 import { Dashboard } from "./routes/Dashboard";
@@ -60,7 +61,7 @@ export function App() {
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />
               <Route path="/admin/service-accounts" element={<ServiceAccountsAdmin />} />
-              <Route path="/admin/config" element={<UnderConstruction />} />
+              <Route path="/admin/config" element={<ConfigAdmin />} />
               <Route path="/admin/audit-log" element={<UnderConstruction />} />
             </Route>
             <Route path="*" element={<NotFound />} />
