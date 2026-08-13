@@ -35,6 +35,7 @@ export const NAV_ZONES: NavZone[] = [
       { to: "/contractors/duplicates", labelKey: "nav.duplicates", action: "duplicates:manage" },
       { to: "/admin/users", labelKey: "nav.users", action: "users:read" },
       { to: "/admin/departments", labelKey: "nav.departments", action: "departments:write" },
+      { to: "/admin/webhooks", labelKey: "nav.webhooks", action: "webhooks:manage" },
       { to: "/admin/config", labelKey: "nav.config", action: "config:write" },
       { to: "/admin/audit-log", labelKey: "nav.securityAudit", action: "audit_log:read" },
     ],
