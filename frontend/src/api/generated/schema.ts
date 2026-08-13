@@ -542,6 +542,164 @@ export interface paths {
         patch: operations["updateMinorContract"];
         trace?: never;
     };
+    "/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Llista de tasques (abast per rol) */
+        get: operations["listTasks"];
+        put?: never;
+        /** Crea una tasca (associada a un contracte o menor dins d'abast) */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tasques d'un rang de dates (vista calendari) */
+        get: operations["getTasksCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tasques proposades per les alertes (acceptar = POST /tasks) */
+        get: operations["getTaskSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /** Detall d'una tasca */
+        get: operations["getTask"];
+        put?: never;
+        post?: never;
+        /** Esborra una tasca */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        /** Edita una tasca (historial per canvi) */
+        patch: operations["updateTask"];
+        trace?: never;
+    };
+    "/tasks/{id}/actions/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Completa la tasca (si té RRULE, genera la següent ocurrència) */
+        post: operations["completeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{id}/actions/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel·la la tasca */
+        post: operations["cancelTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{id}/actions/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reobre una tasca feta o cancel·lada */
+        post: operations["reopenTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{id}/actions/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Passa la tasca a en curs */
+        post: operations["startTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tasks/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historial de canvis de la tasca */
+        get: operations["getTaskHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contractors": {
         parameters: {
             query?: never;
@@ -932,6 +1090,131 @@ export interface components {
             resolved_at?: string | null;
             /** Format: date-time */
             created_at?: string;
+        };
+        TaskReminderSpec: {
+            /** @description Dies abans del venciment (0 = el dia mateix). */
+            offset_days: number;
+            /**
+             * @default email
+             * @enum {string}
+             */
+            channel: "email" | "webhook";
+        };
+        TaskReminder: components["schemas"]["TaskReminderSpec"] & {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            sent_at?: string | null;
+        };
+        Task: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            description?: string | null;
+            /** @enum {string} */
+            task_type: "review" | "extension" | "settlement" | "guarantee_return" | "report" | "meeting" | "other";
+            /** Format: date */
+            due_date: string;
+            due_time?: string | null;
+            /** @enum {string} */
+            priority: "low" | "normal" | "high";
+            /** @enum {string} */
+            status: "pending" | "in_progress" | "done" | "cancelled";
+            /** Format: int64 */
+            contract_id?: number | null;
+            /** Format: int64 */
+            minor_contract_id?: number | null;
+            /** Format: int64 */
+            department_id?: number | null;
+            /** @description RRULE (RFC 5545); en completar-se es genera la següent ocurrència. */
+            recurrence?: string | null;
+            /** Format: int64 */
+            parent_task_id?: number | null;
+            /** Format: int64 */
+            created_by?: number | null;
+            /** Format: int64 */
+            completed_by?: number | null;
+            /** Format: date-time */
+            completed_at?: string | null;
+            resolution_notes?: string | null;
+            assignees: {
+                /** Format: int64 */
+                id: number;
+                name: string;
+            }[];
+            reminders: components["schemas"]["TaskReminder"][];
+            /** Format: date-time */
+            created_at?: string;
+        };
+        TaskCreate: {
+            title: string;
+            description?: string;
+            /**
+             * @default other
+             * @enum {string}
+             */
+            task_type: "review" | "extension" | "settlement" | "guarantee_return" | "report" | "meeting" | "other";
+            /** Format: date */
+            due_date: string;
+            due_time?: string | null;
+            /**
+             * @default normal
+             * @enum {string}
+             */
+            priority: "low" | "normal" | "high";
+            /** Format: int64 */
+            contract_id?: number | null;
+            /**
+             * Format: int64
+             * @description Cal contracte O menor (com a mínim un).
+             */
+            minor_contract_id?: number | null;
+            /** Format: int64 */
+            department_id?: number | null;
+            recurrence?: string | null;
+            assignee_ids?: number[];
+            reminders?: components["schemas"]["TaskReminderSpec"][];
+        };
+        TaskUpdate: {
+            title?: string;
+            description?: string | null;
+            /** @enum {string} */
+            task_type?: "review" | "extension" | "settlement" | "guarantee_return" | "report" | "meeting" | "other";
+            /** Format: date */
+            due_date?: string;
+            due_time?: string | null;
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high";
+            /** Format: int64 */
+            department_id?: number | null;
+            recurrence?: string | null;
+            assignee_ids?: number[];
+            reminders?: components["schemas"]["TaskReminderSpec"][];
+        };
+        TaskCompleteRequest: {
+            resolution_notes?: string | null;
+        };
+        TaskHistoryEntry: {
+            /** Format: int64 */
+            id: number;
+            field: string;
+            old_value?: string | null;
+            new_value?: string | null;
+            /** Format: int64 */
+            user_id?: number | null;
+            /** Format: date-time */
+            changed_at: string;
+        };
+        TaskSuggestion: {
+            /** Format: int64 */
+            contract_id: number;
+            file_code: string;
+            subject?: string | null;
+            /** @enum {string} */
+            task_type: "extension" | "settlement";
+            title: string;
+            /** Format: date */
+            due_date?: string | null;
         };
         ContractorDuplicateGroup: {
             tax_id: string;
@@ -2340,6 +2623,336 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: {
+                /** @description Elements per pàgina. */
+                "page[size]"?: components["parameters"]["PageSize"];
+                /** @description Cursor de la pàgina següent, retornat a `meta.next_cursor`. */
+                "page[cursor]"?: components["parameters"]["PageCursor"];
+                status?: "pending" | "in_progress" | "done" | "cancelled";
+                due_before?: string;
+                due_after?: string;
+                contract_id?: number;
+                minor_contract_id?: number;
+                assignee_id?: number;
+                department_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pàgina de tasques (ordenades per venciment) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Task"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreate"];
+            };
+        };
+        responses: {
+            /** @description Tasca creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getTasksCalendar: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                department_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tasques del rang */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Task"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getTaskSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Suggeriments dins l'abast, sense duplicar tasques obertes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["TaskSuggestion"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tasca */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Esborrada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskUpdate"];
+            };
+        };
+        responses: {
+            /** @description Tasca actualitzada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    completeTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TaskCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Tasca completada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    cancelTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TaskCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Tasca cancel·lada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    reopenTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tasca reoberta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    startTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tasca en curs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getTaskHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canvis, el més recent primer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["TaskHistoryEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listContractors: {
