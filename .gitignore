@@ -33,3 +33,5 @@ storage/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+ops/n8n-tls/
+ops/outbound-ca-bundle.pem
