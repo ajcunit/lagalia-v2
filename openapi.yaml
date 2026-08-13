@@ -68,6 +68,8 @@ tags:
     description: Sincronitzacions amb fonts externes (historial i llançament)
   - name: public-registry
     description: SuperBuscador — registre públic de contractació de tot Catalunya
+  - name: favorites
+    description: Carpetes personals de favorits (snapshot d'expedients externs)
 
 security:
   - bearerAuth: []
@@ -1395,6 +1397,147 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
+
+
+  # ───────────────────────── favorites ─────────────────────────
+  /folders:
+    get:
+      tags: [favorites]
+      operationId: listFolders
+      summary: Les meves carpetes de favorits
+      x-required-scopes: [tools:use]
+      responses:
+        "200":
+          description: Carpetes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/FavoriteFolder" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [favorites]
+      operationId: createFolder
+      summary: Crea una carpeta
+      x-required-scopes: [tools:use]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FolderBody" }
+      responses:
+        "201":
+          description: Creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FavoriteFolder" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /folders/{id}:
+    patch:
+      tags: [favorites]
+      operationId: updateFolder
+      summary: Edita una carpeta pròpia
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FolderPatch" }
+      responses:
+        "200":
+          description: Actualitzada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FavoriteFolder" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [favorites]
+      operationId: deleteFolder
+      summary: Esborra una carpeta pròpia (i els seus favorits)
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "204": { description: Esborrada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /folders/{id}/favorites:
+    get:
+      tags: [favorites]
+      operationId: listFavorites
+      summary: Favorits d'una carpeta pròpia (amb snapshot)
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: Favorits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Favorite" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [favorites]
+      operationId: addFavorite
+      summary: Afegeix un expedient del registre públic (desa snapshot; mai a contracts)
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file_code]
+              properties:
+                file_code: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        "201":
+          description: Afegit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Favorite" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502":
+          description: El registre públic no respon
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /folders/{id}/favorites/{favorite_id}:
+    delete:
+      tags: [favorites]
+      operationId: removeFavorite
+      summary: Treu un favorit d'una carpeta pròpia
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: favorite_id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "204": { description: Tret }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # ───────────────────────── service-accounts ─────────────────────────
   /service-accounts:
@@ -2764,6 +2907,45 @@ components:
         file_code: { type: [string, "null"] }
         outcome: { type: [string, "null"] }
         message: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+
+    FavoriteFolder:
+      type: object
+      required: [id, name, favorites_count]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        color: { type: [string, "null"] }
+        favorites_count: { type: integer }
+
+    FolderBody:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: [string, "null"], maxLength: 500 }
+        color: { type: [string, "null"], enum: [blue, green, amber, red, purple, pink, teal, gray, null] }
+
+    FolderPatch:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        description: { type: [string, "null"], maxLength: 500 }
+        color: { type: [string, "null"], enum: [blue, green, amber, red, purple, pink, teal, gray, null] }
+
+    Favorite:
+      type: object
+      required: [id, file_code, snapshot, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        file_code: { type: string }
+        subject: { type: [string, "null"] }
+        awarding_body: { type: [string, "null"] }
+        published_at: { type: [string, "null"], format: date-time }
+        snapshot:
+          type: array
+          items: { type: object, additionalProperties: true }
         created_at: { type: string, format: date-time }
 
     PublicContractCard:

@@ -797,6 +797,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Les meves carpetes de favorits */
+        get: operations["listFolders"];
+        put?: never;
+        /** Crea una carpeta */
+        post: operations["createFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/folders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Esborra una carpeta pròpia (i els seus favorits) */
+        delete: operations["deleteFolder"];
+        options?: never;
+        head?: never;
+        /** Edita una carpeta pròpia */
+        patch: operations["updateFolder"];
+        trace?: never;
+    };
+    "/folders/{id}/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Favorits d'una carpeta pròpia (amb snapshot) */
+        get: operations["listFavorites"];
+        put?: never;
+        /** Afegeix un expedient del registre públic (desa snapshot; mai a contracts) */
+        post: operations["addFavorite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/folders/{id}/favorites/{favorite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Treu un favorit d'una carpeta pròpia */
+        delete: operations["removeFavorite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/service-accounts": {
         parameters: {
             query?: never;
@@ -1549,6 +1620,40 @@ export interface components {
             file_code?: string | null;
             outcome?: string | null;
             message?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        FavoriteFolder: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            description?: string | null;
+            color?: string | null;
+            favorites_count: number;
+        };
+        FolderBody: {
+            name: string;
+            description?: string | null;
+            /** @enum {string|null} */
+            color?: "blue" | "green" | "amber" | "red" | "purple" | "pink" | "teal" | "gray" | null;
+        };
+        FolderPatch: {
+            name?: string;
+            description?: string | null;
+            /** @enum {string|null} */
+            color?: "blue" | "green" | "amber" | "red" | "purple" | "pink" | "teal" | "gray" | null;
+        };
+        Favorite: {
+            /** Format: int64 */
+            id: number;
+            file_code: string;
+            subject?: string | null;
+            awarding_body?: string | null;
+            /** Format: date-time */
+            published_at?: string | null;
+            snapshot: {
+                [key: string]: unknown;
+            }[];
             /** Format: date-time */
             created_at: string;
         };
@@ -3678,6 +3783,195 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    listFolders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Carpetes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["FavoriteFolder"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderBody"];
+            };
+        };
+        responses: {
+            /** @description Creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoriteFolder"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    deleteFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Esborrada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FolderPatch"];
+            };
+        };
+        responses: {
+            /** @description Actualitzada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FavoriteFolder"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listFavorites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Favorits */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Favorite"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file_code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Afegit */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Favorite"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description El registre públic no respon */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    removeFavorite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                favorite_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tret */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listServiceAccounts: {

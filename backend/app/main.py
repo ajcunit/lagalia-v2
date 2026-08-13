@@ -15,6 +15,7 @@ from app.modules.config.router import router as config_router
 from app.modules.contractors.router import router as contractors_router
 from app.modules.contracts.router import router as contracts_router
 from app.modules.departments.router import router as departments_router
+from app.modules.favorites.router import router as favorites_router
 from app.modules.minor_contracts.router import router as minor_contracts_router
 from app.modules.public_registry.router import router as public_registry_router
 from app.modules.service_accounts.router import router as service_accounts_router
@@ -81,4 +82,5 @@ api.include_router(config_router)
 api.include_router(audit_router)
 api.include_router(sync_router)
 api.include_router(public_registry_router)
+api.include_router(favorites_router)
 app.include_router(api)

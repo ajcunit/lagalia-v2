@@ -25,6 +25,7 @@ import { Setup } from "./routes/Setup";
 import { AuditLogAdmin } from "./features/audit/AuditLogAdmin";
 import { SyncAdmin } from "./features/sync/SyncAdmin";
 import { SuperSearch } from "./features/search/SuperSearch";
+import { FavoritesPage } from "./features/favorites/FavoritesPage";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ export function App() {
               <Route path="/contractors/duplicates" element={<ContractorDuplicates />} />
               <Route path="/contractors/:id" element={<ContractorDetail />} />
               <Route path="/search" element={<SuperSearch />} />
+              <Route path="/favorites" element={<FavoritesPage />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />

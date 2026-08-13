@@ -102,7 +102,7 @@ Inventari complet de funcionalitats de l'aplicació actual (LAGALia Contractaci�
 
 ### 2.11 Favorits
 - Carpetes personals (nom, descripció, color) per organitzar expedients del SuperBuscador.
-- Afegir per `codi_expedient`: si el contracte no existeix localment, s'importa de la font oberta amb `origen='extern'` (els externs mai apareixen als llistats operatius).
+- Afegir per `codi_expedient`: es desa un **snapshot** de la font oberta dins del mateix mòdul de favorits. 🔄 Canvi v2 (2026-08-14): els expedients externs **mai** s'insereixen a les taules municipals (`contracts`), ni amb `origen='extern'` — distorsionarien la informació de l'ens. Serveixen de guia per a licitacions pròpies i, més endavant, de referència per als agents redactors (§2.14).
 - Vista mestre-detall i eliminació.
 
 ### 2.12 Auditoria de contractació (red flags)
@@ -165,7 +165,7 @@ Mòdul de seguiment operatiu dins la gestió de contractes: els responsables **c
 
 1. **Clau natural de contracte**: (`codi_expedient`, `estat_actual`, `lots`). Un expedient pot tenir múltiples registres (un per estat i lot); els llistats mostren un representant per expedient.
 2. **Detecció de canvis**: hash del registre complet de la font; si difereix → update camp a camp + historial `sincronizacion`.
-3. **Origen**: `local` (ens propi) vs `extern` (importats des del SuperBuscador/favorits). Els externs s'exclouen de llistats, estadístiques, alertes i pla.
+3. **Origen**: `local` (ens propi) vs `extern` (fitxes del SuperBuscador). 🔄 Canvi v2: els externs viuen només com a snapshot al mòdul de favorits; les taules operatives no tenen mai files externes (l'exclusió de llistats/estadístiques/alertes/pla passa a ser estructural).
 4. **Càlcul de dates**: `durada_contracte` es parseja de text ("X anys Y mesos Z dies" → mesos; >15 dies arrodoneix a +1 mes); `data_inici = data_formalitzacio + 1 dia`; `data_final = data_formalitzacio + durada + 1 dia`; la data de fi es sobreescriu amb `data_fi_prorroga` (pròrrogues) o `data_fi_execucio` (enriquiment).
 5. **Alertes**: `possiblement_finalitzat` si `data_final < avui`; `alerta_finalitzacio` si `avui ≤ data_final ≤ avui + finestra`, on finestra = `meses_aviso_vencimiento` del contracte o el global `dashboard_mesos_caducitat` (def. 3–6 mesos).
 6. **Associació automàtica**: primer herència de departaments d'altres registres del mateix expedient; si no, regles per prioritat; si cap aplica, queda sense assignar per a revisió manual.

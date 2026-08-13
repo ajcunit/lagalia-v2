@@ -107,8 +107,8 @@ Com v1: `department_id`, `rule_type department|body|keyword|cpv|amount`, `source
 ## 6. Pla, favorits, generador
 
 - `plan_entries`: `fiscal_year`, `quarter 1-4`, `subject`, `contract_type`, `scope`, `notes`, `subsidized` bool, `estimated_amount`, `status pending|approved`, `department_id`, `contract_id NULL`, `created_by`.
-- `folders` (favorits): `user_id`, `name`, `description`, `color`; UNIQUE(user_id, name).
-- `favorites`: `folder_id`, `contract_id`, `notes`; UNIQUE del parell.
+- `favorite_folders`: `user_id` (CASCADE), `name`, `description`, `color`.
+- `favorites`: `folder_id` (CASCADE), `file_code`, `subject`, `awarding_body`, `published_at`, `snapshot JSONB` (totes les files lot/fase del registre públic); UNIQUE(folder_id, file_code). 🔄 Canvi v2 (2026-08-14, migració 0014): els favorits guarden **snapshot**, no `contract_id` — els expedients externs mai entren a `contracts` (02 §2.11).
 - `doc_projects`: `user_id`, `name`; `doc_documents`: `project_id`, `doc_type PPT|PPA|REPORT`, `sections JSONB`, `reference_docs JSONB`, UNIQUE(project_id, doc_type); `doc_exports`: export generat (`document_id`, `format docx|pdf`, `storage_key`, `created_at`).
 
 ## 7. Plataforma d'IA

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 
 import { api } from "../../api/client";
@@ -7,6 +7,7 @@ import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatBytes, formatCurrency, formatDate } from "../../lib/format";
+import { useFolders } from "../favorites/useFolders";
 
 type Card = components["schemas"]["PublicContractCard"];
 
@@ -116,6 +117,66 @@ function PhasePanel(props: { url: string }) {
   );
 }
 
+function SaveToFolder(props: { fileCode: string }) {
+  const queryClient = useQueryClient();
+  const folders = useFolders();
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const add = useMutation({
+    mutationFn: async (folderId: number) => {
+      const { error, response } = await api.POST("/folders/{id}/favorites", {
+        params: { path: { id: folderId } },
+        body: { file_code: props.fileCode },
+      });
+      if (error !== undefined) throw Object.assign(new Error(), { status: response.status });
+    },
+    onSuccess: () => {
+      setMessage(t("favorites.saved"));
+      setOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["folders"] });
+    },
+    onError: (error: Error & { status?: number }) => {
+      setMessage(error.status === 409 ? t("favorites.alreadySaved") : t("favorites.saveError"));
+      setOpen(false);
+    },
+  });
+
+  const list = folders.data?.data ?? [];
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        className="text-xs text-muted underline hover:text-ink"
+        onClick={() => setOpen(!open)}
+      >
+        ⭐ {t("favorites.save")}
+      </button>
+      {message && <span className="ml-1 text-xs text-muted">{message}</span>}
+      {open && (
+        <span className="absolute right-0 top-6 z-10 block w-56 rounded-md border border-line bg-surface-raised p-2 shadow-card">
+          {list.length === 0 ? (
+            <span className="block text-xs text-muted">{t("favorites.noFoldersHint")}</span>
+          ) : (
+            list.map((folder) => (
+              <button
+                key={folder.id}
+                type="button"
+                disabled={add.isPending}
+                className="block w-full rounded px-2 py-1 text-left text-sm text-ink hover:bg-accent-soft"
+                onClick={() => add.mutate(folder.id)}
+              >
+                {folder.name}
+              </button>
+            ))
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function ResultCard(props: { card: Card }) {
   const c = props.card;
   const [openPhase, setOpenPhase] = useState<string | null>(null);
@@ -166,8 +227,7 @@ function ResultCard(props: { card: Card }) {
         </p>
       )}
 
-      {(phases.length > 0 || profileUrl) && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-2">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-2">
           {phases.map(({ phase }) => (
             <button
               key={phase}
@@ -183,18 +243,20 @@ function ResultCard(props: { card: Card }) {
               {t(`search.phase.${phase}` as const)}
             </button>
           ))}
-          {profileUrl && (
-            <a
-              href={profileUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-auto text-xs text-accent underline"
-            >
-              {t("search.openInPortal")}
-            </a>
-          )}
+          <span className="ml-auto flex items-center gap-3">
+            <SaveToFolder fileCode={c.file_code} />
+            {profileUrl && (
+              <a
+                href={profileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-accent underline"
+              >
+                {t("search.openInPortal")}
+              </a>
+            )}
+          </span>
         </div>
-      )}
       {openPhase !== null &&
         (() => {
           const active = phases.find((entry) => entry.phase === openPhase);
