@@ -48,7 +48,12 @@ def machine_principal(account: "ServiceAccount") -> User:
         can_plan=False,
     )
     principal.id = 0  # sense identitat d'usuari real
+    principal.is_machine = True
     return principal
+
+
+def is_machine(user: User) -> bool:
+    return getattr(user, "is_machine", False) is True
 
 
 class Access(enum.StrEnum):
@@ -347,6 +352,10 @@ async def resolve_view_scope(
 
     `view=all` sense dret a Vista Admin → 403 auditat.
     """
+    if is_machine(user):
+        # Les màquines no tenen departaments: l'abast és sempre global i la
+        # granularitat va per scopes (specs/service-accounts.md).
+        return ScopeInfo(type="all")
     if view == "all":
         if not can_switch_view(user):
             await _audit_denial(session, user, "view:all", ctx)

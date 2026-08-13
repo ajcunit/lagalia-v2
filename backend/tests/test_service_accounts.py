@@ -80,6 +80,12 @@ async def test_machine_access_scopes_and_lifecycle(
     )
     assert listing.status_code == 200, listing.text
 
+    # Sense ?view: l'abast d'una màquina és sempre global (no té departaments;
+    # regressió del principal sintètic que quedava en Vista Usuari buida).
+    default_view = api_client.get("/api/v1/contracts", params={"page[size]": 1}, headers=machine)
+    assert default_view.status_code == 200
+    assert default_view.json()["meta"]["total"] == listing.json()["meta"]["total"]
+
     # Stats també és contracts:read.
     stats = api_client.get("/api/v1/contracts/stats", params={"view": "all"}, headers=machine)
     assert stats.status_code == 200

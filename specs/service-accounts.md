@@ -13,7 +13,7 @@ Fase 2 ([05-api.md](../docs/05-api.md) §1: «API keys de servei (`Authorization
 ### Autenticació i autorització
 
 - `Authorization: Bearer sk_...` es resol a la mateixa dependència d'autenticació: hash → compte actiu i no caducat → identitat de màquina; es registra `last_used_at`.
-- `Authorize(acció)` per a màquines: **l'acció ha de ser als scopes** de la clau; concedeix accés ALL (les màquines no tenen departament — la granularitat és l'scope, no l'abast). Denegació → 403 auditada amb `actor_type: agent`.
+- `Authorize(acció)` per a màquines: **l'acció ha de ser als scopes** de la clau; concedeix accés ALL (les màquines no tenen departament — la granularitat és l'scope, no l'abast). El paràmetre `?view` s'ignora per a màquines: l'abast efectiu és sempre global. Denegació → 403 auditada amb `actor_type: agent`.
 - > ⚠️ **Fase 1**: les màquines accedeixen als endpoints protegits amb `Authorize(...)` (lectura de contractes/menors/adjudicataris/tasques, stats, facets, exports...). Els endpoints d'escriptura que usen la sessió d'usuari directament (PATCH, accions, tasques) responen 401 a una API key — la identitat de màquina completa per a escriptures és la fase 2 (anotat a BACKLOG B-013).
 - Rate limiting: les claus comparteixen els límits per identitat existents (la clau és la identitat).
 
