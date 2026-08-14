@@ -337,6 +337,7 @@ export const ca = {
   "analyst.thinking": "Analitzant…",
   "analyst.error": "No s'ha pogut completar l'anàlisi (proveïdor d'IA actiu?).",
   "analyst.steps": "Dades consultades ({count} passos)",
+  "analyst.working": "Consultant {tool}…",
   "analyst.disclaimer": "Les xifres provenen de consultes directes a la base de dades; la redacció és del model.",
   "nav.ai": "Intel·ligència artificial",
   "ai.title": "Plataforma d'IA",

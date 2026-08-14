@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
-import { api } from "../../api/client";
 import { Badge, Button, EmptyState } from "../../components/ui";
+import { Markdown } from "../../components/Markdown";
+import { streamNdjson } from "../../lib/stream";
 import { t } from "../../i18n";
 
 const EXAMPLES = [
@@ -15,11 +16,24 @@ const EXAMPLES = [
 export function Analyst() {
   const [question, setQuestion] = useState("");
 
+  const [steps, setSteps] = useState<{ tool: string; args: unknown; rows: unknown }[]>([]);
+  const [answer, setAnswer] = useState("");
   const ask = useMutation({
     mutationFn: async (q: string) => {
-      const { data, error } = await api.POST("/ai/analyses", { body: { question: q } });
-      if (error !== undefined) throw error;
-      return data;
+      setSteps([]);
+      setAnswer("");
+      let failed: string | null = null;
+      await streamNdjson("/ai/analyses/stream", { question: q }, (event) => {
+        if (event.type === "step") {
+          setSteps((prev) => [
+            ...prev,
+            { tool: String(event.tool), args: event.args, rows: event.rows },
+          ]);
+        }
+        if (event.type === "answer") setAnswer(String(event.answer_markdown ?? ""));
+        if (event.type === "error") failed = String(event.detail ?? "error");
+      });
+      if (failed !== null) throw new Error(failed);
     },
   });
 
@@ -68,18 +82,25 @@ export function Analyst() {
           <EmptyState icon="⚠️" title={t("analyst.error")} />
         </div>
       )}
-      {ask.data && (
+      {(steps.length > 0 || answer !== "" || ask.isPending) && (
         <div className="mt-4 space-y-3">
-          <pre className="whitespace-pre-wrap rounded-lg border border-line bg-surface-raised p-4 text-sm text-ink shadow-card">
-            {ask.data.answer_markdown}
-          </pre>
-          {ask.data.steps.length > 0 && (
+          {ask.isPending && steps.length > 0 && answer === "" && (
+            <p className="text-sm text-muted" role="status">
+              {t("analyst.working", { tool: steps[steps.length - 1]?.tool ?? "" })}
+            </p>
+          )}
+          {answer !== "" && (
+            <div className="rounded-lg border border-line bg-surface-raised p-4 shadow-card">
+              <Markdown>{answer}</Markdown>
+            </div>
+          )}
+          {steps.length > 0 && (
             <details className="rounded-lg border border-line bg-surface-raised p-3 shadow-card">
               <summary className="cursor-pointer text-sm font-medium text-ink">
-                {t("analyst.steps", { count: String(ask.data.steps.length) })}
+                {t("analyst.steps", { count: String(steps.length) })}
               </summary>
               <div className="mt-2 space-y-3">
-                {ask.data.steps.map((step, index) => (
+                {steps.map((step, index) => (
                   <div key={index}>
                     <p className="text-xs text-muted">
                       <Badge tone="neutral">{step.tool}</Badge>{" "}
@@ -93,7 +114,7 @@ export function Analyst() {
               </div>
             </details>
           )}
-          <p className="text-xs text-muted">{t("analyst.disclaimer")}</p>
+          {answer !== "" && <p className="text-xs text-muted">{t("analyst.disclaimer")}</p>}
         </div>
       )}
     </div>

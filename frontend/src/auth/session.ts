@@ -24,6 +24,10 @@ interface TokenPair {
   refresh_token: string;
 }
 
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 export function setSession(pair: TokenPair): void {
   accessToken = pair.access_token;
   localStorage.setItem(REFRESH_KEY, pair.refresh_token);

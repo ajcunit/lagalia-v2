@@ -316,3 +316,49 @@ async def test_analyst_agent(api_client, make_user, monkeypatch: pytest.MonkeyPa
             sql_text("DELETE FROM ai_provider_profiles WHERE name = 'analyst-fake'")
         )
         await session.commit()
+
+
+async def test_stream_endpoint(api_client, make_user, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import text as sql_text
+
+    auditor = await make_user("employee", can_audit=True)
+    async with session_factory() as session:
+        await session.execute(
+            sql_text(
+                "INSERT INTO ai_provider_profiles "
+                "(name, protocol, base_url, default_model, enabled) "
+                "VALUES ('stream-fake', 'openai_compatible', 'http://st.fake/v1', 'm', true)"
+            )
+        )
+        await session.commit()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sse = (
+            'data: {"choices":[{"delta":{"content":"# Inf"}}]}\n\n'
+            'data: {"choices":[{"delta":{"content":"orme"}}],'
+            '"usage":{"prompt_tokens":5,"completion_tokens":2}}\n\n'
+            "data: [DONE]\n\n"
+        )
+        return httpx.Response(200, content=sse.encode())
+
+    monkeypatch.setattr(providers, "_transport", httpx.MockTransport(handler))
+    with api_client.stream(
+        "POST",
+        "/api/v1/ai/audit/report/stream",
+        json={},
+        headers=login_headers(api_client, auditor.email),
+    ) as response:
+        assert response.status_code == 200
+        lines = [line for line in response.iter_lines() if line.strip()]
+    import json as _json
+
+    events = [_json.loads(line) for line in lines]
+    text_out = "".join(e.get("text", "") for e in events if e["type"] == "delta")
+    assert text_out == "# Informe"
+    assert events[-1]["type"] == "done"
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text("DELETE FROM ai_provider_profiles WHERE name = 'stream-fake'")
+        )
+        await session.commit()

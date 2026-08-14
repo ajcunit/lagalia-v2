@@ -41,6 +41,20 @@ def _system_prompt() -> str:
     return _SYSTEM.replace("{tools}", tool_lines)
 
 
+async def answer_events(
+    session: AsyncSession,
+    question: str,
+    *,
+    user_id: int | None = None,
+    trace_id: str | None = None,
+):
+    """Variant per a streaming NDJSON: cedeix {"type": "step"|"answer", ...}."""
+    result = await answer_question(session, question, user_id=user_id, trace_id=trace_id)
+    for step in result["steps"]:
+        yield {"type": "step", **step}
+    yield {"type": "answer", "answer_markdown": result["answer_markdown"]}
+
+
 async def answer_question(
     session: AsyncSession,
     question: str,

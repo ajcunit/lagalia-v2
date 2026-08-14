@@ -215,3 +215,118 @@ async def complete(
     return CompletionResult(
         content=content, input_tokens=tokens_in, output_tokens=tokens_out, model=chosen
     )
+
+
+async def stream(
+    profile: AiProviderProfile,
+    messages: list[dict[str, str]],
+    *,
+    task: str,
+    model: str | None = None,
+    max_tokens: int = 4096,
+    user_id: int | None = None,
+    trace_id: str | None = None,
+    input_summary: str | None = None,
+):
+    """Compleció en streaming: cedeix deltes de text; registra ai_runs al final.
+
+    Protocols amb stream natiu: openai_compatible (SSE) i claude (SSE) i
+    ollama (NDJSON). Gemini fa fallback a complete() en un sol tros.
+    """
+    chosen = model or profile.default_model
+    if not chosen:
+        raise ProviderError("el perfil no té model per defecte")
+    if profile.protocol == AiProtocol.GEMINI:
+        result = await complete(
+            profile, messages, task=task, model=model, max_tokens=max_tokens,
+            user_id=user_id, trace_id=trace_id, input_summary=input_summary,
+        )
+        yield result.content
+        return
+
+    base = profile.base_url.rstrip("/")
+    if profile.protocol == AiProtocol.CLAUDE:
+        url = f"{base}/v1/messages"
+        system = "\n".join(m["content"] for m in messages if m["role"] == "system") or None
+        body: dict[str, Any] = {
+            "model": chosen, "max_tokens": max_tokens, "stream": True,
+            "messages": [m for m in messages if m["role"] != "system"],
+        }
+        if system:
+            body["system"] = system
+    elif profile.protocol == AiProtocol.OLLAMA:
+        url = f"{base}/api/chat"
+        body = {"model": chosen, "messages": messages, "stream": True,
+                "options": {"num_predict": max_tokens}}
+    else:
+        url = f"{base}/chat/completions"
+        body = {"model": chosen, "max_tokens": max_tokens, "messages": messages, "stream": True}
+
+    import json as _json
+
+    started = time.monotonic()
+    status, error_detail = "success", None
+    tokens_in = tokens_out = None
+    collected: list[str] = []
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, transport=_transport) as client:
+            async with client.stream("POST", url, json=body, headers=_headers(profile)) as response:
+                if response.status_code != 200:
+                    raise ProviderError(f"el proveïdor ha respost {response.status_code}")
+                async for line in response.aiter_lines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("data:"):
+                        line = line[5:].strip()
+                    if line == "[DONE]":
+                        break
+                    try:
+                        event = _json.loads(line)
+                    except _json.JSONDecodeError:
+                        continue
+                    delta = ""
+                    if profile.protocol == AiProtocol.CLAUDE:
+                        if event.get("type") == "content_block_delta":
+                            delta = (event.get("delta") or {}).get("text", "")
+                        elif event.get("type") == "message_delta":
+                            usage = event.get("usage") or {}
+                            tokens_out = usage.get("output_tokens", tokens_out)
+                        elif event.get("type") == "message_start":
+                            usage = (event.get("message") or {}).get("usage") or {}
+                            tokens_in = usage.get("input_tokens", tokens_in)
+                    elif profile.protocol == AiProtocol.OLLAMA:
+                        delta = (event.get("message") or {}).get("content", "")
+                        if event.get("done"):
+                            tokens_in = event.get("prompt_eval_count", tokens_in)
+                            tokens_out = event.get("eval_count", tokens_out)
+                    else:
+                        choices = event.get("choices") or []
+                        if choices:
+                            delta = (choices[0].get("delta") or {}).get("content") or ""
+                        usage = event.get("usage") or {}
+                        if usage:
+                            tokens_in = usage.get("prompt_tokens", tokens_in)
+                            tokens_out = usage.get("completion_tokens", tokens_out)
+                    if delta:
+                        collected.append(delta)
+                        yield delta
+    except httpx.TransportError as exc:
+        status, error_detail = "error", f"proveïdor inaccessible: {exc}"
+    except ProviderError as exc:
+        status, error_detail = "error", str(exc)
+
+    latency_ms = int((time.monotonic() - started) * 1000)
+    async with session_factory() as session:
+        session.add(
+            AiRun(
+                task=task, provider_profile_id=profile.id, model=chosen,
+                input_summary=(input_summary or "")[:500] or None,
+                input_tokens=tokens_in, output_tokens=tokens_out,
+                latency_ms=latency_ms, status=status, error_detail=error_detail,
+                user_id=user_id, trace_id=trace_id,
+            )
+        )
+        await session.commit()
+    if status == "error":
+        raise ProviderError(error_detail or "error desconegut")

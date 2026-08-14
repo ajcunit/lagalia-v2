@@ -6,6 +6,8 @@ import { api } from "../../api/client";
 import { Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
+import { streamNdjson } from "../../lib/stream";
+import { Markdown } from "../../components/Markdown";
 
 type Item = Record<string, unknown>;
 
@@ -65,13 +67,20 @@ const contractLink = (item: Item) => (
 function AiReport() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [copied, setCopied] = useState(false);
+  const [report, setReport] = useState("");
   const generate = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/ai/audit/report", {
-        body: { custom_prompt: customPrompt.trim() || null },
-      });
-      if (error !== undefined) throw error;
-      return data;
+      setReport("");
+      let failed: string | null = null;
+      await streamNdjson(
+        "/ai/audit/report/stream",
+        { custom_prompt: customPrompt.trim() || null },
+        (event) => {
+          if (event.type === "delta") setReport((prev) => prev + String(event.text ?? ""));
+          if (event.type === "error") failed = String(event.detail ?? "error");
+        },
+      );
+      if (failed !== null) throw new Error(failed);
     },
   });
 
@@ -97,15 +106,14 @@ function AiReport() {
           {t("riskAudit.aiError")}
         </p>
       )}
-      {generate.data && (
+      {report && (
         <div className="mt-3">
           <div className="flex items-center gap-2 text-xs text-muted">
-            <span>{generate.data.model}</span>
             <button
               type="button"
               className="underline"
               onClick={() => {
-                void navigator.clipboard.writeText(generate.data.report_markdown);
+                void navigator.clipboard.writeText(report);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1500);
               }}
@@ -113,9 +121,10 @@ function AiReport() {
               {copied ? t("cpv.copied") : t("cpv.copy")}
             </button>
           </div>
-          <pre className="mt-1 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-md bg-surface p-4 text-sm text-ink">
-            {generate.data.report_markdown}
-          </pre>
+          <div className="mt-1 max-h-[32rem] overflow-auto rounded-md bg-surface p-4">
+            <Markdown>{report}</Markdown>
+            {generate.isPending && <span className="animate-pulse text-muted">▍</span>}
+          </div>
           <p className="mt-1 text-xs text-muted">{t("riskAudit.aiDisclaimer")}</p>
         </div>
       )}

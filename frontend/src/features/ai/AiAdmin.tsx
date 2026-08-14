@@ -6,6 +6,7 @@ import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
+import { Markdown } from "../../components/Markdown";
 
 type Provider = components["schemas"]["AiProvider"];
 type Protocol = Provider["protocol"];
@@ -176,9 +177,9 @@ function ProviderCard(props: { provider: Provider }) {
           </Button>
         </div>
         {answer && (
-          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-surface p-3 text-sm text-ink">
-            {answer}
-          </pre>
+          <div className="mt-2 max-h-64 overflow-auto rounded-md bg-surface p-3">
+            <Markdown>{answer}</Markdown>
+          </div>
         )}
       </div>
     </SectionCard>

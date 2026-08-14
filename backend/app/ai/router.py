@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -235,6 +236,56 @@ async def create_analysis(
         )
     except providers.ProviderError as exc:
         raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
+
+
+def _ndjson(payload: dict[str, Any]) -> str:
+    import json as _json
+
+    return _json.dumps(payload, ensure_ascii=False, default=str) + "\n"
+
+
+@router.post("/ai/audit/report/stream", operation_id="streamAuditReport")
+async def stream_audit_report(
+    body: AuditReportBody, session: SessionDep, authz_ctx: AuditRunDep, ctx: ContextDep
+) -> StreamingResponse:
+    """Streaming NDJSON de l'informe (07 §1.4): {type: delta|done|error}."""
+
+    async def generate():
+        try:
+            async for delta in audit_agent.stream_report(
+                session,
+                custom_prompt=body.custom_prompt,
+                user_id=authz_ctx.user.id,
+                trace_id=ctx.trace_id,
+            ):
+                yield _ndjson({"type": "delta", "text": delta})
+            yield _ndjson({"type": "done"})
+        except providers.ProviderError as exc:
+            yield _ndjson({"type": "error", "detail": str(exc)})
+        except Problem as exc:
+            yield _ndjson({"type": "error", "detail": exc.title})
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+@router.post("/ai/analyses/stream", operation_id="streamAnalysis")
+async def stream_analysis(
+    body: AnalysisBody, session: SessionDep, authz_ctx: AuditRunDep, ctx: ContextDep
+) -> StreamingResponse:
+    """Streaming NDJSON de l'analista: {type: step|answer|error}."""
+
+    async def generate():
+        try:
+            async for event in analyst_agent.answer_events(
+                session, body.question, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+            ):
+                yield _ndjson(event)
+        except providers.ProviderError as exc:
+            yield _ndjson({"type": "error", "detail": str(exc)})
+        except Problem as exc:
+            yield _ndjson({"type": "error", "detail": exc.title})
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
 class TaskConfigBody(BaseModel):

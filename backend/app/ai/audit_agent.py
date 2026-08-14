@@ -39,6 +39,39 @@ async def _collect_data(session: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def stream_report(
+    session: AsyncSession,
+    *,
+    custom_prompt: str | None = None,
+    user_id: int | None = None,
+    trace_id: str | None = None,
+):
+    """Variant en streaming: cedeix deltes de text del Markdown."""
+    data = await _collect_data(session)
+    resolved = await tasks.resolve(session, "audit.report")
+    user_extra = (
+        f"\n\nInstruccions addicionals de l'interventor:\n{custom_prompt}"
+        if custom_prompt
+        else ""
+    )
+    payload = json.dumps(jsonable_encoder(data), ensure_ascii=False)
+    messages = [
+        {"role": "system", "content": AUDIT_PROMPT},
+        {"role": "user", "content": f"<dades>\n{payload}\n</dades>{user_extra}"},
+    ]
+    async for delta in providers.stream(
+        resolved.profile,
+        messages,
+        task="audit.report",
+        model=resolved.model,
+        max_tokens=resolved.max_tokens or 30000,
+        user_id=user_id,
+        trace_id=trace_id,
+        input_summary="informe red flags (stream)",
+    ):
+        yield delta
+
+
 async def generate_report(
     session: AsyncSession,
     *,
