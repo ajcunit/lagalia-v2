@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import analyst_agent, audit_agent, cpv_agent, providers
+from app.ai import analyst_agent, audit_agent, cpv_agent, providers, rag
 from app.ai import tasks as ai_tasks
 from app.ai.models import AiProtocol, AiProviderProfile, AiRun, AiTaskConfig
 from app.core import authz, crypto
@@ -291,6 +291,58 @@ async def stream_analysis(
             yield _ndjson({"type": "error", "detail": exc.title})
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+SyncExecDep = Annotated[authz.AuthzContext, Depends(authz.Authorize("sync:execute"))]
+
+
+class RagSearchBody(BaseModel):
+    query: str = Field(min_length=3, max_length=500)
+    limit: int = Field(default=8, ge=1, le=10)
+
+
+@router.get("/rag/status", operation_id="getRagStatus")
+async def rag_status(session: SessionDep, _authz: WriteDep) -> dict[str, Any]:
+    from sqlalchemy import text as sql_text
+
+    row = (
+        await session.execute(
+            sql_text(
+                "SELECT count(*) FILTER (WHERE storage_key IS NOT NULL) AS with_file, "
+                "count(*) FILTER (WHERE indexed_at IS NOT NULL) AS indexed, "
+                "(SELECT count(*) FROM rag_chunks) AS chunks FROM phase_documents"
+            )
+        )
+    ).one()
+    return {"documents": row.with_file, "indexed": row.indexed, "chunks": row.chunks}
+
+
+@router.post("/rag/actions/index", operation_id="triggerRagIndex", status_code=202)
+async def trigger_rag_index(
+    session: SessionDep, authz_ctx: SyncExecDep, ctx: ContextDep
+) -> dict[str, Any]:
+    from app.jobs.service import enqueue_job
+
+    job = await enqueue_job(
+        session, job_type="rag.index", payload={},
+        created_by=authz_ctx.user.id or None, dedup_key="rag.index",
+    )
+    await _audit(session, authz_ctx.user.id, "rag.index_triggered", "rag", ctx)
+    await session.commit()
+    return {"job_id": str(job.id)}
+
+
+@router.post("/rag/search", operation_id="searchRag")
+async def search_rag(
+    body: RagSearchBody, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
+) -> dict[str, Any]:
+    try:
+        results = await rag.search(session, body.query, limit=body.limit)
+    except providers.ProviderError as exc:
+        raise Problem(
+            502, "El proveïdor d'embeddings no ha respost", "upstream", detail=str(exc)
+        ) from None
+    return {"data": results}
 
 
 class TaskConfigBody(BaseModel):

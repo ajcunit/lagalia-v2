@@ -1245,6 +1245,82 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /rag/status:
+    get:
+      tags: [ai]
+      operationId: getRagStatus
+      summary: Estat de la ingesta RAG (documents, indexats, chunks)
+      x-required-scopes: [config:write]
+      responses:
+        "200":
+          description: Estat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [documents, indexed, chunks]
+                properties:
+                  documents: { type: integer }
+                  indexed: { type: integer }
+                  chunks: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /rag/actions/index:
+    post:
+      tags: [ai]
+      operationId: triggerRagIndex
+      summary: Encua la indexació dels documents pendents
+      x-required-scopes: [sync:execute]
+      responses:
+        "202":
+          description: Job encuat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id]
+                properties:
+                  job_id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /rag/search:
+    post:
+      tags: [ai]
+      operationId: searchRag
+      summary: Cerca híbrida al corpus documental (cosinus + trigram)
+      x-required-scopes: [tools:use]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string, minLength: 3, maxLength: 500 }
+                limit: { type: integer, minimum: 1, maximum: 10, default: 8 }
+      responses:
+        "200":
+          description: Passatges amb la font
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "502":
+          description: El proveïdor d'embeddings no ha respost
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
   /ai/providers:
     get:
       tags: [ai]

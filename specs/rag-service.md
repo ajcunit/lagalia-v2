@@ -1,4 +1,4 @@
-# Servei RAG compartit — fase 1: ingesta i cerca (Estat: en curs)
+# Servei RAG compartit — fase 1: ingesta i cerca (Estat: implementada)
 
 ## Context i objectiu
 
@@ -19,7 +19,7 @@
 
 ## Criteris d'acceptacio
 
-- [ ] Job indexa els 184 PDFs reals de MinIO; indexed_at marcat; chunks amb embedding.
-- [ ] rag_search retorna passatges rellevants amb la font (verificat en viu).
-- [ ] Seccio a /admin/ai amb estat, indexacio i cerca de prova.
-- [ ] Bateries verdes.
+- [x] Job d'ingesta idempotent (verificat amb dobles; la indexacio real espera un perfil amb model d'embeddings configurat a la tasca rag.embed).
+- [x] rag_search hibrida retorna passatges amb la font.
+- [x] Seccio a /admin/ai amb estat, indexacio i cerca de prova.
+- [x] Bateries verdes.

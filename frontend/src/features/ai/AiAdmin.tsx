@@ -357,6 +357,98 @@ function TaskConfigRow(props: { row: TaskRow; providers: Provider[] }) {
   );
 }
 
+function RagPanel() {
+  const queryClient = useQueryClient();
+  const [query, setQuery] = useState("");
+  const status = useQuery({
+    queryKey: ["rag-status"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/rag/status");
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+  const index = useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.POST("/rag/actions/index", {});
+      if (error !== undefined) throw Object.assign(new Error(), { status: response.status });
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["rag-status"] }),
+  });
+  const search = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/rag/search", { body: { query } });
+      if (error !== undefined) throw error;
+      return data.data as Record<string, unknown>[];
+    },
+  });
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-lg font-semibold text-ink">{t("rag.title")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("rag.intro")}</p>
+      <div className="mt-2 rounded-lg border border-line bg-surface-raised p-4 shadow-card">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-ink">
+          {status.data && (
+            <span>
+              {t("rag.status", {
+                indexed: String(status.data.indexed),
+                documents: String(status.data.documents),
+                chunks: String(status.data.chunks),
+              })}
+            </span>
+          )}
+          <span className="ml-auto">
+            <Button disabled={index.isPending} onClick={() => index.mutate()}>
+              {t("rag.index")}
+            </Button>
+          </span>
+        </div>
+        {index.isSuccess && <p className="mt-1 text-xs text-muted">{t("rag.indexQueued")}</p>}
+        {index.isError && <p className="mt-1 text-xs text-danger">{t("rag.indexError")}</p>}
+        <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-line pt-3">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("rag.searchPlaceholder")}
+            aria-label={t("rag.title")}
+            className="min-w-64 flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+          />
+          <Button
+            tone="accent"
+            disabled={search.isPending || query.trim().length < 3}
+            onClick={() => search.mutate()}
+          >
+            {search.isPending ? t("analyst.thinking") : t("rag.search")}
+          </Button>
+        </div>
+        {search.isError && (
+          <p role="alert" className="mt-2 rounded-md bg-danger/10 p-2 text-sm text-ink">
+            {t("rag.searchError")}
+          </p>
+        )}
+        {search.data && (
+          <div className="mt-2 space-y-2">
+            {search.data.length === 0 ? (
+              <p className="text-sm text-muted">{t("rag.searchEmpty")}</p>
+            ) : (
+              search.data.map((row, i) => (
+                <div key={i} className="rounded-md bg-surface p-2">
+                  <p className="text-xs text-muted">
+                    {String(row.file_code ?? "—")} · {String(row.document_title ?? "")} ·{" "}
+                    {String(row.doc_type ?? "")} ({String(row.phase ?? "")})
+                  </p>
+                  <p className="mt-1 line-clamp-4 text-sm text-ink">{String(row.content ?? "")}</p>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AiAdmin() {
   const providers = useQuery({
     queryKey: ["ai-providers"],
@@ -432,6 +524,8 @@ export function AiAdmin() {
           </table>
         )}
       </div>
+
+      <RagPanel />
 
       <h2 className="mt-8 text-lg font-semibold text-ink">{t("ai.runs")}</h2>
       <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-surface-raised shadow-card">
