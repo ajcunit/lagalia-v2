@@ -695,6 +695,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audit/red-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Red flags de contractació (fraccionaments, baixes, renovacions, concurrència) */
+        get: operations["getRedFlags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sync-runs": {
         parameters: {
             query?: never;
@@ -1591,6 +1608,12 @@ export interface components {
             health_status?: string | null;
             /** Format: date-time */
             last_health_check?: string | null;
+        };
+        RedFlagBlock: {
+            total: number;
+            items: {
+                [key: string]: unknown;
+            }[];
         };
         SyncRun: {
             /** Format: int64 */
@@ -3544,6 +3567,33 @@ export interface operations {
                         checked: number;
                         first_broken_id?: number;
                         detail?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRedFlags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quatre blocs amb total i top-50 per severitat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        splitting: components["schemas"]["RedFlagBlock"];
+                        reckless_bids: components["schemas"]["RedFlagBlock"];
+                        critical_renewals: components["schemas"]["RedFlagBlock"];
+                        single_bidder: components["schemas"]["RedFlagBlock"];
                     };
                 };
             };

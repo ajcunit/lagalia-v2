@@ -1150,6 +1150,29 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+
+  /audit/red-flags:
+    get:
+      tags: [audit]
+      operationId: getRedFlags
+      summary: Red flags de contractació (fraccionaments, baixes, renovacions, concurrència)
+      x-required-scopes: [audit:run]
+      responses:
+        "200":
+          description: Quatre blocs amb total i top-50 per severitat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [splitting, reckless_bids, critical_renewals, single_bidder]
+                properties:
+                  splitting: { $ref: "#/components/schemas/RedFlagBlock" }
+                  reckless_bids: { $ref: "#/components/schemas/RedFlagBlock" }
+                  critical_renewals: { $ref: "#/components/schemas/RedFlagBlock" }
+                  single_bidder: { $ref: "#/components/schemas/RedFlagBlock" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   # ───────────────────────── sync ─────────────────────────
   /sync-runs:
     get:
@@ -2881,6 +2904,15 @@ components:
           description: "nom de credencial → is_set (mai el valor)."
         health_status: { type: [string, "null"] }
         last_health_check: { type: [string, "null"], format: date-time }
+
+    RedFlagBlock:
+      type: object
+      required: [total, items]
+      properties:
+        total: { type: integer }
+        items:
+          type: array
+          items: { type: object, additionalProperties: true }
 
     SyncRun:
       type: object
