@@ -1396,6 +1396,41 @@ paths:
         "204": { description: Restablerta }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /ai/audit/report:
+    post:
+      tags: [ai]
+      operationId: generateAuditReport
+      summary: Informe executiu d'auditoria sobre els red flags (agent)
+      x-required-scopes: [audit:run]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                custom_prompt: { type: [string, "null"], maxLength: 2000 }
+      responses:
+        "200":
+          description: Informe en Markdown
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [report_markdown, generated_at, model]
+                properties:
+                  report_markdown: { type: string }
+                  generated_at: { type: string }
+                  model: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502":
+          description: El proveïdor d'IA no ha respost
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
   /ai/cpv/suggest:
     post:
       tags: [ai]

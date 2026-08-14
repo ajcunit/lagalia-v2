@@ -208,3 +208,53 @@ async def test_task_config_resolution(api_client, make_user) -> None:  # type: i
 
     # Neteja: el perfil actiu no ha de contaminar altres tests de la bateria.
     assert api_client.delete(f"/api/v1/ai/providers/{pid}", headers=admin).status_code == 204
+
+
+async def test_audit_report_agent(api_client, make_user, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import text as sql_text
+
+    plain = await make_user("employee")
+    auditor = await make_user("employee", can_audit=True)
+
+    assert (
+        api_client.post(
+            "/api/v1/ai/audit/report", json={}, headers=login_headers(api_client, plain.email)
+        ).status_code
+        == 403
+    )
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text(
+                "INSERT INTO ai_provider_profiles "
+                "(name, protocol, base_url, default_model, enabled) "
+                "VALUES ('audit-fake', 'openai_compatible', 'http://audit.fake/v1', 'm', true)"
+            )
+        )
+        await session.commit()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = request.read().decode()
+        assert "<dades>" in body and "Centra't" in body
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "# Informe\n\nRiscos prioritzats."}}],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+            },
+        )
+
+    monkeypatch.setattr(providers, "_transport", httpx.MockTransport(handler))
+    response = api_client.post(
+        "/api/v1/ai/audit/report",
+        json={"custom_prompt": "Centra't en el fraccionament"},
+        headers=login_headers(api_client, auditor.email),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["report_markdown"].startswith("# Informe")
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text("DELETE FROM ai_provider_profiles WHERE name = 'audit-fake'")
+        )
+        await session.commit()

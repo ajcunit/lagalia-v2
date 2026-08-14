@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { api } from "../../api/client";
-import { EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 
@@ -61,6 +62,67 @@ const contractLink = (item: Item) => (
   </Link>
 );
 
+function AiReport() {
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [copied, setCopied] = useState(false);
+  const generate = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/ai/audit/report", {
+        body: { custom_prompt: customPrompt.trim() || null },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+
+  return (
+    <div className="mt-6 rounded-lg border border-accent/40 bg-surface-raised p-4 shadow-card">
+      <h2 className="text-lg font-semibold text-ink">{t("riskAudit.aiTitle")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("riskAudit.aiIntro")}</p>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <textarea
+          value={customPrompt}
+          onChange={(e) => setCustomPrompt(e.target.value)}
+          rows={2}
+          maxLength={2000}
+          placeholder={t("riskAudit.aiPlaceholder")}
+          className="min-w-72 flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+        />
+        <Button tone="accent" disabled={generate.isPending} onClick={() => generate.mutate()}>
+          {generate.isPending ? t("riskAudit.aiGenerating") : t("riskAudit.aiGenerate")}
+        </Button>
+      </div>
+      {generate.isError && (
+        <p role="alert" className="mt-2 rounded-md bg-danger/10 p-2 text-sm text-ink">
+          {t("riskAudit.aiError")}
+        </p>
+      )}
+      {generate.data && (
+        <div className="mt-3">
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <span>{generate.data.model}</span>
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                void navigator.clipboard.writeText(generate.data.report_markdown);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+            >
+              {copied ? t("cpv.copied") : t("cpv.copy")}
+            </button>
+          </div>
+          <pre className="mt-1 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-md bg-surface p-4 text-sm text-ink">
+            {generate.data.report_markdown}
+          </pre>
+          <p className="mt-1 text-xs text-muted">{t("riskAudit.aiDisclaimer")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RiskAudit() {
   const flags = useQuery({
     queryKey: ["red-flags"],
@@ -79,6 +141,7 @@ export function RiskAudit() {
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-ink">{t("riskAudit.title")}</h1>
       <p className="mt-1 max-w-3xl text-sm text-muted">{t("riskAudit.intro")}</p>
+      <AiReport />
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Block
           title={t("riskAudit.splitting")}

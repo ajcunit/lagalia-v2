@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import cpv_agent, providers
+from app.ai import audit_agent, cpv_agent, providers
 from app.ai import tasks as ai_tasks
 from app.ai.models import AiProtocol, AiProviderProfile, AiRun, AiTaskConfig
 from app.core import authz, crypto
@@ -195,6 +195,29 @@ async def suggest_cpv(
     return await cpv_agent.suggest(
         session, body.text, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
     )
+
+
+AuditRunDep = Annotated[authz.AuthzContext, Depends(authz.Authorize("audit:run"))]
+
+
+class AuditReportBody(BaseModel):
+    custom_prompt: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/ai/audit/report", operation_id="generateAuditReport")
+async def generate_audit_report(
+    body: AuditReportBody, session: SessionDep, authz_ctx: AuditRunDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Agent auditor (specs/audit-ai-report.md): informe executiu en Markdown."""
+    try:
+        return await audit_agent.generate_report(
+            session,
+            custom_prompt=body.custom_prompt,
+            user_id=authz_ctx.user.id,
+            trace_id=ctx.trace_id,
+        )
+    except providers.ProviderError as exc:
+        raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
 
 
 class TaskConfigBody(BaseModel):
