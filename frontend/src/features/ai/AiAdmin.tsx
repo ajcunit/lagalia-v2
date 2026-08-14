@@ -367,7 +367,16 @@ function RagPanel() {
       if (error !== undefined) throw error;
       return data;
     },
+    refetchInterval: (q) => {
+      const job = q.state.data?.last_job as { status?: string } | null | undefined;
+      return job && (job.status === "running" || job.status === "queued") ? 2000 : false;
+    },
   });
+  const lastJob = status.data?.last_job as
+    | { status?: string; progress?: number; progress_message?: string | null }
+    | null
+    | undefined;
+  const indexing = lastJob?.status === "running" || lastJob?.status === "queued";
   const index = useMutation({
     mutationFn: async () => {
       const { error, response } = await api.POST("/rag/actions/index", {});
@@ -404,8 +413,28 @@ function RagPanel() {
             </Button>
           </span>
         </div>
-        {index.isSuccess && <p className="mt-1 text-xs text-muted">{t("rag.indexQueued")}</p>}
         {index.isError && <p className="mt-1 text-xs text-danger">{t("rag.indexError")}</p>}
+        {indexing && (
+          <div className="mt-2" role="status" aria-live="polite">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
+              <div
+                className="h-2 rounded-full bg-accent transition-all duration-500"
+                style={{ width: `${Math.max(2, lastJob?.progress ?? 0)}%` }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              {lastJob?.progress_message ?? t("rag.indexQueued")} · {lastJob?.progress ?? 0}%
+            </p>
+          </div>
+        )}
+        {!indexing && lastJob && (
+          <p className="mt-1 text-xs text-muted">
+            {t("rag.lastRun", {
+              status: String(lastJob.status),
+              message: lastJob.progress_message ?? "",
+            })}
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-line pt-3">
           <input
             value={query}

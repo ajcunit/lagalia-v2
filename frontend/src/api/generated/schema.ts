@@ -4144,6 +4144,9 @@ export interface operations {
                         documents: number;
                         indexed: number;
                         chunks: number;
+                        last_job?: {
+                            [key: string]: unknown;
+                        } | null;
                     };
                 };
             };

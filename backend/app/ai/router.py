@@ -314,7 +314,27 @@ async def rag_status(session: SessionDep, _authz: WriteDep) -> dict[str, Any]:
             )
         )
     ).one()
-    return {"documents": row.with_file, "indexed": row.indexed, "chunks": row.chunks}
+    last = (
+        await session.execute(
+            sql_text(
+                "SELECT id, status, progress, progress_message FROM jobs "
+                "WHERE type = 'rag.index' ORDER BY created_at DESC LIMIT 1"
+            )
+        )
+    ).first()
+    return {
+        "documents": row.with_file,
+        "indexed": row.indexed,
+        "chunks": row.chunks,
+        "last_job": {
+            "id": str(last.id),
+            "status": last.status,
+            "progress": last.progress,
+            "progress_message": last.progress_message,
+        }
+        if last
+        else None,
+    }
 
 
 @router.post("/rag/actions/index", operation_id="triggerRagIndex", status_code=202)

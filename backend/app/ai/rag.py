@@ -143,9 +143,10 @@ async def rag_index(ctx: JobContext) -> dict[str, Any]:
             failed += 1
             logger.warning("rag_index_document_failed", document_id=document_id, error=str(exc))
         if position % 5 == 0 or position == len(ids):
+            suffix = f" ({failed} errors)" if failed else ""
             await ctx.set_progress(
                 min(99, (position * 100) // max(1, len(ids))),
-                f"{position}/{len(ids)} documents indexats",
+                f"{position}/{len(ids)} documents processats{suffix}",
             )
     result = {"documents": done, "chunks": chunks_total, "failed": failed}
     logger.info("rag_index_finished", **result)
