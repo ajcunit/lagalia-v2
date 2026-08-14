@@ -59,7 +59,7 @@ async def stream_report(
         {"role": "system", "content": AUDIT_PROMPT},
         {"role": "user", "content": f"<dades>\n{payload}\n</dades>{user_extra}"},
     ]
-    async for delta in providers.stream(
+    async for event in providers.stream(
         resolved.profile,
         messages,
         task="audit.report",
@@ -69,7 +69,7 @@ async def stream_report(
         trace_id=trace_id,
         input_summary="informe red flags (stream)",
     ):
-        yield delta
+        yield event
 
 
 async def generate_report(

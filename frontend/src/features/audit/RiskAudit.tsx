@@ -68,15 +68,19 @@ function AiReport() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [copied, setCopied] = useState(false);
   const [report, setReport] = useState("");
+  const [thinkingChars, setThinkingChars] = useState(0);
   const generate = useMutation({
     mutationFn: async () => {
       setReport("");
+      setThinkingChars(0);
       let failed: string | null = null;
       await streamNdjson(
         "/ai/audit/report/stream",
         { custom_prompt: customPrompt.trim() || null },
         (event) => {
           if (event.type === "delta") setReport((prev) => prev + String(event.text ?? ""));
+          if (event.type === "thinking")
+            setThinkingChars((prev) => prev + String(event.text ?? "").length);
           if (event.type === "error") failed = String(event.detail ?? "error");
         },
       );
@@ -101,6 +105,13 @@ function AiReport() {
           {generate.isPending ? t("riskAudit.aiGenerating") : t("riskAudit.aiGenerate")}
         </Button>
       </div>
+      {generate.isPending && report === "" && (
+        <p role="status" className="mt-2 animate-pulse text-sm text-muted">
+          {thinkingChars > 0
+            ? t("riskAudit.aiThinkingLive", { chars: String(thinkingChars) })
+            : t("riskAudit.aiGenerating")}
+        </p>
+      )}
       {generate.isError && (
         <p role="alert" className="mt-2 rounded-md bg-danger/10 p-2 text-sm text-ink">
           {t("riskAudit.aiError")}

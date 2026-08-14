@@ -228,7 +228,11 @@ async def stream(
     trace_id: str | None = None,
     input_summary: str | None = None,
 ):
-    """Compleció en streaming: cedeix deltes de text; registra ai_runs al final.
+    """Compleció en streaming: cedeix {"kind": "text"|"thinking", "text": ...}.
+
+    Els models raonadors (Qwen, deepseek-r1…) emeten primer el raonament
+    (reasoning_content a vLLM, <think> inline a Ollama): es reenvia com a
+    "thinking" perquè la UI mostri activitat des del primer token.
 
     Protocols amb stream natiu: openai_compatible (SSE) i claude (SSE) i
     ollama (NDJSON). Gemini fa fallback a complete() en un sol tros.
@@ -241,7 +245,7 @@ async def stream(
             profile, messages, task=task, model=model, max_tokens=max_tokens,
             user_id=user_id, trace_id=trace_id, input_summary=input_summary,
         )
-        yield result.content
+        yield {"kind": "text", "text": result.content}
         return
 
     base = profile.base_url.rstrip("/")
@@ -286,9 +290,12 @@ async def stream(
                     except _json.JSONDecodeError:
                         continue
                     delta = ""
+                    thinking = ""
                     if profile.protocol == AiProtocol.CLAUDE:
                         if event.get("type") == "content_block_delta":
-                            delta = (event.get("delta") or {}).get("text", "")
+                            block_delta = event.get("delta") or {}
+                            delta = block_delta.get("text", "")
+                            thinking = block_delta.get("thinking", "")
                         elif event.get("type") == "message_delta":
                             usage = event.get("usage") or {}
                             tokens_out = usage.get("output_tokens", tokens_out)
@@ -303,14 +310,18 @@ async def stream(
                     else:
                         choices = event.get("choices") or []
                         if choices:
-                            delta = (choices[0].get("delta") or {}).get("content") or ""
+                            choice_delta = choices[0].get("delta") or {}
+                            delta = choice_delta.get("content") or ""
+                            thinking = choice_delta.get("reasoning_content") or ""
                         usage = event.get("usage") or {}
                         if usage:
                             tokens_in = usage.get("prompt_tokens", tokens_in)
                             tokens_out = usage.get("completion_tokens", tokens_out)
+                    if thinking:
+                        yield {"kind": "thinking", "text": thinking}
                     if delta:
                         collected.append(delta)
-                        yield delta
+                        yield {"kind": "text", "text": delta}
     except httpx.TransportError as exc:
         status, error_detail = "error", f"proveïdor inaccessible: {exc}"
     except ProviderError as exc:

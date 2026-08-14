@@ -417,6 +417,7 @@ export const ca = {
   "riskAudit.aiPlaceholder": "Instruccions opcionals de l'interventor (p. ex. centra't en el fraccionament)…",
   "riskAudit.aiGenerate": "Genera l'informe",
   "riskAudit.aiGenerating": "Redactant…",
+  "riskAudit.aiThinkingLive": "El model està raonant ({chars} caràcters de pensament)…",
   "riskAudit.aiError": "No s'ha pogut generar (hi ha cap perfil d'IA actiu i accessible?).",
   "riskAudit.aiDisclaimer": "Suport a la revisió: no substitueix l'informe preceptiu d'Intervenció.",
   "riskAudit.splitting": "Possibles fraccionaments",

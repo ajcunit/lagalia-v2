@@ -252,20 +252,25 @@ async def stream_audit_report(
 
     async def generate():
         try:
-            async for delta in audit_agent.stream_report(
+            async for event in audit_agent.stream_report(
                 session,
                 custom_prompt=body.custom_prompt,
                 user_id=authz_ctx.user.id,
                 trace_id=ctx.trace_id,
             ):
-                yield _ndjson({"type": "delta", "text": delta})
+                kind = "delta" if event["kind"] == "text" else "thinking"
+                yield _ndjson({"type": kind, "text": event["text"]})
             yield _ndjson({"type": "done"})
         except providers.ProviderError as exc:
             yield _ndjson({"type": "error", "detail": str(exc)})
         except Problem as exc:
             yield _ndjson({"type": "error", "detail": exc.title})
 
-    return StreamingResponse(generate(), media_type="application/x-ndjson")
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/ai/analyses/stream", operation_id="streamAnalysis")
