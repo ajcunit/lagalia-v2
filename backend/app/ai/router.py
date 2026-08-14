@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import providers
+from app.ai import cpv_agent, providers
 from app.ai.models import AiProtocol, AiProviderProfile, AiRun
 from app.core import authz, crypto
 from app.core.db import get_session
@@ -171,6 +171,66 @@ async def check_provider_health(
     profile.last_health_check = datetime.now(UTC)
     await session.commit()
     return {"status": status, "detail": detail, "models": models[:100]}
+
+
+UseDep = Annotated[authz.AuthzContext, Depends(authz.Authorize("tools:use"))]
+
+
+class CpvSuggestBody(BaseModel):
+    text: str = Field(min_length=5, max_length=2000)
+
+
+class CpvFeedbackBody(BaseModel):
+    query_text: str = Field(min_length=1, max_length=2000)
+    chosen_code: str = Field(min_length=8, max_length=20)
+    suggested: list[dict[str, Any]] | None = None
+
+
+async def _active_profile(session: AsyncSession) -> AiProviderProfile:
+    profile = (
+        await session.execute(
+            select(AiProviderProfile)
+            .where(AiProviderProfile.enabled)
+            .order_by(AiProviderProfile.id)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if profile is None:
+        raise Problem(409, "Cap perfil d'IA actiu (configura'l a /admin/ai)", "conflict")
+    return profile
+
+
+@router.post("/ai/cpv/suggest", operation_id="suggestCpv")
+async def suggest_cpv(
+    body: CpvSuggestBody, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Agent classificador CPV (specs/cpv-ai-suggest.md)."""
+    profile = await _active_profile(session)
+    return await cpv_agent.suggest(
+        session, profile, body.text, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+    )
+
+
+@router.post("/ai/cpv/feedback", operation_id="recordCpvFeedback", status_code=201)
+async def record_cpv_feedback(
+    body: CpvFeedbackBody, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
+) -> dict[str, str]:
+    from sqlalchemy import text as sql_text
+
+    await session.execute(
+        sql_text(
+            "INSERT INTO ai_cpv_feedback (query_text, chosen_code, suggested, user_id) "
+            "VALUES (:q, :c, CAST(:s AS jsonb), :u)"
+        ),
+        {
+            "q": body.query_text,
+            "c": body.chosen_code,
+            "s": __import__("json").dumps(body.suggested) if body.suggested else None,
+            "u": authz_ctx.user.id,
+        },
+    )
+    await session.commit()
+    return {"status": "recorded"}
 
 
 class TestPromptBody(BaseModel):

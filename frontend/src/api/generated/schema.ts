@@ -782,6 +782,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/cpv/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggeriments CPV per a un objecte de contracte (agent híbrid) */
+        post: operations["suggestCpv"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/cpv/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Registra el codi finalment triat (dataset d'avaluació) */
+        post: operations["recordCpvFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/runs": {
         parameters: {
             query?: never;
@@ -4035,6 +4069,79 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    suggestCpv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Top 5 amb score i justificació en català */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        contract_type?: string | null;
+                        /** @enum {string} */
+                        source: "llm" | "lexical";
+                        suggestions: {
+                            code: string;
+                            description: string;
+                            score: number;
+                            justification: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    recordCpvFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    query_text: string;
+                    chosen_code: string;
+                    suggested?: {
+                        [key: string]: unknown;
+                    }[] | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Registrat */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        status: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            422: components["responses"]["ValidationError"];
         };
     };
     listAiRuns: {

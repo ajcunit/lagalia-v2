@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
-import { Badge, EmptyState, Skeleton } from "../../components/ui";
+import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 
 type CpvRow = {
@@ -83,6 +83,83 @@ function Row(props: { row: CpvRow; depth: number }) {
   );
 }
 
+type Suggestion = { code: string; description: string; score: number; justification: string };
+
+function AiSuggest() {
+  const [text, setText] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const suggest = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/ai/cpv/suggest", { body: { text } });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+
+  function pick(item: Suggestion, all: Suggestion[]) {
+    void navigator.clipboard.writeText(item.code);
+    setCopied(item.code);
+    setTimeout(() => setCopied(null), 2000);
+    void api.POST("/ai/cpv/feedback", {
+      body: { query_text: text, chosen_code: item.code, suggested: all },
+    });
+  }
+
+  return (
+    <div className="mt-6 rounded-lg border border-accent/40 bg-surface-raised p-4 shadow-card">
+      <h2 className="text-lg font-semibold text-ink">{t("cpv.aiTitle")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("cpv.aiIntro")}</p>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={2}
+          maxLength={2000}
+          placeholder={t("cpv.aiPlaceholder")}
+          className="min-w-72 flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+        />
+        <Button
+          tone="accent"
+          disabled={suggest.isPending || text.trim().length < 5}
+          onClick={() => suggest.mutate()}
+        >
+          {suggest.isPending ? t("cpv.aiThinking") : t("cpv.aiSubmit")}
+        </Button>
+      </div>
+      {suggest.isError && (
+        <p role="alert" className="mt-2 rounded-md bg-danger/10 p-2 text-sm text-ink">
+          {t("cpv.aiError")}
+        </p>
+      )}
+      {suggest.data && (
+        <div className="mt-3 space-y-2">
+          {suggest.data.suggestions.length === 0 ? (
+            <p className="text-sm text-muted">{t("cpv.aiEmpty")}</p>
+          ) : (
+            suggest.data.suggestions.map((item) => (
+              <div key={item.code} className="flex flex-wrap items-start gap-2 rounded-md bg-surface p-2">
+                <code className="text-sm font-semibold text-accent">{item.code}</code>
+                <Badge tone="neutral">{Math.round(item.score * 100)}%</Badge>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-ink">{item.description}</p>
+                  <p className="text-xs text-muted">{item.justification}</p>
+                </div>
+                <Button onClick={() => pick(item, suggest.data.suggestions)}>
+                  {copied === item.code ? t("cpv.copied") : t("cpv.aiUse")}
+                </Button>
+              </div>
+            ))
+          )}
+          {suggest.data.source === "lexical" && (
+            <p className="text-xs text-muted">{t("cpv.aiLexicalNote")}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CpvSearch() {
   const [text, setText] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -106,6 +183,7 @@ export function CpvSearch() {
         aria-label={t("cpv.title")}
         className="mt-4 w-full max-w-xl rounded-lg border border-line bg-surface px-3 py-2.5 text-base shadow-sm"
       />
+      <AiSuggest />
       <div className="mt-4 rounded-lg border border-line bg-surface-raised p-3 shadow-card">
         {results.isPending ? (
           <Skeleton rows={8} />

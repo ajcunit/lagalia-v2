@@ -1332,6 +1332,78 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /ai/cpv/suggest:
+    post:
+      tags: [ai]
+      operationId: suggestCpv
+      summary: Suggeriments CPV per a un objecte de contracte (agent híbrid)
+      x-required-scopes: [tools:use]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 5, maxLength: 2000 }
+      responses:
+        "200":
+          description: Top 5 amb score i justificació en català
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [suggestions, source]
+                properties:
+                  contract_type: { type: [string, "null"] }
+                  source: { type: string, enum: [llm, lexical] }
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      required: [code, description, score, justification]
+                      properties:
+                        code: { type: string }
+                        description: { type: string }
+                        score: { type: number }
+                        justification: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /ai/cpv/feedback:
+    post:
+      tags: [ai]
+      operationId: recordCpvFeedback
+      summary: Registra el codi finalment triat (dataset d'avaluació)
+      x-required-scopes: [tools:use]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query_text, chosen_code]
+              properties:
+                query_text: { type: string, maxLength: 2000 }
+                chosen_code: { type: string, maxLength: 20 }
+                suggested:
+                  type: [array, "null"]
+                  items: { type: object, additionalProperties: true }
+      responses:
+        "201":
+          description: Registrat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /ai/runs:
     get:
       tags: [ai]
