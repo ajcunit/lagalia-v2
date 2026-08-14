@@ -695,6 +695,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Entrades del pla per exercici */
+        get: operations["listPlanEntries"];
+        put?: never;
+        /** Crea una entrada (pending si no ets admin) */
+        post: operations["createPlanEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plan/expiring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contractes que caduquen dins l'exercici (per trimestre) */
+        get: operations["listPlanExpiring"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plan/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Esborra (autor o admin) */
+        delete: operations["deletePlanEntry"];
+        options?: never;
+        head?: never;
+        /** Edita (un no-admin la retorna a pending) */
+        patch: operations["updatePlanEntry"];
+        trace?: never;
+    };
+    "/plan/{id}/actions/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Aprova una entrada (només admin) */
+        post: operations["approvePlanEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cpv": {
         parameters: {
             query?: never;
@@ -1625,6 +1695,51 @@ export interface components {
             health_status?: string | null;
             /** Format: date-time */
             last_health_check?: string | null;
+        };
+        PlanEntryBody: {
+            fiscal_year: number;
+            quarter: number;
+            subject: string;
+            contract_type?: string | null;
+            scope?: string | null;
+            notes?: string | null;
+            /** @default false */
+            subsidized: boolean;
+            estimated_amount?: number | string | null;
+            department_id?: number | null;
+            contract_id?: number | null;
+        };
+        PlanEntryPatch: {
+            quarter?: number;
+            subject?: string;
+            contract_type?: string | null;
+            scope?: string | null;
+            notes?: string | null;
+            subsidized?: boolean;
+            estimated_amount?: number | string | null;
+            department_id?: number | null;
+            contract_id?: number | null;
+        };
+        PlanEntry: {
+            /** Format: int64 */
+            id: number;
+            fiscal_year: number;
+            quarter: number;
+            subject: string;
+            contract_type?: string | null;
+            scope?: string | null;
+            notes?: string | null;
+            subsidized: boolean;
+            estimated_amount?: number | string | null;
+            /** @enum {string} */
+            status: "pending" | "approved";
+            department_id?: number | null;
+            department_name?: string | null;
+            contract_id?: number | null;
+            contract_file_code?: string | null;
+            created_by?: number | null;
+            /** Format: date-time */
+            created_at: string;
         };
         RedFlagBlock: {
             total: number;
@@ -3589,6 +3704,164 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listPlanEntries: {
+        parameters: {
+            query: {
+                fiscal_year: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entrades */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["PlanEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createPlanEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanEntryBody"];
+            };
+        };
+        responses: {
+            /** @description Creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanEntry"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    listPlanExpiring: {
+        parameters: {
+            query: {
+                fiscal_year: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contractes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deletePlanEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Esborrada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updatePlanEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanEntryPatch"];
+            };
+        };
+        responses: {
+            /** @description Actualitzada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanEntry"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    approvePlanEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aprovada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanEntry"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     searchCpv: {

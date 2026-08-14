@@ -28,6 +28,7 @@ import { SuperSearch } from "./features/search/SuperSearch";
 import { FavoritesPage } from "./features/favorites/FavoritesPage";
 import { RiskAudit } from "./features/audit/RiskAudit";
 import { CpvSearch } from "./features/cpv/CpvSearch";
+import { AnnualPlan } from "./features/plan/AnnualPlan";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ export function App() {
               <Route path="/favorites" element={<FavoritesPage />} />
               <Route path="/audit" element={<RiskAudit />} />
               <Route path="/cpv" element={<CpvSearch />} />
+              <Route path="/plan" element={<AnnualPlan />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />

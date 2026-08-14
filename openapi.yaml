@@ -72,6 +72,8 @@ tags:
     description: Carpetes personals de favorits (snapshot d'expedients externs)
   - name: reference
     description: Diccionaris de referència (CPV)
+  - name: plan
+    description: Pla anual de contractació (workflow d'aprovació)
 
 security:
   - bearerAuth: []
@@ -1152,6 +1154,124 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+
+  /plan:
+    get:
+      tags: [plan]
+      operationId: listPlanEntries
+      summary: Entrades del pla per exercici
+      x-required-scopes: [plan:read]
+      parameters:
+        - { name: fiscal_year, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Entrades
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/PlanEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [plan]
+      operationId: createPlanEntry
+      summary: Crea una entrada (pending si no ets admin)
+      x-required-scopes: [plan:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanEntryBody" }
+      responses:
+        "201":
+          description: Creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /plan/expiring:
+    get:
+      tags: [plan]
+      operationId: listPlanExpiring
+      summary: Contractes que caduquen dins l'exercici (per trimestre)
+      x-required-scopes: [plan:read]
+      parameters:
+        - { name: fiscal_year, in: query, required: true, schema: { type: integer } }
+      responses:
+        "200":
+          description: Contractes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /plan/{id}:
+    patch:
+      tags: [plan]
+      operationId: updatePlanEntry
+      summary: Edita (un no-admin la retorna a pending)
+      x-required-scopes: [plan:write]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanEntryPatch" }
+      responses:
+        "200":
+          description: Actualitzada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [plan]
+      operationId: deletePlanEntry
+      summary: Esborra (autor o admin)
+      x-required-scopes: [plan:write]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "204": { description: Esborrada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /plan/{id}/actions/approve:
+    post:
+      tags: [plan]
+      operationId: approvePlanEntry
+      summary: Aprova una entrada (només admin)
+      x-required-scopes: [plan:approve]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: Aprovada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /cpv:
     get:
@@ -2946,6 +3066,55 @@ components:
           description: "nom de credencial → is_set (mai el valor)."
         health_status: { type: [string, "null"] }
         last_health_check: { type: [string, "null"], format: date-time }
+
+    PlanEntryBody:
+      type: object
+      required: [fiscal_year, quarter, subject]
+      properties:
+        fiscal_year: { type: integer }
+        quarter: { type: integer, minimum: 1, maximum: 4 }
+        subject: { type: string, maxLength: 1000 }
+        contract_type: { type: [string, "null"] }
+        scope: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+        subsidized: { type: boolean, default: false }
+        estimated_amount: { type: [number, string, "null"] }
+        department_id: { type: [integer, "null"] }
+        contract_id: { type: [integer, "null"] }
+
+    PlanEntryPatch:
+      type: object
+      properties:
+        quarter: { type: integer, minimum: 1, maximum: 4 }
+        subject: { type: string, maxLength: 1000 }
+        contract_type: { type: [string, "null"] }
+        scope: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+        subsidized: { type: boolean }
+        estimated_amount: { type: [number, string, "null"] }
+        department_id: { type: [integer, "null"] }
+        contract_id: { type: [integer, "null"] }
+
+    PlanEntry:
+      type: object
+      required: [id, fiscal_year, quarter, subject, status, subsidized, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        fiscal_year: { type: integer }
+        quarter: { type: integer }
+        subject: { type: string }
+        contract_type: { type: [string, "null"] }
+        scope: { type: [string, "null"] }
+        notes: { type: [string, "null"] }
+        subsidized: { type: boolean }
+        estimated_amount: { type: [number, string, "null"] }
+        status: { type: string, enum: [pending, approved] }
+        department_id: { type: [integer, "null"] }
+        department_name: { type: [string, "null"] }
+        contract_id: { type: [integer, "null"] }
+        contract_file_code: { type: [string, "null"] }
+        created_by: { type: [integer, "null"] }
+        created_at: { type: string, format: date-time }
 
     RedFlagBlock:
       type: object
