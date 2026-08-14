@@ -32,13 +32,13 @@ _SPLIT_THRESHOLD = Decimal("15000")
 
 
 async def _splitting(session: AsyncSession, today: date) -> dict[str, Any]:
-    """Adjudicataris amb ≥15.000 € en menors en 365 dies.
+    """Adjudicataris amb ≥15.000 € en menors dins l'exercici actual.
 
-    El dataset de menors és una fila agregada per adjudicatari i any
-    (liquidacions): el «≥2 contractes» de la v1 no hi aplica; el senyal
-    és la suma (vegeu specs/risk-audit.md).
+    Any natural (mai finestra mòbil: l'exercici anterior no compta), amb
+    el camp fiscal_year del dataset. El dataset és una fila agregada per
+    adjudicatari i any (liquidacions): el «≥2 contractes» de la v1 no hi
+    aplica; el senyal és la suma (vegeu specs/risk-audit.md).
     """
-    since = today - timedelta(days=365)
     base = (
         select(
             MinorContract.contractor_id,
@@ -47,7 +47,7 @@ async def _splitting(session: AsyncSession, today: date) -> dict[str, Any]:
         )
         .where(
             MinorContract.contractor_id.is_not(None),
-            MinorContract.award_date >= since,
+            MinorContract.fiscal_year == today.year,
             MinorContract.award_amount.is_not(None),
         )
         .group_by(MinorContract.contractor_id)

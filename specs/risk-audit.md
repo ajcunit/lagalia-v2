@@ -8,7 +8,7 @@
 
 `GET /audit/red-flags` calcula en la request (nomes lectura, BD local, sense crides externes):
 
-1. **Possibles fraccionaments**: adjudicataris (consolidats) amb suma ≥15.000 € en menors els darrers 365 dies (per `award_date`). ⚠️ DESVIACIÓ de la regla v1 («≥2 contractes i suma»): el dataset de menors de l'ens és **una fila agregada per adjudicatari i any** (liquidacions), de manera que el comptador de files no mesura contractes individuals; el senyal útil és la suma anual. Si mai s'ingesta el detall per contracte, restaurar el criteri doble.
+1. **Possibles fraccionaments**: adjudicataris (consolidats) amb suma ≥15.000 € en menors dins **l'exercici actual** (`fiscal_year` = any natural en curs; mai finestra mòbil — l'exercici anterior no compta). ⚠️ DESVIACIÓ de la regla v1 («≥2 contractes i suma»): el dataset de menors de l'ens és **una fila agregada per adjudicatari i any** (liquidacions), de manera que el comptador de files no mesura contractes individuals; el senyal útil és la suma anual. Si mai s'ingesta el detall per contracte, restaurar el criteri doble.
 2. **Baixes temeraries**: contractes amb `award_amount ≤ 80% · budget_no_vat` (ambdos > 0), amb % de baixa.
 3. **Renovacions critiques**: contractes amb `calculated_end_date` entre avui i +6 mesos i estat no finalitzat (`internal_status != finished`).
 4. **Falta de concurrencia** (nova v2, endpoint buit a la v1): contractes amb `received_offers = 1` i procediment competitiu (exclou menors i negociats sense publicitat).
