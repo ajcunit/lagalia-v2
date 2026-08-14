@@ -1839,7 +1839,7 @@ export interface components {
             id: number;
             name: string;
             /** @enum {string} */
-            protocol: "openai_compatible" | "claude" | "gemini";
+            protocol: "openai_compatible" | "claude" | "gemini" | "ollama";
             base_url: string;
             default_model?: string | null;
             api_key_set: boolean;
@@ -3894,7 +3894,7 @@ export interface operations {
                 "application/json": {
                     name: string;
                     /** @enum {string} */
-                    protocol: "openai_compatible" | "claude" | "gemini";
+                    protocol: "openai_compatible" | "claude" | "gemini" | "ollama";
                     /** Format: uri */
                     base_url: string;
                     default_model?: string | null;

@@ -27,6 +27,7 @@ class AiProtocol(enum.StrEnum):
     OPENAI_COMPATIBLE = "openai_compatible"
     CLAUDE = "claude"
     GEMINI = "gemini"
+    OLLAMA = "ollama"
 
 
 class AiProviderProfile(Base, TimestampMixin):

@@ -229,20 +229,36 @@ function NewProviderForm() {
         {t("ai.protocol")}
         <select value={protocol} onChange={(e) => setProtocol(e.target.value as Protocol)}
           className="mt-1 block rounded-md border border-line bg-surface px-2 py-1.5 text-sm">
-          <option value="openai_compatible">OpenAI-compatible</option>
+          <option value="openai_compatible">OpenAI-compatible (OpenAI, vLLM, OpenRouter…)</option>
+          <option value="ollama">Ollama (natiu)</option>
           <option value="claude">Claude (Anthropic)</option>
+          <option value="gemini">Gemini (Google)</option>
         </select>
       </label>
       <label className="min-w-64 flex-1 text-sm text-ink">
         {t("ai.baseUrl")}
         <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required
-          placeholder={protocol === "claude" ? "https://api.anthropic.com" : "http://localhost:11434/v1"}
+          placeholder={
+            protocol === "claude"
+              ? "https://api.anthropic.com"
+              : protocol === "gemini"
+                ? "https://generativelanguage.googleapis.com"
+                : protocol === "ollama"
+                  ? "http://localhost:11434"
+                  : "http://localhost:8000/v1"
+          }
           className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm" />
       </label>
       <label className="text-sm text-ink">
         {t("ai.defaultModel")}
         <input value={model} onChange={(e) => setModel(e.target.value)} maxLength={200}
-          placeholder={protocol === "claude" ? "claude-sonnet-5" : "llama3"}
+          placeholder={
+            protocol === "claude"
+              ? "claude-sonnet-5"
+              : protocol === "gemini"
+                ? "gemini-2.5-flash"
+                : "llama3"
+          }
           className="mt-1 block w-48 rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm" />
       </label>
       <Button tone="accent" disabled={create.isPending || !name || !baseUrl} onClick={() => create.mutate()}>

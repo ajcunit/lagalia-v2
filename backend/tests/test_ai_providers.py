@@ -96,3 +96,60 @@ async def test_complete_records_ai_runs(monkeypatch: pytest.MonkeyPatch) -> None
         ).scalars().first()
         assert run is not None and run.status == "success"
         assert run.input_tokens == 10 and run.latency_ms is not None
+
+
+async def test_ollama_and_gemini_adapters(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": "llama3:8b"}]})
+        if path == "/api/chat":
+            return httpx.Response(
+                200,
+                json={
+                    "message": {"role": "assistant", "content": "hola des d'ollama"},
+                    "prompt_eval_count": 7,
+                    "eval_count": 4,
+                },
+            )
+        if path == "/v1beta/models":
+            assert request.url.params["key"] == "g-key"
+            return httpx.Response(200, json={"models": [{"name": "models/gemini-2.5-flash"}]})
+        if path.endswith(":generateContent"):
+            assert request.url.params["key"] == "g-key"
+            return httpx.Response(
+                200,
+                json={
+                    "candidates": [{"content": {"parts": [{"text": "hola des de gemini"}]}}],
+                    "usageMetadata": {"promptTokenCount": 9, "candidatesTokenCount": 3},
+                },
+            )
+        raise AssertionError(f"ruta inesperada: {path}")
+
+    monkeypatch.setattr(providers, "_transport", httpx.MockTransport(handler))
+    from app.core import crypto
+
+    async with session_factory() as session:
+        ollama = AiProviderProfile(
+            name="test-ollama", protocol=AiProtocol.OLLAMA,
+            base_url="http://fake.ollama:11434", default_model="llama3:8b",
+        )
+        gemini = AiProviderProfile(
+            name="test-gemini", protocol=AiProtocol.GEMINI,
+            base_url="https://fake.gemini", default_model="gemini-2.5-flash",
+            api_key_encrypted=crypto.encrypt_value("g-key"),
+        )
+        session.add_all([ollama, gemini])
+        await session.commit()
+
+        assert await providers.list_models(ollama) == ["llama3:8b"]
+        assert await providers.list_models(gemini) == ["gemini-2.5-flash"]
+
+    o = await providers.complete(ollama, [{"role": "user", "content": "hola"}], task="t.o")
+    assert o.content == "hola des d'ollama" and o.output_tokens == 4
+    g = await providers.complete(
+        gemini,
+        [{"role": "system", "content": "sys"}, {"role": "user", "content": "hola"}],
+        task="t.g",
+    )
+    assert g.content == "hola des de gemini" and g.input_tokens == 9

@@ -1192,7 +1192,7 @@ paths:
               required: [name, protocol, base_url]
               properties:
                 name: { type: string, maxLength: 100 }
-                protocol: { type: string, enum: [openai_compatible, claude, gemini] }
+                protocol: { type: string, enum: [openai_compatible, claude, gemini, ollama] }
                 base_url: { type: string, format: uri }
                 default_model: { type: [string, "null"], maxLength: 200 }
       responses:
@@ -3357,7 +3357,7 @@ components:
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
-        protocol: { type: string, enum: [openai_compatible, claude, gemini] }
+        protocol: { type: string, enum: [openai_compatible, claude, gemini, ollama] }
         base_url: { type: string }
         default_model: { type: [string, "null"] }
         api_key_set: { type: boolean }

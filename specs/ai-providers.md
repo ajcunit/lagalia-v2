@@ -8,12 +8,12 @@ Primer increment de docs/07 (§1.1, §4): perfils de proveidor LLM registrables 
 
 ### Model (migracio 0016, 04 §7)
 
-- `ai_provider_profiles`: name UNIQUE, protocol (`openai_compatible|claude|gemini`), base_url, api_key xifrada (AES-256-GCM com les credencials del hub; write-only), default_model, capabilities JSONB, enabled, health_status, last_health_check.
+- `ai_provider_profiles`: name UNIQUE, protocol (`openai_compatible|claude|gemini|ollama`), base_url, api_key xifrada (AES-256-GCM com les credencials del hub; write-only), default_model, capabilities JSONB, enabled, health_status, last_health_check.
 - `ai_runs`: task, agent, provider_profile_id FK, model, input_summary (mai el prompt sencer amb dades), input_tokens, output_tokens, latency_ms, status (`success|error`), error_detail, user_id, trace_id, created_at. Tota crida LLM passa per aqui.
 
 ### Provider layer (`app/ai/providers.py`)
 
-- Interficie unica `complete(messages, model?, json_schema?) -> CompletionResult` (contingut + tokens); adaptador generic **openai_compatible** (POST base_url + /chat/completions) i adaptador **claude** (API d'Anthropic, model per defecte claude-sonnet-5). Gemini queda per mes endavant (B-nnn si cal).
+- Interficie unica `complete(messages, model?, json_schema?) -> CompletionResult` (contingut + tokens); adaptador generic **openai_compatible** (POST base_url + /chat/completions), **claude** (API d'Anthropic), **gemini** (generateContent, clau per query param com mana la seva API) i **ollama natiu** (/api/chat i /api/tags — l'endpoint /v1 compatible tambe funciona, pero el natiu dona acces a opcions propies). Ampliacio 2026-08-14.
 - TLS verificat sempre; timeout 120 s; les crides de treball van en jobs (les d'admin — healthcheck/models — son sincrones com el healthcheck de connectors).
 - Cada crida registra `ai_runs` (exit o error) amb tokens i latencia.
 

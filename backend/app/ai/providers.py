@@ -46,21 +46,46 @@ def _headers(profile: AiProviderProfile) -> dict[str, str]:
         if key:
             headers["x-api-key"] = key
         return headers
+    if profile.protocol == AiProtocol.GEMINI:
+        return {}  # la clau viatja com a paràmetre ?key=
     return {"Authorization": f"Bearer {key}"} if key else {}
 
 
 async def list_models(profile: AiProviderProfile) -> list[str]:
     """Autodetecció de models (healthcheck d'admin, síncron i curt)."""
     base = profile.base_url.rstrip("/")
-    url = f"{base}/models" if profile.protocol != AiProtocol.CLAUDE else f"{base}/v1/models"
+    params: dict[str, str] = {}
+    if profile.protocol == AiProtocol.CLAUDE:
+        url = f"{base}/v1/models"
+    elif profile.protocol == AiProtocol.OLLAMA:
+        url = f"{base}/api/tags"
+    elif profile.protocol == AiProtocol.GEMINI:
+        url = f"{base}/v1beta/models"
+        key = _api_key(profile)
+        if key:
+            params["key"] = key
+    else:
+        url = f"{base}/models"
     async with httpx.AsyncClient(timeout=_ADMIN_TIMEOUT, transport=_transport) as client:
         try:
-            response = await client.get(url, headers=_headers(profile))
+            response = await client.get(url, headers=_headers(profile), params=params)
         except httpx.TransportError as exc:
             raise ProviderError(f"proveïdor inaccessible: {exc}") from exc
     if response.status_code != 200:
         raise ProviderError(f"el proveïdor ha respost {response.status_code}")
     payload = response.json()
+    if profile.protocol == AiProtocol.OLLAMA:
+        return sorted(
+            str(item.get("name"))
+            for item in payload.get("models", [])
+            if isinstance(item, dict) and item.get("name")
+        )
+    if profile.protocol == AiProtocol.GEMINI:
+        return sorted(
+            str(item.get("name", "")).removeprefix("models/")
+            for item in payload.get("models", [])
+            if isinstance(item, dict) and item.get("name")
+        )
     return sorted(
         str(item.get("id"))
         for item in payload.get("data", [])
@@ -94,6 +119,30 @@ async def complete(
         }
         if system:
             body["system"] = system
+    elif profile.protocol == AiProtocol.OLLAMA:
+        url = f"{base}/api/chat"
+        body = {
+            "model": chosen,
+            "messages": messages,
+            "stream": False,
+            "options": {"num_predict": max_tokens},
+        }
+    elif profile.protocol == AiProtocol.GEMINI:
+        system = "\n".join(m["content"] for m in messages if m["role"] == "system") or None
+        url = f"{base}/v1beta/models/{chosen}:generateContent"
+        body = {
+            "contents": [
+                {
+                    "role": "model" if m["role"] == "assistant" else "user",
+                    "parts": [{"text": m["content"]}],
+                }
+                for m in messages
+                if m["role"] != "system"
+            ],
+            "generationConfig": {"maxOutputTokens": max_tokens},
+        }
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": system}]}
     elif profile.protocol == AiProtocol.OPENAI_COMPATIBLE:
         url = f"{base}/chat/completions"
         body = {"model": chosen, "max_tokens": max_tokens, "messages": messages}
@@ -103,9 +152,14 @@ async def complete(
     started = time.monotonic()
     status, error_detail = "success", None
     content, tokens_in, tokens_out = "", None, None
+    params: dict[str, str] = {}
+    if profile.protocol == AiProtocol.GEMINI:
+        key = _api_key(profile)
+        if key:
+            params["key"] = key
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT, transport=_transport) as client:
-            response = await client.post(url, json=body, headers=_headers(profile))
+            response = await client.post(url, json=body, headers=_headers(profile), params=params)
         if response.status_code != 200:
             raise ProviderError(f"el proveïdor ha respost {response.status_code}")
         data = response.json()
@@ -116,6 +170,17 @@ async def complete(
             )
             usage = data.get("usage", {})
             tokens_in, tokens_out = usage.get("input_tokens"), usage.get("output_tokens")
+        elif profile.protocol == AiProtocol.OLLAMA:
+            content = (data.get("message") or {}).get("content", "")
+            tokens_in = data.get("prompt_eval_count")
+            tokens_out = data.get("eval_count")
+        elif profile.protocol == AiProtocol.GEMINI:
+            candidates = data.get("candidates") or []
+            parts = (candidates[0].get("content") or {}).get("parts", []) if candidates else []
+            content = "".join(part.get("text", "") for part in parts)
+            usage = data.get("usageMetadata", {})
+            tokens_in = usage.get("promptTokenCount")
+            tokens_out = usage.get("candidatesTokenCount")
         else:
             content = data["choices"][0]["message"]["content"] or ""
             usage = data.get("usage", {})
