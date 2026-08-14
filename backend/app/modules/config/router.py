@@ -145,7 +145,7 @@ async def _connector_response(session: AsyncSession, slug: str) -> ConnectorResp
         slug=slug,
         name=manifest.name,
         enabled=record.enabled,
-        mode=record.mode.value,
+        mode=getattr(record.mode, "value", record.mode),
         config={**manifest.config_defaults, **(record.config or {})},
         config_defaults=manifest.config_defaults,
         credentials={name: name in set_names for name in manifest.credentials},

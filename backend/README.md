@@ -8,7 +8,7 @@ Documentació d'arquitectura a [docs/03-arquitectura.md](../docs/03-arquitectura
 ```bash
 uv sync                                  # crea .venv i instal·la dependències
 uv run uvicorn app.main:app --reload     # http://localhost:8000/docs
-uv run pytest                            # tests
+uv run pytest                            # tests (BD pròpia lagalia_test + Redis db 1; mai toquen les dades de dev)
 uv run ruff check . && uv run mypy app   # lint i tipatge
 ```
 

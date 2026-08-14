@@ -98,7 +98,8 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 
 
 ### B-014 · Aïllament real entre bateria de tests i BD de desenvolupament
-- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
+- **Prioritat:** P2 · **Estat:** Feta (2026-08-14) · **Mida:** M
+- **Resolució:** `tests/conftest.py` recrea `lagalia_test` a cada sessió (DROP+CREATE+Alembic) i aïlla Redis a la db 1 amb FLUSHDB inicial; la BD i el Redis de dev queden intocables. Bateria 387/387 sense skips ni flakes (el de webhooks i el del scheduler-lock eren símptomes d'això).
 - **Descripció:** els tests d'integració corren contra la BD de dev i, tot i les fixtures de save/restore, hi ha hagut fuites reals: `test_connector_hub` esborrava la fila del connector socrata (deixava el SuperBuscador i les syncs desactivats — arreglat el 2026-08-14 amb save/restore) i `test_webhooks::test_outbox_dispatch_signature_and_retry` falla intermitentment quan deliveries alienes creades durant la mateixa bateria vencen dins la finestra del test.
 - **Com desenvolupar-la:** BD efímera per a la bateria (template database o schema per sessió de pytest amb Alembic al setup); mentrestant, endurir el test de webhooks perquè ignori tota delivery que no sigui del seu webhook també dins de `send_due_deliveries`.
 - **Specs afectades:** [11-metodologia-specs.md](11-metodologia-specs.md) §tests.

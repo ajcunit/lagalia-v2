@@ -15,6 +15,63 @@ os.environ.setdefault("ENVIRONMENT", "development")
 # els jobs que els tests encuen (trepitjaria l'estat que fixen a mà).
 os.environ["JOBS_QUEUE_NAME"] = "arq:test-queue"
 
+# ── BD efímera de la bateria (B-014) ─────────────────────────────────────
+# Els tests NO comparteixen mai la BD de dev: es recrea lagalia_test a cada
+# sessió (DROP+CREATE+Alembic) i DATABASE_URL hi apunta ABANS de cap import
+# de l'app. Un test que "restaura" malament ja no pot trencar l'entorn viu.
+# Redis propi de la bateria (db 1): el dedupe diari, els rate limits i la
+# cua no comparteixen res amb el worker/scheduler vius (db 0).
+_DEV_REDIS = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+os.environ["REDIS_URL"] = _DEV_REDIS.rsplit("/", 1)[0] + "/1"
+
+_DEV_DB_URL = os.environ.get(
+    "DATABASE_URL", "postgresql+asyncpg://lagalia:lagalia@localhost:5432/lagalia"
+)
+_TEST_DB_NAME = "lagalia_test"
+_BASE_URL, _, _ = _DEV_DB_URL.rpartition("/")
+os.environ["DATABASE_URL"] = f"{_BASE_URL}/{_TEST_DB_NAME}"
+
+
+def _prepare_test_database() -> None:
+    import asyncio
+    from pathlib import Path
+
+    import asyncpg
+
+    async def recreate() -> None:
+        admin = await asyncpg.connect(
+            _BASE_URL.replace("postgresql+asyncpg://", "postgresql://") + "/postgres"
+        )
+        try:
+            await admin.execute(f"DROP DATABASE IF EXISTS {_TEST_DB_NAME} WITH (FORCE)")
+            await admin.execute(f"CREATE DATABASE {_TEST_DB_NAME}")
+        finally:
+            await admin.close()
+
+    async def flush_test_redis() -> None:
+        # La BD es recrea i els ids reprenen d'1: les claus de dedupe de la
+        # bateria anterior (db 1, TTL 20 h) col·lidirien amb els ids nous.
+        from redis.asyncio import Redis
+
+        redis = Redis.from_url(os.environ["REDIS_URL"])
+        await redis.flushdb()
+        await redis.aclose()
+
+    asyncio.run(recreate())
+    asyncio.run(flush_test_redis())
+
+    from alembic.config import Config
+
+    from alembic import command
+
+    backend_dir = Path(__file__).resolve().parents[1]
+    config = Config(str(backend_dir / "alembic.ini"))
+    config.set_main_option("script_location", str(backend_dir / "alembic"))
+    command.upgrade(config, "head")
+
+
+_prepare_test_database()
+
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402
 from uuid import uuid4  # noqa: E402

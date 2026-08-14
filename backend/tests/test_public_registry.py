@@ -55,6 +55,20 @@ async def test_public_registry_api_guards(api_client, make_user) -> None:  # typ
     user = await make_user("employee")
     headers = login_headers(api_client, user.email)
 
+    # BD efímera: el connector pscp neix desactivat; l'anti-SSRF es comprova
+    # amb el connector actiu (si no, el 409 de desactivat arriba abans).
+    from sqlalchemy import text as sql_text
+
+    from app.core.db import session_factory
+    from app.integrations import hub
+
+    async with session_factory() as session:
+        await hub.ensure_registered(session, "pscp")
+        await session.execute(
+            sql_text("UPDATE connectors SET enabled = true WHERE slug = 'pscp'")
+        )
+        await session.commit()
+
     # Fase amb URL fora del domini del connector pscp → 422 (anti-SSRF), sense xarxa.
     bad = api_client.get(
         "/api/v1/public-registry/phase",
