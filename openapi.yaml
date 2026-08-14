@@ -1296,6 +1296,42 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /ai/providers/{id}/actions/test-completion:
+    post:
+      tags: [ai]
+      operationId: testAiProvider
+      summary: Provador d'admin — compleció curta registrada a ai_runs
+      x-required-scopes: [config:write]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt: { type: string, maxLength: 2000 }
+                model: { type: [string, "null"], maxLength: 200 }
+      responses:
+        "200":
+          description: Resposta del model o error estructurat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok, error] }
+                  detail: { type: [string, "null"] }
+                  content: { type: [string, "null"] }
+                  model: { type: [string, "null"] }
+                  input_tokens: { type: [integer, "null"] }
+                  output_tokens: { type: [integer, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /ai/runs:
     get:
       tags: [ai]

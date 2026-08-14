@@ -173,6 +173,49 @@ async def check_provider_health(
     return {"status": status, "detail": detail, "models": models[:100]}
 
 
+class TestPromptBody(BaseModel):
+    prompt: str = Field(min_length=1, max_length=2000)
+    model: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/ai/providers/{id}/actions/test-completion", operation_id="testAiProvider")
+async def test_completion(
+    id: int, body: TestPromptBody, session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Provador d'admin (síncron, com el healthcheck): compleció curta i
+    registrada a ai_runs; mai tomba l'API."""
+    profile = await _get_profile(session, id)
+    try:
+        result = await providers.complete(
+            profile,
+            [
+                {
+                    "role": "system",
+                    "content": "Ets l'assistent de la plataforma de contractació LAGALia. "
+                    "Respon en català i de manera breu.",
+                },
+                {"role": "user", "content": body.prompt},
+            ],
+            task="admin.test_completion",
+            model=body.model,
+            max_tokens=20000,
+            user_id=authz_ctx.user.id,
+            trace_id=ctx.trace_id,
+            input_summary="provador d'admin",
+        )
+    except providers.ProviderError as exc:
+        return {"status": "error", "detail": str(exc)}
+    except Exception as exc:  # defensa: mai tomba l'API
+        return {"status": "error", "detail": f"{type(exc).__name__}: {exc}"}
+    return {
+        "status": "ok",
+        "content": result.content[:8000],
+        "model": result.model,
+        "input_tokens": result.input_tokens,
+        "output_tokens": result.output_tokens,
+    }
+
+
 @router.get("/ai/runs", operation_id="listAiRuns")
 async def list_runs(
     session: SessionDep,

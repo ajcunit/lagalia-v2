@@ -18,6 +18,30 @@ function ProviderCard(props: { provider: Provider }) {
   const [model, setModel] = useState(p.default_model ?? "");
   const [health, setHealth] = useState<string | null>(null);
   const [models, setModels] = useState<string[]>([]);
+  const [prompt, setPrompt] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
+
+  const test = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/ai/providers/{id}/actions/test-completion", {
+        params: { path: { id: p.id } },
+        body: { prompt },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+    onSuccess: (result) => {
+      setAnswer(
+        result.status === "ok"
+          ? `${result.content ?? ""}
+
+[${result.model ?? ""} · ${String(result.input_tokens ?? "?")}/${String(result.output_tokens ?? "?")} tokens]`
+          : t("ai.testError", { detail: result.detail ?? "" }),
+      );
+      void queryClient.invalidateQueries({ queryKey: ["ai-runs"] });
+    },
+    onError: () => setAnswer(t("ai.testError", { detail: "" })),
+  });
 
   const patch = useMutation({
     mutationFn: async (body: { enabled?: boolean; default_model?: string }) => {
@@ -133,6 +157,29 @@ function ProviderCard(props: { provider: Provider }) {
         <Button tone="accent" disabled={putKey.isPending || !apiKey} onClick={() => putKey.mutate()}>
           {t("config.saveCredentials")}
         </Button>
+      </div>
+      <div className="mt-4 border-t border-line pt-3">
+        <label className="block text-sm font-medium text-ink">
+          {t("ai.testPrompt")}
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={2}
+            maxLength={2000}
+            placeholder={t("ai.testPlaceholder")}
+            className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+          />
+        </label>
+        <div className="mt-2">
+          <Button tone="accent" disabled={test.isPending || !prompt.trim()} onClick={() => test.mutate()}>
+            {test.isPending ? t("ai.testing") : t("ai.test")}
+          </Button>
+        </div>
+        {answer && (
+          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-surface p-3 text-sm text-ink">
+            {answer}
+          </pre>
+        )}
       </div>
     </SectionCard>
   );

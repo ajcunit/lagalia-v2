@@ -765,6 +765,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/providers/{id}/actions/test-completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Provador d'admin — compleció curta registrada a ai_runs */
+        post: operations["testAiProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/runs": {
         parameters: {
             query?: never;
@@ -3974,6 +3991,45 @@ export interface operations {
                         status: "healthy" | "failing";
                         detail?: string | null;
                         models: string[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    testAiProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    prompt: string;
+                    model?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Resposta del model o error estructurat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "ok" | "error";
+                        detail?: string | null;
+                        content?: string | null;
+                        model?: string | null;
+                        input_tokens?: number | null;
+                        output_tokens?: number | null;
                     };
                 };
             };
