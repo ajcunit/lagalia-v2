@@ -76,6 +76,8 @@ tags:
     description: Pla anual de contractació (workflow d'aprovació)
   - name: ai
     description: Plataforma d'IA — perfils de proveïdor i execucions
+  - name: compliance
+    description: Verificador de compliment LCSP (motor de regles determinista)
 
 security:
   - bearerAuth: []
@@ -1158,6 +1160,91 @@ paths:
 
 
   # ───────────────────────── ai ─────────────────────────
+  # ───────────────────────── compliance ─────────────────────────
+  /compliance/rules:
+    get:
+      tags: [compliance]
+      operationId: listComplianceRules
+      summary: Registre de regles LCSP (article, vigència, paràmetres)
+      x-required-scopes: [compliance:run]
+      responses:
+        "200":
+          description: Regles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /compliance/check:
+    post:
+      tags: [compliance]
+      operationId: runComplianceCheck
+      summary: Revisió determinista d'un subjecte (persistida)
+      x-required-scopes: [compliance:run]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject_type, subject_id]
+              properties:
+                subject_type: { type: string, enum: [contract, minor_contract, plan_entry] }
+                subject_id: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Semàfor + comprovacions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, findings]
+                properties:
+                  status: { type: string, enum: [conforme, avis, no_conforme, no_verificable] }
+                  findings:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /compliance/check-plan:
+    post:
+      tags: [compliance]
+      operationId: runPlanComplianceCheck
+      summary: Revisió del pla anual sencer (batch per exercici)
+      x-required-scopes: [compliance:run]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fiscal_year]
+              properties:
+                fiscal_year: { type: integer }
+      responses:
+        "200":
+          description: Resultats per entrada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /ai/providers:
     get:
       tags: [ai]

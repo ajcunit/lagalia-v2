@@ -99,6 +99,67 @@ function EntryForm(props: { year: number; entry?: Entry; onDone: () => void }) {
   );
 }
 
+function LegalReview(props: { year: number }) {
+  const review = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/compliance/check-plan", {
+        body: { fiscal_year: props.year },
+      });
+      if (error !== undefined) throw error;
+      return data.data as {
+        entry_id: number;
+        subject: string;
+        quarter: number;
+        status: string;
+        findings: { article?: string; detail?: string; status?: string }[];
+      }[];
+    },
+  });
+  const tone = (status: string) =>
+    status === "conforme" ? "accent" : status === "avis" ? "neutral" : "danger";
+
+  return (
+    <div className="mt-6 rounded-lg border border-accent/40 bg-surface-raised p-4 shadow-card">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold text-ink">{t("plan.legalTitle")}</h2>
+          <p className="mt-1 text-sm text-muted">{t("plan.legalIntro")}</p>
+        </div>
+        <Button tone="accent" disabled={review.isPending} onClick={() => review.mutate()}>
+          {review.isPending ? t("plan.legalRunning") : t("plan.legalRun")}
+        </Button>
+      </div>
+      {review.isError && (
+        <p role="alert" className="mt-2 rounded-md bg-danger/10 p-2 text-sm text-ink">
+          {t("admin.loadError")}
+        </p>
+      )}
+      {review.data && (
+        <div className="mt-3">
+          {review.data.length === 0 ? (
+            <p className="text-sm text-muted">{t("plan.legalEmpty")}</p>
+          ) : (
+            review.data.map((row) => (
+              <div key={row.entry_id} className="flex flex-wrap items-start gap-2 border-t border-line py-1.5 first:border-t-0">
+                <Badge tone={tone(row.status)}>{t(`plan.legal.${row.status}` as never)}</Badge>
+                <span className="text-sm text-muted">T{row.quarter}</span>
+                <span className="min-w-0 flex-1 text-sm text-ink">{row.subject}</span>
+                <span className="w-full pl-2 text-xs text-muted">
+                  {row.findings
+                    .filter((f) => f.status !== "conforme")
+                    .map((f) => `${f.detail} (${f.article})`)
+                    .join(" · ") || row.findings.map((f) => f.detail).join(" · ")}
+                </span>
+              </div>
+            ))
+          )}
+          <p className="mt-2 text-xs text-muted">{t("plan.legalDisclaimer")}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AnnualPlan() {
   const { permissions } = useAuth();
   const canWrite = permissions?.actions.includes("plan:write") ?? false;
@@ -220,6 +281,8 @@ export function AnnualPlan() {
           })
         )}
       </div>
+
+      <LegalReview year={year} />
 
       <h2 className="mt-6 text-lg font-semibold text-ink">{t("plan.expiring")}</h2>
       <p className="mt-1 text-sm text-muted">{t("plan.expiringIntro")}</p>

@@ -12,6 +12,7 @@ from app.core.tracing import new_trace_id
 from app.jobs import tasks as _jobs_tasks  # noqa: F401 — registra els handlers
 from app.jobs.router import router as jobs_router
 from app.modules.audit.router import router as audit_router
+from app.modules.compliance.router import router as compliance_router
 from app.modules.config.router import router as config_router
 from app.modules.contractors.router import router as contractors_router
 from app.modules.contracts.cpv import router as cpv_router
@@ -91,4 +92,5 @@ api.include_router(risk_audit_router)
 api.include_router(cpv_router)
 api.include_router(plan_router)
 api.include_router(ai_router)
+api.include_router(compliance_router)
 app.include_router(api)
