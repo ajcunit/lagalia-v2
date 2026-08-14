@@ -13,6 +13,7 @@ from app.jobs.router import router as jobs_router
 from app.modules.audit.router import router as audit_router
 from app.modules.config.router import router as config_router
 from app.modules.contractors.router import router as contractors_router
+from app.modules.contracts.cpv import router as cpv_router
 from app.modules.contracts.risk_audit import router as risk_audit_router
 from app.modules.contracts.router import router as contracts_router
 from app.modules.departments.router import router as departments_router
@@ -85,4 +86,5 @@ api.include_router(sync_router)
 api.include_router(public_registry_router)
 api.include_router(favorites_router)
 api.include_router(risk_audit_router)
+api.include_router(cpv_router)
 app.include_router(api)

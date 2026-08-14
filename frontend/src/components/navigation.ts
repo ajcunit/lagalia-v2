@@ -30,6 +30,7 @@ export const NAV_ZONES: NavZone[] = [
     labelKey: "nav.zone.intelligence",
     items: [
       { to: "/search", labelKey: "nav.superSearch", action: "tools:use" },
+      { to: "/cpv", labelKey: "nav.cpv", action: "tools:use" },
       { to: "/audit", labelKey: "nav.riskAudit", action: "audit:run" },
     ],
   },

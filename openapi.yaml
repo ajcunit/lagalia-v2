@@ -70,6 +70,8 @@ tags:
     description: SuperBuscador — registre públic de contractació de tot Catalunya
   - name: favorites
     description: Carpetes personals de favorits (snapshot d'expedients externs)
+  - name: reference
+    description: Diccionaris de referència (CPV)
 
 security:
   - bearerAuth: []
@@ -1150,6 +1152,46 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+
+  /cpv:
+    get:
+      tags: [reference]
+      operationId: searchCpv
+      summary: Cerca CPV per codi/descripció o navegació per l'arbre
+      x-required-scopes: [tools:use]
+      parameters:
+        - name: query
+          in: query
+          schema: { type: string, minLength: 2, maxLength: 200 }
+        - name: parent
+          in: query
+          schema: { type: string, maxLength: 20 }
+        - name: level
+          in: query
+          schema: { type: string, enum: [Division, Group, Class, Category] }
+      responses:
+        "200":
+          description: Codis (màx. 50)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [code, description, has_children]
+                      properties:
+                        code: { type: string }
+                        description: { type: string }
+                        level: { type: [string, "null"] }
+                        parent_code: { type: [string, "null"] }
+                        has_children: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   /audit/red-flags:
     get:
