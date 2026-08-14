@@ -334,7 +334,7 @@ export const ca = {
   "riskAudit.splittingIntro": "Adjudicataris amb més de 15.000 € en contractes menors dins l'exercici actual.",
   "riskAudit.yearAmount": "Import (exercici)",
   "riskAudit.reckless": "Baixes temeràries",
-  "riskAudit.recklessIntro": "Adjudicacions per sota del 80% del pressupost de licitació.",
+  "riskAudit.recklessIntro": "Adjudicacions per sota del 80% del pressupost de licitació (només expedients d'un sol lot: amb lots, el pressupost publicat és el del conjunt i la comparació no és fiable).",
   "riskAudit.drop": "Baixa",
   "riskAudit.renewals": "Renovacions crítiques",
   "riskAudit.renewalsIntro": "Contractes en execució que acaben en menys de 6 mesos.",

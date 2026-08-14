@@ -79,36 +79,52 @@ async def _splitting(session: AsyncSession, today: date) -> dict[str, Any]:
 
 
 async def _reckless_bids(session: AsyncSession) -> dict[str, Any]:
-    """award ≤ 80% del pressupost sense IVA."""
-    conditions = and_(
-        Contract.award_amount.is_not(None),
-        Contract.budget_no_vat.is_not(None),
-        Contract.award_amount > 0,
-        Contract.budget_no_vat > 0,
-        Contract.award_amount <= Contract.budget_no_vat * Decimal("0.80"),
+    """Suma d'adjudicacions ≤ 80% del pressupost, PER EXPEDIENT.
+
+    Els expedients amb lots s'exclouen: al dataset el pressupost per
+    fila barreja el total de l'expedient i el del lot, i comparar-hi
+    adjudicacions per lot dona falsos positius sistemàtics (correcció
+    de l'usuari, 2026-08-14). Es reobrirà si mai arriba un pressupost
+    per lot fiable.
+    """
+    per_file = (
+        select(
+            Contract.file_code,
+            func.min(Contract.id).label("contract_id"),
+            func.max(Contract.subject).label("subject"),
+            func.count().label("lots"),
+            func.count(Contract.award_amount).label("awarded_lots"),
+            func.sum(Contract.award_amount).label("total_award"),
+            func.max(Contract.budget_no_vat).label("budget"),
+        )
+        .group_by(Contract.file_code)
+        .having(
+            func.count() == 1,
+            func.max(Contract.budget_no_vat) > 0,
+            func.count(Contract.award_amount) == func.count(),
+            func.sum(Contract.award_amount) > 0,
+            func.sum(Contract.award_amount)
+            <= func.max(Contract.budget_no_vat) * Decimal("0.80"),
+        )
+        .subquery()
     )
-    total = (
-        await session.execute(select(func.count()).select_from(Contract).where(conditions))
-    ).scalar_one()
-    drop = (1 - Contract.award_amount / Contract.budget_no_vat) * 100
+    total = (await session.execute(select(func.count()).select_from(per_file))).scalar_one()
+    drop = (1 - per_file.c.total_award / per_file.c.budget) * 100
     rows = (
         await session.execute(
-            select(Contract.id, Contract.file_code, Contract.subject, Contract.award_amount,
-                   Contract.budget_no_vat, drop.label("drop_pct"))
-            .where(conditions)
-            .order_by(drop.desc())
-            .limit(_LIMIT)
+            select(per_file, drop.label("drop_pct")).order_by(drop.desc()).limit(_LIMIT)
         )
     ).all()
     return {
         "total": total,
         "items": [
             {
-                "contract_id": r.id,
+                "contract_id": r.contract_id,
                 "file_code": r.file_code,
                 "subject": r.subject,
-                "award_amount": r.award_amount,
-                "budget_no_vat": r.budget_no_vat,
+                "lots": r.lots,
+                "award_amount": r.total_award,
+                "budget_no_vat": r.budget,
                 "drop_pct": round(r.drop_pct, 1),
             }
             for r in rows
