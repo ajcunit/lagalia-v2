@@ -17,10 +17,42 @@ from app.integrations.socrata.connector import SocrataConnector
 
 @pytest.fixture(autouse=True)
 async def clean_connector_rows() -> AsyncIterator[None]:
-    yield
+    """Els tests volen un socrata verge, però la BD és la de dev: es desa
+    l'estat real i es restaura al final (esborrar-lo el deixava desactivat
+    i sense config — trencava el SuperBuscador i les syncs de debò)."""
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     async with engine.begin() as conn:
+        saved = (
+            await conn.execute(
+                text(
+                    "SELECT enabled, mode, manifest, config, health_status "
+                    "FROM connectors WHERE slug = 'socrata'"
+                )
+            )
+        ).mappings().first()
         await conn.execute(text("DELETE FROM connectors WHERE slug = 'socrata'"))
+    yield
+    async with engine.begin() as conn:
+        await conn.execute(text("DELETE FROM connectors WHERE slug = 'socrata'"))
+        if saved is not None:
+            import json as _json
+
+            row = dict(saved)
+            await conn.execute(
+                text(
+                    "INSERT INTO connectors "
+                    "(slug, enabled, mode, manifest, config, health_status) "
+                    "VALUES ('socrata', :enabled, CAST(:mode AS connector_mode), "
+                    "CAST(:manifest AS jsonb), CAST(:config AS jsonb), :health_status)"
+                ),
+                {
+                    "enabled": row["enabled"],
+                    "mode": str(row["mode"]),
+                    "manifest": _json.dumps(row["manifest"]),
+                    "config": _json.dumps(row["config"]) if row["config"] is not None else None,
+                    "health_status": row["health_status"],
+                },
+            )
     await engine.dispose()
 
 
