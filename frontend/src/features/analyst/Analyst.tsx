@@ -18,19 +18,24 @@ export function Analyst() {
 
   const [steps, setSteps] = useState<{ tool: string; args: unknown; rows: unknown }[]>([]);
   const [answer, setAnswer] = useState("");
+  const [thinkingChars, setThinkingChars] = useState(0);
   const ask = useMutation({
     mutationFn: async (q: string) => {
       setSteps([]);
       setAnswer("");
+      setThinkingChars(0);
       let failed: string | null = null;
       await streamNdjson("/ai/analyses/stream", { question: q }, (event) => {
         if (event.type === "step") {
+          setThinkingChars(0);
           setSteps((prev) => [
             ...prev,
             { tool: String(event.tool), args: event.args, rows: event.rows },
           ]);
         }
-        if (event.type === "answer") setAnswer(String(event.answer_markdown ?? ""));
+        if (event.type === "delta") setAnswer((prev) => prev + String(event.text ?? ""));
+        if (event.type === "thinking")
+          setThinkingChars((prev) => prev + String(event.text ?? "").length);
         if (event.type === "error") failed = String(event.detail ?? "error");
       });
       if (failed !== null) throw new Error(failed);
@@ -84,14 +89,19 @@ export function Analyst() {
       )}
       {(steps.length > 0 || answer !== "" || ask.isPending) && (
         <div className="mt-4 space-y-3">
-          {ask.isPending && steps.length > 0 && answer === "" && (
-            <p className="text-sm text-muted" role="status">
-              {t("analyst.working", { tool: steps[steps.length - 1]?.tool ?? "" })}
+          {ask.isPending && answer === "" && (
+            <p className="animate-pulse text-sm text-muted" role="status">
+              {thinkingChars > 0
+                ? t("analyst.thinkingLive", { chars: String(thinkingChars) })
+                : steps.length > 0
+                  ? t("analyst.working", { tool: steps[steps.length - 1]?.tool ?? "" })
+                  : t("analyst.thinking")}
             </p>
           )}
           {answer !== "" && (
             <div className="rounded-lg border border-line bg-surface-raised p-4 shadow-card">
               <Markdown>{answer}</Markdown>
+              {ask.isPending && <span className="animate-pulse text-muted">▍</span>}
             </div>
           )}
           {steps.length > 0 && (

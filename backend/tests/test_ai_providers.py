@@ -287,17 +287,19 @@ async def test_analyst_agent(api_client, make_user, monkeypatch: pytest.MonkeyPa
 
     calls = {"n": 0}
 
+    def _sse(content: str) -> bytes:
+        import json as _json
+
+        chunk = _json.dumps({"choices": [{"delta": {"content": content}}]})
+        return f"data: {chunk}\n\ndata: [DONE]\n\n".encode()
+
     def handler(request: httpx.Request) -> httpx.Response:
         calls["n"] += 1
         if calls["n"] == 1:
-            content = '{"tool": "totals", "args": {}}'
-        else:
-            body = request.read().decode()
-            assert "<resultat" in body  # el resultat de l'eina ha arribat delimitat
-            content = '{"answer": "Hi ha **N** contractes segons totals."}'
-        return httpx.Response(
-            200, json={"choices": [{"message": {"content": content}}], "usage": {}}
-        )
+            return httpx.Response(200, content=_sse('{"tool": "totals", "args": {}}'))
+        body = request.read().decode()
+        assert "<resultat" in body  # el resultat de l'eina ha arribat delimitat
+        return httpx.Response(200, content=_sse("Hi ha **N** contractes segons totals."))
 
     monkeypatch.setattr(providers, "_transport", httpx.MockTransport(handler))
     response = api_client.post(
