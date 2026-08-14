@@ -74,6 +74,8 @@ tags:
     description: Diccionaris de referència (CPV)
   - name: plan
     description: Pla anual de contractació (workflow d'aprovació)
+  - name: ai
+    description: Plataforma d'IA — perfils de proveïdor i execucions
 
 security:
   - bearerAuth: []
@@ -1154,6 +1156,180 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+
+  # ───────────────────────── ai ─────────────────────────
+  /ai/providers:
+    get:
+      tags: [ai]
+      operationId: listAiProviders
+      summary: Perfils de proveïdor LLM (api key mai; api_key_set)
+      x-required-scopes: [config:write]
+      responses:
+        "200":
+          description: Perfils
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/AiProvider" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [ai]
+      operationId: createAiProvider
+      summary: Crea un perfil
+      x-required-scopes: [config:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, protocol, base_url]
+              properties:
+                name: { type: string, maxLength: 100 }
+                protocol: { type: string, enum: [openai_compatible, claude, gemini] }
+                base_url: { type: string, format: uri }
+                default_model: { type: [string, "null"], maxLength: 200 }
+      responses:
+        "201":
+          description: Creat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiProvider" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /ai/providers/{id}:
+    patch:
+      tags: [ai]
+      operationId: updateAiProvider
+      summary: Edita un perfil (enabled, base_url, model)
+      x-required-scopes: [config:write]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 100 }
+                base_url: { type: string, format: uri }
+                default_model: { type: [string, "null"], maxLength: 200 }
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiProvider" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [ai]
+      operationId: deleteAiProvider
+      summary: Esborra un perfil
+      x-required-scopes: [config:write]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "204": { description: Esborrat }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /ai/providers/{id}/api-key:
+    put:
+      tags: [ai]
+      operationId: setAiProviderApiKey
+      summary: Desa la clau del proveïdor (només escriptura, xifrada)
+      x-required-scopes: [config:write]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [api_key]
+              properties:
+                api_key: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: Desada (api_key_set)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiProvider" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /ai/providers/{id}/actions/healthcheck:
+    post:
+      tags: [ai]
+      operationId: checkAiProviderHealth
+      summary: Prova de connexió i autodetecció de models
+      x-required-scopes: [config:write]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: Resultat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, models]
+                properties:
+                  status: { type: string, enum: [healthy, failing] }
+                  detail: { type: [string, "null"] }
+                  models:
+                    type: array
+                    items: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /ai/runs:
+    get:
+      tags: [ai]
+      operationId: listAiRuns
+      summary: Execucions d'IA (keyset per id desc)
+      x-required-scopes: [config:write]
+      parameters:
+        - name: page[size]
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: page[cursor]
+          in: query
+          schema: { type: string }
+        - name: filter[task]
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: filter[status]
+          in: query
+          schema: { type: string, maxLength: 20 }
+      responses:
+        "200":
+          description: Execucions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /plan:
     get:
@@ -3064,6 +3240,20 @@ components:
           type: object
           additionalProperties: { type: boolean }
           description: "nom de credencial → is_set (mai el valor)."
+        health_status: { type: [string, "null"] }
+        last_health_check: { type: [string, "null"], format: date-time }
+
+    AiProvider:
+      type: object
+      required: [id, name, protocol, base_url, api_key_set, enabled]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        protocol: { type: string, enum: [openai_compatible, claude, gemini] }
+        base_url: { type: string }
+        default_model: { type: [string, "null"] }
+        api_key_set: { type: boolean }
+        enabled: { type: boolean }
         health_status: { type: [string, "null"] }
         last_health_check: { type: [string, "null"], format: date-time }
 

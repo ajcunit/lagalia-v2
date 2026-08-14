@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import APIRouter, FastAPI, Request, Response
 
+from app.ai.router import router as ai_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.problems import register_problem_handlers
@@ -89,4 +90,5 @@ api.include_router(favorites_router)
 api.include_router(risk_audit_router)
 api.include_router(cpv_router)
 api.include_router(plan_router)
+api.include_router(ai_router)
 app.include_router(api)

@@ -1,4 +1,4 @@
-# Plataforma d'IA — fase 1: capa de proveidors (Estat: en curs)
+# Plataforma d'IA — fase 1: capa de proveidors (Estat: implementada)
 
 ## Context i objectiu
 
@@ -38,6 +38,6 @@ Primer increment de docs/07 (§1.1, §4): perfils de proveidor LLM registrables 
 
 ## Criteris d'acceptacio
 
-- [ ] CRUD de perfils amb api key write-only; healthcheck retorna models reals.
-- [ ] ai_runs registra crides (test amb transport fals).
-- [ ] Pantalla /admin/ai completa; bateries verdes.
+- [x] CRUD de perfils amb api key write-only; healthcheck retorna models reals.
+- [x] ai_runs registra crides (test amb transport fals).
+- [x] Pantalla /admin/ai completa; bateries verdes.

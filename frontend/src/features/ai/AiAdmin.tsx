@@ -1,0 +1,296 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { api } from "../../api/client";
+import type { components } from "../../api/generated/schema";
+import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { t } from "../../i18n";
+import { formatDateTime } from "../../lib/format";
+
+type Provider = components["schemas"]["AiProvider"];
+type Protocol = Provider["protocol"];
+
+function ProviderCard(props: { provider: Provider }) {
+  const queryClient = useQueryClient();
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["ai-providers"] });
+  const p = props.provider;
+  const [apiKey, setApiKey] = useState("");
+  const [model, setModel] = useState(p.default_model ?? "");
+  const [health, setHealth] = useState<string | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+
+  const patch = useMutation({
+    mutationFn: async (body: { enabled?: boolean; default_model?: string }) => {
+      const { error } = await api.PATCH("/ai/providers/{id}", {
+        params: { path: { id: p.id } },
+        body,
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: invalidate,
+  });
+  const putKey = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.PUT("/ai/providers/{id}/api-key", {
+        params: { path: { id: p.id } },
+        body: { api_key: apiKey },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      setApiKey("");
+      invalidate();
+    },
+  });
+  const check = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/ai/providers/{id}/actions/healthcheck", {
+        params: { path: { id: p.id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+    onSuccess: (result) => {
+      setHealth(result.detail ? `${result.status}: ${result.detail}` : result.status);
+      setModels(result.models);
+      invalidate();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.DELETE("/ai/providers/{id}", { params: { path: { id: p.id } } });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  return (
+    <SectionCard title={`${p.name} (${p.protocol})`}>
+      <div className="flex flex-wrap items-center gap-2">
+        {p.enabled ? (
+          <Badge tone="accent">{t("webhooks.active")}</Badge>
+        ) : (
+          <Badge tone="danger">{t("webhooks.inactive")}</Badge>
+        )}
+        <code className="text-xs text-muted">{p.base_url}</code>
+        {p.health_status && (
+          <span className="text-sm text-muted">
+            {t("config.health")}: {p.health_status}
+            {p.last_health_check && ` (${formatDateTime(p.last_health_check)})`}
+          </span>
+        )}
+        <span className="ml-auto flex gap-2">
+          <Button disabled={patch.isPending} onClick={() => patch.mutate({ enabled: !p.enabled })}>
+            {p.enabled ? t("webhooks.deactivate") : t("webhooks.activate")}
+          </Button>
+          <Button disabled={check.isPending} onClick={() => check.mutate()}>
+            {t("config.checkHealth")}
+          </Button>
+          <Button
+            tone="danger"
+            disabled={remove.isPending}
+            onClick={() => {
+              if (window.confirm(t("ai.confirmDelete", { name: p.name }))) remove.mutate();
+            }}
+          >
+            ✕
+          </Button>
+        </span>
+      </div>
+      {health && <p className="mt-2 rounded-md bg-accent-soft p-2 text-sm text-ink">{health}</p>}
+      {models.length > 0 && (
+        <p className="mt-1 text-xs text-muted">
+          {t("ai.modelsDetected")}: {models.slice(0, 12).join(", ")}
+          {models.length > 12 ? "…" : ""}
+        </p>
+      )}
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <label className="text-sm text-ink">
+          {t("ai.defaultModel")}
+          <input
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="mt-1 block w-56 rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm"
+          />
+        </label>
+        <Button
+          disabled={patch.isPending || model === (p.default_model ?? "")}
+          onClick={() => patch.mutate({ default_model: model })}
+        >
+          {t("admin.save")}
+        </Button>
+        <label className="text-sm text-ink">
+          {t("ai.apiKey")} {p.api_key_set && <Badge tone="accent">{t("config.credentialSet")}</Badge>}
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={apiKey}
+            placeholder={p.api_key_set ? "••••••••" : t("config.credentialEmpty")}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="mt-1 block w-64 rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm"
+          />
+        </label>
+        <Button tone="accent" disabled={putKey.isPending || !apiKey} onClick={() => putKey.mutate()}>
+          {t("config.saveCredentials")}
+        </Button>
+      </div>
+    </SectionCard>
+  );
+}
+
+function NewProviderForm() {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [protocol, setProtocol] = useState<Protocol>("openai_compatible");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [model, setModel] = useState("");
+
+  const create = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.POST("/ai/providers", {
+        body: {
+          name,
+          protocol,
+          base_url: baseUrl,
+          default_model: model || null,
+        },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      setName("");
+      setBaseUrl("");
+      setModel("");
+      void queryClient.invalidateQueries({ queryKey: ["ai-providers"] });
+    },
+  });
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-2 rounded-md border border-line bg-surface p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name && baseUrl) create.mutate();
+      }}
+    >
+      <label className="text-sm text-ink">
+        {t("ai.name")}
+        <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={100}
+          placeholder="Ollama local" className="mt-1 block w-44 rounded-md border border-line bg-surface px-2 py-1.5 text-sm" />
+      </label>
+      <label className="text-sm text-ink">
+        {t("ai.protocol")}
+        <select value={protocol} onChange={(e) => setProtocol(e.target.value as Protocol)}
+          className="mt-1 block rounded-md border border-line bg-surface px-2 py-1.5 text-sm">
+          <option value="openai_compatible">OpenAI-compatible</option>
+          <option value="claude">Claude (Anthropic)</option>
+        </select>
+      </label>
+      <label className="min-w-64 flex-1 text-sm text-ink">
+        {t("ai.baseUrl")}
+        <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} required
+          placeholder={protocol === "claude" ? "https://api.anthropic.com" : "http://localhost:11434/v1"}
+          className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm" />
+      </label>
+      <label className="text-sm text-ink">
+        {t("ai.defaultModel")}
+        <input value={model} onChange={(e) => setModel(e.target.value)} maxLength={200}
+          placeholder={protocol === "claude" ? "claude-sonnet-5" : "llama3"}
+          className="mt-1 block w-48 rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm" />
+      </label>
+      <Button tone="accent" disabled={create.isPending || !name || !baseUrl} onClick={() => create.mutate()}>
+        {t("ai.add")}
+      </Button>
+    </form>
+  );
+}
+
+export function AiAdmin() {
+  const providers = useQuery({
+    queryKey: ["ai-providers"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/ai/providers");
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+  const runs = useQuery({
+    queryKey: ["ai-runs"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/ai/runs", {
+        params: { query: { "page[size]": 25 } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("ai.title")}</h1>
+      <p className="mt-1 max-w-3xl text-sm text-muted">{t("ai.intro")}</p>
+
+      <div className="mt-4"><NewProviderForm /></div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {providers.isPending ? (
+          <Skeleton rows={6} />
+        ) : providers.isError ? (
+          <EmptyState icon="⚠️" title={t("admin.loadError")} />
+        ) : (providers.data ?? []).length === 0 ? (
+          <EmptyState icon="🤖" title={t("ai.empty")} detail={t("ai.emptyDetail")} />
+        ) : (
+          (providers.data ?? []).map((provider) => (
+            <ProviderCard key={provider.id} provider={provider} />
+          ))
+        )}
+      </div>
+
+      <h2 className="mt-8 text-lg font-semibold text-ink">{t("ai.runs")}</h2>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-surface-raised shadow-card">
+        {runs.isPending ? (
+          <div className="p-4"><Skeleton rows={3} /></div>
+        ) : runs.isError ? (
+          <EmptyState icon="⚠️" title={t("admin.loadError")} />
+        ) : (runs.data?.data ?? []).length === 0 ? (
+          <EmptyState icon="🧾" title={t("ai.runsEmpty")} />
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted">
+                <th scope="col" className="px-3 py-2 font-medium">{t("audit.col.when")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.task")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.model")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.tokens")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.latency")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("audit.col.success")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(runs.data?.data ?? []).map((run: Record<string, unknown>, index: number) => (
+                <tr key={index} className="border-t border-line">
+                  <td className="whitespace-nowrap px-3 py-1.5">
+                    {formatDateTime(String(run.created_at))}
+                  </td>
+                  <td className="px-3 py-1.5 font-mono text-xs">{String(run.task)}</td>
+                  <td className="px-3 py-1.5 font-mono text-xs">{String(run.model ?? "—")}</td>
+                  <td className="px-3 py-1.5 font-mono text-xs">
+                    {String(run.input_tokens ?? "—")} / {String(run.output_tokens ?? "—")}
+                  </td>
+                  <td className="px-3 py-1.5">{run.latency_ms != null ? `${String(run.latency_ms)} ms` : "—"}</td>
+                  <td className="px-3 py-1.5">
+                    {run.status === "success" ? (
+                      <Badge tone="accent">OK</Badge>
+                    ) : (
+                      <Badge tone="danger">{String(run.error_detail ?? "error")}</Badge>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
