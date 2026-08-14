@@ -364,6 +364,7 @@ export const ca = {
   "ai.taskDefault": "— per defecte —",
   "ai.taskEffective": "Resolució actual",
   "ai.taskUnresolved": "cap perfil actiu",
+  "ai.taskFallbackWarning": "⚠ el perfil assignat està desactivat: s'està usant el fallback",
   "ai.taskReset": "Restableix",
   "rag.title": "RAG documental",
   "rag.intro": "Índex semàntic dels documents descarregats (plecs, informes) — el fonament del redactor documental. Cal una tasca rag.embed amb un model d'embeddings (p. ex. nomic-embed-text a Ollama).",

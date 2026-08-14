@@ -340,6 +340,9 @@ function TaskConfigRow(props: { row: TaskRow; providers: Provider[] }) {
         {r.effective
           ? `${r.effective.profile_name} · ${r.effective.model ?? "—"}`
           : t("ai.taskUnresolved")}
+        {r.config && r.effective && r.effective.profile_id !== r.config.provider_profile_id && (
+          <span className="mt-0.5 block text-danger">{t("ai.taskFallbackWarning")}</span>
+        )}
       </td>
       <td className="px-3 py-2">
         <span className="flex gap-1">
