@@ -13,6 +13,7 @@ KNOWN_TASKS: dict[str, str] = {
     "cpv.extract": "Classificador CPV — extracció de paraules clau i divisions",
     "cpv.rank": "Classificador CPV — re-rànquing final dels candidats",
     "audit.report": "Auditor — informe executiu sobre els red flags",
+    "analyst.chat": "Analista de dades — preguntes en llenguatge natural amb eines",
 }
 
 

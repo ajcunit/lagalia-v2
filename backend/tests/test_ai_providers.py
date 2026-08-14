@@ -258,3 +258,61 @@ async def test_audit_report_agent(api_client, make_user, monkeypatch: pytest.Mon
             sql_text("DELETE FROM ai_provider_profiles WHERE name = 'audit-fake'")
         )
         await session.commit()
+
+
+async def test_analyst_agent(api_client, make_user, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
+    from sqlalchemy import text as sql_text
+
+    plain = await make_user("employee")
+    auditor = await make_user("employee", can_audit=True)
+
+    assert (
+        api_client.post(
+            "/api/v1/ai/analyses",
+            json={"question": "quants contractes?"},
+            headers=login_headers(api_client, plain.email),
+        ).status_code
+        == 403
+    )
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text(
+                "INSERT INTO ai_provider_profiles "
+                "(name, protocol, base_url, default_model, enabled) "
+                "VALUES ('analyst-fake', 'openai_compatible', 'http://an.fake/v1', 'm', true)"
+            )
+        )
+        await session.commit()
+
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            content = '{"tool": "totals", "args": {}}'
+        else:
+            body = request.read().decode()
+            assert "<resultat" in body  # el resultat de l'eina ha arribat delimitat
+            content = '{"answer": "Hi ha **N** contractes segons totals."}'
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": content}}], "usage": {}}
+        )
+
+    monkeypatch.setattr(providers, "_transport", httpx.MockTransport(handler))
+    response = api_client.post(
+        "/api/v1/ai/analyses",
+        json={"question": "Quants contractes tenim?"},
+        headers=login_headers(api_client, auditor.email),
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["answer_markdown"].startswith("Hi ha")
+    assert body["steps"][0]["tool"] == "totals"
+    assert "contracts" in body["steps"][0]["rows"]
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text("DELETE FROM ai_provider_profiles WHERE name = 'analyst-fake'")
+        )
+        await session.commit()

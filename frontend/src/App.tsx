@@ -30,6 +30,7 @@ import { RiskAudit } from "./features/audit/RiskAudit";
 import { CpvSearch } from "./features/cpv/CpvSearch";
 import { AnnualPlan } from "./features/plan/AnnualPlan";
 import { AiAdmin } from "./features/ai/AiAdmin";
+import { Analyst } from "./features/analyst/Analyst";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ export function App() {
               <Route path="/cpv" element={<CpvSearch />} />
               <Route path="/plan" element={<AnnualPlan />} />
               <Route path="/admin/ai" element={<AiAdmin />} />
+              <Route path="/analyst" element={<Analyst />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />

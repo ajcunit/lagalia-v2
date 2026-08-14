@@ -1431,6 +1431,49 @@ paths:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
 
+  /ai/analyses:
+    post:
+      tags: [ai]
+      operationId: createAnalysis
+      summary: Analista de dades — pregunta en llenguatge natural amb eines tancades
+      x-required-scopes: [audit:run]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string, minLength: 5, maxLength: 2000 }
+      responses:
+        "200":
+          description: Resposta amb les dades font de cada pas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [answer_markdown, steps]
+                properties:
+                  answer_markdown: { type: string }
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                      required: [tool, args]
+                      properties:
+                        tool: { type: string }
+                        args: { type: object, additionalProperties: true }
+                        rows: {}
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502":
+          description: El proveïdor d'IA no ha respost
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
   /ai/cpv/suggest:
     post:
       tags: [ai]

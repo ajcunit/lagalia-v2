@@ -834,6 +834,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/analyses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Analista de dades — pregunta en llenguatge natural amb eines tancades */
+        post: operations["createAnalysis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/cpv/suggest": {
         parameters: {
             query?: never;
@@ -4231,6 +4248,53 @@ export interface operations {
                         report_markdown: string;
                         generated_at: string;
                         model: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            /** @description El proveïdor d'IA no ha respost */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createAnalysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    question: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Resposta amb les dades font de cada pas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answer_markdown: string;
+                        steps: {
+                            tool: string;
+                            args: {
+                                [key: string]: unknown;
+                            };
+                            rows?: unknown;
+                        }[];
                     };
                 };
             };

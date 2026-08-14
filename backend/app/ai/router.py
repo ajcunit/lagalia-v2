@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import audit_agent, cpv_agent, providers
+from app.ai import analyst_agent, audit_agent, cpv_agent, providers
 from app.ai import tasks as ai_tasks
 from app.ai.models import AiProtocol, AiProviderProfile, AiRun, AiTaskConfig
 from app.core import authz, crypto
@@ -215,6 +215,23 @@ async def generate_audit_report(
             custom_prompt=body.custom_prompt,
             user_id=authz_ctx.user.id,
             trace_id=ctx.trace_id,
+        )
+    except providers.ProviderError as exc:
+        raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
+
+
+class AnalysisBody(BaseModel):
+    question: str = Field(min_length=5, max_length=2000)
+
+
+@router.post("/ai/analyses", operation_id="createAnalysis")
+async def create_analysis(
+    body: AnalysisBody, session: SessionDep, authz_ctx: AuditRunDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Agent analista (specs/ai-analyst.md): pregunta → resposta amb dades font."""
+    try:
+        return await analyst_agent.answer_question(
+            session, body.question, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
         )
     except providers.ProviderError as exc:
         raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
