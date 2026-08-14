@@ -341,3 +341,60 @@ async def stream(
         await session.commit()
     if status == "error":
         raise ProviderError(error_detail or "error desconegut")
+
+
+async def embed(
+    profile: AiProviderProfile,
+    texts: list[str],
+    *,
+    model: str | None = None,
+    user_id: int | None = None,
+    trace_id: str | None = None,
+) -> list[list[float]]:
+    """Embeddings en lot (rag.embed): openai_compatible /embeddings o ollama /api/embed."""
+    chosen = model or profile.default_model
+    if not chosen:
+        raise ProviderError("el perfil no té model per defecte")
+    base = profile.base_url.rstrip("/")
+    if profile.protocol == AiProtocol.OLLAMA:
+        url, body = f"{base}/api/embed", {"model": chosen, "input": texts}
+    elif profile.protocol == AiProtocol.OPENAI_COMPATIBLE:
+        url, body = f"{base}/embeddings", {"model": chosen, "input": texts}
+    else:
+        raise ProviderError(f"el protocol {profile.protocol} no suporta embeddings aquí")
+
+    started = time.monotonic()
+    status, error_detail, vectors, tokens_in = "success", None, [], None
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT, transport=_transport) as client:
+            response = await client.post(url, json=body, headers=_headers(profile))
+        if response.status_code != 200:
+            raise ProviderError(f"el proveïdor ha respost {response.status_code}")
+        data = response.json()
+        if profile.protocol == AiProtocol.OLLAMA:
+            vectors = data.get("embeddings") or []
+        else:
+            vectors = [item["embedding"] for item in data.get("data", [])]
+            tokens_in = (data.get("usage") or {}).get("prompt_tokens")
+        if len(vectors) != len(texts):
+            raise ProviderError("nombre d'embeddings inesperat")
+    except httpx.TransportError as exc:
+        status, error_detail = "error", f"proveïdor inaccessible: {exc}"
+    except (ProviderError, KeyError, ValueError) as exc:
+        status, error_detail = "error", str(exc)
+
+    async with session_factory() as session:
+        session.add(
+            AiRun(
+                task="rag.embed", provider_profile_id=profile.id, model=chosen,
+                input_summary=f"{len(texts)} fragments",
+                input_tokens=tokens_in, output_tokens=None,
+                latency_ms=int((time.monotonic() - started) * 1000),
+                status=status, error_detail=error_detail,
+                user_id=user_id, trace_id=trace_id,
+            )
+        )
+        await session.commit()
+    if status == "error":
+        raise ProviderError(error_detail or "error desconegut")
+    return vectors
