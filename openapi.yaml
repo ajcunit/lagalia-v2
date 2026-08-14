@@ -1332,6 +1332,70 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /ai/tasks:
+    get:
+      tags: [ai]
+      operationId: listAiTasks
+      summary: Tasques d'IA conegudes amb la seva configuració i resolució efectiva
+      x-required-scopes: [config:write]
+      responses:
+        "200":
+          description: Tasques
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /ai/tasks/{task}:
+    put:
+      tags: [ai]
+      operationId: setAiTaskConfig
+      summary: Assigna perfil/model a una tasca
+      x-required-scopes: [config:write]
+      parameters:
+        - { name: task, in: path, required: true, schema: { type: string, maxLength: 100 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider_profile_id]
+              properties:
+                provider_profile_id: { type: integer, format: int64 }
+                model: { type: [string, "null"], maxLength: 200 }
+                max_tokens: { type: [integer, "null"], minimum: 1, maximum: 200000 }
+      responses:
+        "200":
+          description: Desada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [ai]
+      operationId: resetAiTaskConfig
+      summary: Restableix la tasca al comportament per defecte
+      x-required-scopes: [config:write]
+      parameters:
+        - { name: task, in: path, required: true, schema: { type: string, maxLength: 100 } }
+      responses:
+        "204": { description: Restablerta }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /ai/cpv/suggest:
     post:
       tags: [ai]

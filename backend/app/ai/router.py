@@ -9,7 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai import cpv_agent, providers
-from app.ai.models import AiProtocol, AiProviderProfile, AiRun
+from app.ai import tasks as ai_tasks
+from app.ai.models import AiProtocol, AiProviderProfile, AiRun, AiTaskConfig
 from app.core import authz, crypto
 from app.core.db import get_session
 from app.core.pagination import PageMeta, decode_cursor, encode_cursor, keyset_condition
@@ -186,29 +187,90 @@ class CpvFeedbackBody(BaseModel):
     suggested: list[dict[str, Any]] | None = None
 
 
-async def _active_profile(session: AsyncSession) -> AiProviderProfile:
-    profile = (
-        await session.execute(
-            select(AiProviderProfile)
-            .where(AiProviderProfile.enabled)
-            .order_by(AiProviderProfile.id)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if profile is None:
-        raise Problem(409, "Cap perfil d'IA actiu (configura'l a /admin/ai)", "conflict")
-    return profile
-
-
 @router.post("/ai/cpv/suggest", operation_id="suggestCpv")
 async def suggest_cpv(
     body: CpvSuggestBody, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
 ) -> dict[str, Any]:
-    """Agent classificador CPV (specs/cpv-ai-suggest.md)."""
-    profile = await _active_profile(session)
+    """Agent classificador CPV (specs/cpv-ai-suggest.md); resol proveïdor per tasca."""
     return await cpv_agent.suggest(
-        session, profile, body.text, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+        session, body.text, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
     )
+
+
+class TaskConfigBody(BaseModel):
+    provider_profile_id: int
+    model: str | None = Field(default=None, max_length=200)
+    max_tokens: int | None = Field(default=None, ge=1, le=200000)
+
+
+@router.get("/ai/tasks", operation_id="listAiTasks")
+async def list_ai_tasks(session: SessionDep, _authz: WriteDep) -> dict[str, list[dict[str, Any]]]:
+    configs = {
+        c.task: c
+        for c in (await session.execute(select(AiTaskConfig))).scalars()
+    }
+    data = []
+    for task, description in ai_tasks.KNOWN_TASKS.items():
+        config = configs.get(task)
+        try:
+            resolved = await ai_tasks.resolve(session, task)
+            effective = {
+                "profile_id": resolved.profile.id,
+                "profile_name": resolved.profile.name,
+                "model": resolved.model or resolved.profile.default_model,
+            }
+        except Problem:
+            effective = None
+        data.append(
+            {
+                "task": task,
+                "description": description,
+                "config": {
+                    "provider_profile_id": config.provider_profile_id,
+                    "model": config.model,
+                    "max_tokens": config.max_tokens,
+                }
+                if config
+                else None,
+                "effective": effective,
+            }
+        )
+    return {"data": data}
+
+
+@router.put("/ai/tasks/{task}", operation_id="setAiTaskConfig")
+async def set_ai_task_config(
+    task: str, body: TaskConfigBody, session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> dict[str, str]:
+    if task not in ai_tasks.KNOWN_TASKS:
+        raise Problem(404, "Tasca desconeguda", "not-found")
+    if await session.get(AiProviderProfile, body.provider_profile_id) is None:
+        raise Problem(404, "Perfil desconegut", "not-found")
+    config = (
+        await session.execute(select(AiTaskConfig).where(AiTaskConfig.task == task))
+    ).scalar_one_or_none()
+    if config is None:
+        config = AiTaskConfig(task=task, provider_profile_id=body.provider_profile_id)
+        session.add(config)
+    config.provider_profile_id = body.provider_profile_id
+    config.model = body.model
+    config.max_tokens = body.max_tokens
+    await _audit(session, authz_ctx.user.id, "ai.task_configured", task, ctx)
+    await session.commit()
+    return {"status": "saved"}
+
+
+@router.delete("/ai/tasks/{task}", operation_id="resetAiTaskConfig", status_code=204)
+async def reset_ai_task_config(
+    task: str, session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> None:
+    config = (
+        await session.execute(select(AiTaskConfig).where(AiTaskConfig.task == task))
+    ).scalar_one_or_none()
+    if config is not None:
+        await session.delete(config)
+        await _audit(session, authz_ctx.user.id, "ai.task_reset", task, ctx)
+        await session.commit()
 
 
 @router.post("/ai/cpv/feedback", operation_id="recordCpvFeedback", status_code=201)

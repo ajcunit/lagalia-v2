@@ -11,8 +11,7 @@ from typing import Any
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import providers
-from app.ai.models import AiProviderProfile
+from app.ai import providers, tasks
 
 _ADMIN_PREFIX_RE = re.compile(
     r"^(contracte|contractació|servei|expedient)\s+(de|del|d')\s+", re.IGNORECASE
@@ -85,16 +84,20 @@ def strip_json(content: str) -> str:
     return content.strip()
 
 
-async def _extract(profile: AiProviderProfile, description: str, **run_kw: Any) -> dict[str, Any]:
+async def _extract(
+    session: AsyncSession, description: str, **run_kw: Any
+) -> dict[str, Any]:
+    resolved = await tasks.resolve(session, "cpv.extract")
     try:
         result = await providers.complete(
-            profile,
+            resolved.profile,
             [
                 {"role": "system", "content": CPV_EXTRACT_PROMPT},
                 {"role": "user", "content": description},
             ],
             task="cpv.extract",
-            max_tokens=20000,
+            model=resolved.model,
+            max_tokens=resolved.max_tokens or 20000,
             input_summary=description[:200],
             **run_kw,
         )
@@ -197,7 +200,6 @@ async def retrieve_candidates(
 
 async def suggest(
     session: AsyncSession,
-    profile: AiProviderProfile,
     raw_text: str,
     *,
     user_id: int | None = None,
@@ -207,7 +209,7 @@ async def suggest(
     contract_type = detect_type(description)
     run_kw = {"user_id": user_id, "trace_id": trace_id}
 
-    hints = await _extract(profile, description, **run_kw)
+    hints = await _extract(session, description, **run_kw)
     candidates = await retrieve_candidates(session, description, hints, contract_type)
     lexical_top = [
         {
@@ -223,8 +225,9 @@ async def suggest(
 
     candidate_lines = "\n".join(f"{c['code']} — {c['description']}" for c in candidates)
     try:
+        resolved = await tasks.resolve(session, "cpv.rank")
         result = await providers.complete(
-            profile,
+            resolved.profile,
             [
                 {"role": "system", "content": CPV_RANK_PROMPT},
                 {
@@ -236,7 +239,8 @@ async def suggest(
                 },
             ],
             task="cpv.rank",
-            max_tokens=20000,
+            model=resolved.model,
+            max_tokens=resolved.max_tokens or 20000,
             input_summary=description[:200],
             **run_kw,
         )

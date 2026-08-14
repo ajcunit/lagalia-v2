@@ -39,7 +39,10 @@ async def test_suggest_endpoint_llm_and_fallback(
     user = await make_user("employee")
     headers = login_headers(api_client, user.email)
 
-    # Sense cap perfil actiu → 409 clar.
+    # Sense cap perfil actiu → 409 clar (es desactiva qualsevol romanent).
+    async with session_factory() as session:
+        await session.execute(text("UPDATE ai_provider_profiles SET enabled = false"))
+        await session.commit()
     denied = api_client.post(
         "/api/v1/ai/cpv/suggest", json={"text": "servei de jardineria"}, headers=headers
     )

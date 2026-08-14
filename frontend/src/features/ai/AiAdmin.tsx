@@ -268,6 +268,94 @@ function NewProviderForm() {
   );
 }
 
+type TaskRow = {
+  task: string;
+  description: string;
+  config: { provider_profile_id: number; model: string | null; max_tokens: number | null } | null;
+  effective: { profile_id: number; profile_name: string; model: string | null } | null;
+};
+
+function TaskConfigRow(props: { row: TaskRow; providers: Provider[] }) {
+  const queryClient = useQueryClient();
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["ai-tasks"] });
+  const r = props.row;
+  const [profileId, setProfileId] = useState<number | "">(r.config?.provider_profile_id ?? "");
+  const [model, setModel] = useState(r.config?.model ?? "");
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.PUT("/ai/tasks/{task}", {
+        params: { path: { task: r.task } },
+        body: { provider_profile_id: Number(profileId), model: model || null },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: invalidate,
+  });
+  const reset = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.DELETE("/ai/tasks/{task}", {
+        params: { path: { task: r.task } },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      setProfileId("");
+      setModel("");
+      invalidate();
+    },
+  });
+
+  const selected = props.providers.find((p) => p.id === profileId);
+  return (
+    <tr className="border-t border-line align-top">
+      <td className="px-3 py-2">
+        <p className="font-mono text-xs text-ink">{r.task}</p>
+        <p className="text-xs text-muted">{r.description}</p>
+      </td>
+      <td className="px-3 py-2">
+        <select
+          value={profileId}
+          onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : "")}
+          aria-label={t("ai.taskProfile")}
+          className="rounded-md border border-line bg-surface px-2 py-1 text-sm"
+        >
+          <option value="">{t("ai.taskDefault")}</option>
+          {props.providers.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <input
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder={selected?.default_model ?? ""}
+          aria-label={t("ai.model")}
+          className="w-52 rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs"
+        />
+      </td>
+      <td className="px-3 py-2 text-xs text-muted">
+        {r.effective
+          ? `${r.effective.profile_name} · ${r.effective.model ?? "—"}`
+          : t("ai.taskUnresolved")}
+      </td>
+      <td className="px-3 py-2">
+        <span className="flex gap-1">
+          <Button tone="accent" disabled={save.isPending || profileId === ""} onClick={() => save.mutate()}>
+            {t("admin.save")}
+          </Button>
+          {r.config && (
+            <Button disabled={reset.isPending} onClick={() => reset.mutate()}>
+              {t("ai.taskReset")}
+            </Button>
+          )}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
 export function AiAdmin() {
   const providers = useQuery({
     queryKey: ["ai-providers"],
@@ -275,6 +363,14 @@ export function AiAdmin() {
       const { data, error } = await api.GET("/ai/providers");
       if (error !== undefined) throw error;
       return data.data;
+    },
+  });
+  const tasks = useQuery({
+    queryKey: ["ai-tasks"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/ai/tasks");
+      if (error !== undefined) throw error;
+      return data.data as TaskRow[];
     },
   });
   const runs = useQuery({
@@ -306,6 +402,33 @@ export function AiAdmin() {
           (providers.data ?? []).map((provider) => (
             <ProviderCard key={provider.id} provider={provider} />
           ))
+        )}
+      </div>
+
+      <h2 className="mt-8 text-lg font-semibold text-ink">{t("ai.tasksTitle")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("ai.tasksIntro")}</p>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-surface-raised shadow-card">
+        {tasks.isPending ? (
+          <div className="p-4"><Skeleton rows={2} /></div>
+        ) : tasks.isError ? (
+          <EmptyState icon="⚠️" title={t("admin.loadError")} />
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted">
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.task")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.taskProfile")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.model")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("ai.taskEffective")}</th>
+                <th scope="col" className="px-3 py-2 font-medium"><span className="sr-only">{t("admin.save")}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {(tasks.data ?? []).map((row) => (
+                <TaskConfigRow key={row.task} row={row} providers={providers.data ?? []} />
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 

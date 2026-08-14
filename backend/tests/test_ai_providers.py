@@ -153,3 +153,58 @@ async def test_ollama_and_gemini_adapters(monkeypatch: pytest.MonkeyPatch) -> No
         task="t.g",
     )
     assert g.content == "hola des de gemini" and g.input_tokens == 9
+
+
+async def test_task_config_resolution(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    from app.ai import tasks as ai_tasks
+
+    admin_user = await make_user("admin")
+    admin = login_headers(api_client, admin_user.email)
+
+    created = api_client.post(
+        "/api/v1/ai/providers",
+        json={
+            "name": "task-fake",
+            "protocol": "openai_compatible",
+            "base_url": "http://task.fake/v1",
+            "default_model": "base-model",
+        },
+        headers=admin,
+    )
+    pid = created.json()["id"]
+    api_client.patch(f"/api/v1/ai/providers/{pid}", json={"enabled": True}, headers=admin)
+
+    # Assigna cpv.rank a aquest perfil amb model específic.
+    assert (
+        api_client.put(
+            "/api/v1/ai/tasks/cpv.rank",
+            json={"provider_profile_id": pid, "model": "model-fi"},
+            headers=admin,
+        ).status_code
+        == 200
+    )
+    assert (
+        api_client.put(
+            "/api/v1/ai/tasks/inventada", json={"provider_profile_id": pid}, headers=admin
+        ).status_code
+        == 404
+    )
+
+    listing = api_client.get("/api/v1/ai/tasks", headers=admin).json()["data"]
+    rank = next(r for r in listing if r["task"] == "cpv.rank")
+    assert rank["effective"]["model"] == "model-fi"
+    extract = next(r for r in listing if r["task"] == "cpv.extract")
+    assert extract["config"] is None  # sense config → fallback
+
+    async with session_factory() as session:
+        resolved = await ai_tasks.resolve(session, "cpv.rank")
+        assert resolved.model == "model-fi"
+
+    # Reset → torna al defecte.
+    assert api_client.delete("/api/v1/ai/tasks/cpv.rank", headers=admin).status_code == 204
+    async with session_factory() as session:
+        resolved = await ai_tasks.resolve(session, "cpv.rank")
+        assert resolved.model is None
+
+    # Neteja: el perfil actiu no ha de contaminar altres tests de la bateria.
+    assert api_client.delete(f"/api/v1/ai/providers/{pid}", headers=admin).status_code == 204

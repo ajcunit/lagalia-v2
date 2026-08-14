@@ -47,6 +47,18 @@ class AiProviderProfile(Base, TimestampMixin):
     last_health_check: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AiTaskConfig(Base, TimestampMixin):
+    __tablename__ = "ai_task_configs"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    task: Mapped[str] = mapped_column(String(100), unique=True)
+    provider_profile_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("ai_provider_profiles.id", ondelete="CASCADE")
+    )
+    model: Mapped[str | None] = mapped_column(String(200))
+    max_tokens: Mapped[int | None] = mapped_column(Integer)
+
+
 class AiRun(Base):
     __tablename__ = "ai_runs"
 
