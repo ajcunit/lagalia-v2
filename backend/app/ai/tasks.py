@@ -15,6 +15,8 @@ KNOWN_TASKS: dict[str, str] = {
     "audit.report": "Auditor — informe executiu sobre els red flags",
     "analyst.chat": "Analista de dades — preguntes en llenguatge natural amb eines",
     "rag.embed": "RAG — embeddings dels documents (cal un model d'embeddings)",
+    "doc.index": "Redactor — proposta d'índex a partir de les referències",
+    "doc.section": "Redactor — redacció d'una secció amb RAG i citació de fonts",
 }
 
 

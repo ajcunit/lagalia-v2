@@ -19,6 +19,7 @@ from app.modules.contracts.cpv import router as cpv_router
 from app.modules.contracts.risk_audit import router as risk_audit_router
 from app.modules.contracts.router import router as contracts_router
 from app.modules.departments.router import router as departments_router
+from app.modules.docgen.router import router as docgen_router
 from app.modules.favorites.router import router as favorites_router
 from app.modules.minor_contracts.router import router as minor_contracts_router
 from app.modules.plan.router import router as plan_router
@@ -93,4 +94,5 @@ api.include_router(cpv_router)
 api.include_router(plan_router)
 api.include_router(ai_router)
 api.include_router(compliance_router)
+api.include_router(docgen_router)
 app.include_router(api)

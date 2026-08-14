@@ -154,30 +154,38 @@ async def rag_index(ctx: JobContext) -> dict[str, Any]:
 
 
 async def search(
-    session: AsyncSession, query: str, *, limit: int = 10
+    session: AsyncSession,
+    query: str,
+    *,
+    limit: int = 10,
+    document_ids: list[int] | None = None,
 ) -> list[dict[str, Any]]:
     """Cerca híbrida: cosinus + trigram, fusió per posició (RRF simplificat)."""
     resolved = await tasks.resolve(session, "rag.embed")
     vectors = await providers.embed(resolved.profile, [query], model=resolved.model)
     query_vector = "[" + ",".join(f"{x:.6f}" for x in vectors[0]) + "]"
 
+    doc_filter = "AND document_id = ANY(:ids) " if document_ids else ""
+    params_extra: dict[str, Any] = {"ids": document_ids} if document_ids else {}
     vector_rows = (
         await session.execute(
             text(
-                "SELECT id, embedding <=> CAST(:q AS vector) AS distance FROM rag_chunks "
-                "WHERE embedding IS NOT NULL ORDER BY distance LIMIT :lim"
+                # doc_filter és un literal fix del codi (mai entrada d'usuari).
+                "SELECT id, embedding <=> CAST(:q AS vector) AS distance "  # noqa: S608
+                f"FROM rag_chunks WHERE embedding IS NOT NULL {doc_filter}"
+                "ORDER BY distance LIMIT :lim"
             ),
-            {"q": query_vector, "lim": limit * 2},
+            {"q": query_vector, "lim": limit * 2, **params_extra},
         )
     ).all()
     trigram_rows = (
         await session.execute(
             text(
-                "SELECT id, similarity(content, :q) AS sim FROM rag_chunks "
-                "WHERE content % :q OR content ILIKE :like "
+                "SELECT id, similarity(content, :q) AS sim FROM rag_chunks "  # noqa: S608
+                f"WHERE (content % :q OR content ILIKE :like) {doc_filter}"
                 "ORDER BY sim DESC NULLS LAST LIMIT :lim"
             ),
-            {"q": query[:200], "like": f"%{query[:80]}%", "lim": limit * 2},
+            {"q": query[:200], "like": f"%{query[:80]}%", "lim": limit * 2, **params_extra},
         )
     ).all()
 

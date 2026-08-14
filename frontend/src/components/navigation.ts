@@ -33,6 +33,7 @@ export const NAV_ZONES: NavZone[] = [
       { to: "/cpv", labelKey: "nav.cpv", action: "tools:use" },
       { to: "/audit", labelKey: "nav.riskAudit", action: "audit:run" },
       { to: "/analyst", labelKey: "nav.analyst", action: "audit:run" },
+      { to: "/generator", labelKey: "nav.docgen", action: "tools:use" },
       { to: "/plan", labelKey: "nav.plan", action: "plan:read" },
     ],
   },

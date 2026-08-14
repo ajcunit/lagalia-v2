@@ -78,6 +78,8 @@ tags:
     description: Plataforma d'IA — perfils de proveïdor i execucions
   - name: compliance
     description: Verificador de compliment LCSP (motor de regles determinista)
+  - name: docgen
+    description: Generador documental amb IA (projectes PPT/PPA/Informe, RAG amb fonts)
 
 security:
   - bearerAuth: []
@@ -1160,6 +1162,199 @@ paths:
 
 
   # ───────────────────────── ai ─────────────────────────
+  # ───────────────────────── docgen ─────────────────────────
+  /doc-references:
+    get:
+      tags: [docgen]
+      operationId: searchDocReferences
+      summary: Documents indexats candidats a referència
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: q, in: query, schema: { type: string, minLength: 2, maxLength: 200 } }
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /doc-projects:
+    get:
+      tags: [docgen]
+      operationId: listDocProjects
+      summary: Els meus projectes de generació
+      x-required-scopes: [tools:use]
+      responses:
+        "200":
+          description: Projectes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [docgen]
+      operationId: createDocProject
+      summary: Crea un projecte (amb els 3 documents buits)
+      x-required-scopes: [tools:use]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 200 }
+      responses:
+        "201":
+          description: Creat
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /doc-projects/{id}:
+    get:
+      tags: [docgen]
+      operationId: getDocProject
+      summary: Projecte amb referències i documents
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: Projecte
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [docgen]
+      operationId: deleteDocProject
+      summary: Esborra un projecte propi
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "204": { description: Esborrat }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /doc-projects/{id}/references:
+    put:
+      tags: [docgen]
+      operationId: setDocProjectReferences
+      summary: Fixa les referències del projecte (documents indexats)
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [document_ids]
+              properties:
+                document_ids:
+                  type: array
+                  maxItems: 20
+                  items: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Referències
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /doc-projects/{id}/documents/{doc_type}:
+    patch:
+      tags: [docgen]
+      operationId: saveDocSections
+      summary: Desa les seccions (edició manual)
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: doc_type, in: path, required: true, schema: { type: string, enum: [PPT, PPA, REPORT] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sections]
+              properties:
+                sections:
+                  type: array
+                  maxItems: 30
+                  items: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Desades
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /doc-projects/{id}/documents/{doc_type}/actions/generate-index:
+    post:
+      tags: [docgen]
+      operationId: generateDocIndex
+      summary: Proposa l'índex de seccions a partir de les referències (IA)
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: doc_type, in: path, required: true, schema: { type: string, enum: [PPT, PPA, REPORT] } }
+      responses:
+        "200":
+          description: Seccions proposades (desades)
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502":
+          description: El proveïdor d'IA no ha respost
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /doc-projects/{id}/documents/{doc_type}/export.docx:
+    get:
+      tags: [docgen]
+      operationId: exportDocDocx
+      summary: Export DOCX server-side del document
+      x-required-scopes: [tools:use]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+        - { name: doc_type, in: path, required: true, schema: { type: string, enum: [PPT, PPA, REPORT] } }
+      responses:
+        "200":
+          description: Fitxer DOCX
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ───────────────────────── compliance ─────────────────────────
   /compliance/rules:
     get:
