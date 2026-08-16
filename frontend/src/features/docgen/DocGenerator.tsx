@@ -9,11 +9,13 @@ import { getAccessToken } from "../../auth/session";
 import { t } from "../../i18n";
 
 type DocType = "PPT" | "PPA" | "REPORT";
+type SectionField = { label: string; hint?: string; value: string };
 type Section = {
   title: string;
   instructions: string;
   content_md: string;
   sources: { n?: number; file_code?: string | null; document_title?: string | null }[];
+  fields?: SectionField[];
 };
 type Reference = { id: number; title: string | null; doc_type: string | null; file_code: string | null };
 
@@ -118,7 +120,7 @@ function SectionEditor(props: {
     try {
       await streamNdjson(
         `/doc-projects/${props.projectId}/documents/${props.docType}/sections/${props.index}/actions/draft/stream`,
-        { instructions: s.instructions || null },
+        { instructions: s.instructions || null, fields: s.fields ?? [] },
         (event) => {
           if (event.type === "sources") localSources = event.sources as Section["sources"];
           if (event.type === "delta") acc += String(event.text ?? "");
@@ -161,6 +163,28 @@ function SectionEditor(props: {
             ? t("riskAudit.aiThinkingLive", { chars: String(thinking) })
             : t("docgen.retrieving")}
         </p>
+      )}
+      {(s.fields ?? []).length > 0 && (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {(s.fields ?? []).map((field, fi) => (
+            <label key={fi} className="text-sm text-ink">
+              {field.label}
+              <input
+                value={field.value}
+                onChange={(e) =>
+                  props.onChange({
+                    ...s,
+                    fields: (s.fields ?? []).map((f, j) =>
+                      j === fi ? { ...f, value: e.target.value } : f,
+                    ),
+                  })
+                }
+                placeholder={field.hint ?? ""}
+                className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+              />
+            </label>
+          ))}
+        </div>
       )}
       {open && (
         <div className="mt-2 space-y-2">

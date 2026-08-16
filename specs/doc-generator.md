@@ -25,6 +25,13 @@
 
 - Llista de projectes propis + alta; vista de projecte: cercador de referencies (afegir/treure), pestanyes PPT/PPA/Informe, boto «Proposa l'index», editor de seccions (titol, instruccions, contingut Markdown amb render), boto «Redacta amb IA» per seccio (streaming amb indicador de raonament), fonts mostrades sota cada seccio, i «Exporta a Word».
 
+### Camps de dades del tecnic (ampliacio 2026-08-16)
+
+- L'analisi de l'index detecta, per seccio, els **camps de dades que el tecnic ha d'aportar** (VEC, pressupost, durada, prorroga, terminis, ubicacio...): `fields: [{label, hint, value}]` a cada seccio (maxim 5-10).
+- La UI els mostra com a formulari dins de la seccio (mes el camp lliure d'instruccions per a context ampli, que ja existia).
+- La redaccio els injecta com a **dades AUTORITATIVES** (`<dades_tecnic>`, regla primera del prompt): s'incorporen literalment, mai es contradiuen ni se n'inventen; si falta una dada necessaria, el text porta `[PENDENT: ...]`. Verificat en viu (VEC/durada/prorroga incorporats literalment).
+- Els camps es desen amb la seccio (PATCH i desat atomic del draft).
+
 ## Fora d'abast
 
 - Agent revisor (07 §2.3.4); plantilles d'index administrables; export PDF; doc_exports persistits; cartipas global multi-pantalla (les referencies es trien al projecte; el boto «envia al cartipas» des de fitxes/SuperBuscador arribara amb el cartipas global).

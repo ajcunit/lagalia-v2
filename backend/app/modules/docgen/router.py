@@ -43,6 +43,7 @@ class SectionsBody(BaseModel):
 
 class DraftBody(BaseModel):
     instructions: str | None = Field(default=None, max_length=2000)
+    fields: list[dict[str, Any]] | None = Field(default=None, max_length=10)
 
 
 async def _own_project(session: AsyncSession, project_id: int, user_id: int) -> dict[str, Any]:
@@ -260,6 +261,13 @@ async def save_doc_sections(
             "instructions": str(s.get("instructions", ""))[:2000],
             "content_md": str(s.get("content_md", ""))[:50000],
             "sources": s.get("sources") or [],
+            "fields": [
+                {"label": str(f.get("label", ""))[:120],
+                 "hint": str(f.get("hint", ""))[:300],
+                 "value": str(f.get("value", ""))[:500]}
+                for f in (s.get("fields") or [])
+                if isinstance(f, dict)
+            ][:10],
         }
         for s in body.sections
     ]
@@ -284,7 +292,9 @@ async def generate_doc_index(
     except providers.ProviderError as exc:
         raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
     sections = [
-        {"title": t, "instructions": "", "content_md": "", "sources": []} for t in titles
+        {"title": t["title"], "instructions": "", "content_md": "", "sources": [],
+         "fields": t.get("fields", [])}
+        for t in titles
     ]
     await _save_sections(session, id, doc_type, sections)
     await _audit(session, authz_ctx.user.id, "docgen.index_generated", f"{id}/{doc_type}", ctx)
@@ -315,9 +325,13 @@ async def draft_section_stream(
         collected: list[str] = []
         sources: list[dict[str, Any]] = []
         try:
+            draft_fields = (
+                body.fields if body.fields is not None else section.get("fields") or []
+            )
             async for event in doc_agent.draft_section_events(
                 session, id, doc_type, str(section.get("title", "")),
                 body.instructions or str(section.get("instructions", "")) or None,
+                fields=draft_fields,
                 user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
             ):
                 if event["type"] == "delta":
@@ -331,10 +345,11 @@ async def draft_section_stream(
             await session.execute(
                 text(
                     "UPDATE doc_documents SET sections = jsonb_set(jsonb_set(jsonb_set("
-                    "sections, ARRAY[:i_txt, 'content_md'], "
+                    "jsonb_set(sections, ARRAY[:i_txt, 'content_md'], "
                     "to_jsonb(CAST(:content AS text))), "
                     "ARRAY[:i_txt, 'sources'], CAST(:sources AS jsonb)), "
                     "ARRAY[:i_txt, 'instructions'], to_jsonb(CAST(:instructions AS text))), "
+                    "ARRAY[:i_txt, 'fields'], CAST(:fields AS jsonb)), "
                     "updated_at = now() "
                     "WHERE project_id = :p AND doc_type = :t "
                     "AND jsonb_array_length(sections) > :i_int"
@@ -349,6 +364,7 @@ async def draft_section_stream(
                         if body.instructions is not None
                         else section.get("instructions", "")
                     )[:2000],
+                    "fields": json.dumps(draft_fields or []),
                     "p": id,
                     "t": doc_type,
                 },
