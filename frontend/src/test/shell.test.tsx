@@ -1,44 +1,33 @@
 import { describe, expect, it } from "vitest";
 
 import { passwordChecklist, passwordSatisfies } from "../auth/passwordChecklist";
-import { NAV_ZONES, visibleZones } from "../components/navigation";
+import {
+  ADMIN_TILES,
+  canSeeAdminHub,
+  MAIN_NAV,
+  visibleItems,
+} from "../components/navigation";
 
-describe("visibleZones", () => {
-  it("un employee sense flags només veu tauler i superbuscador", () => {
-    const zones = visibleZones(NAV_ZONES, ["contracts:read", "tools:use", "me:update"]);
-
-    const labels = zones.flatMap((z) => z.items.map((i) => i.labelKey));
+describe("navegació per permisos", () => {
+  it("un employee sense flags veu operativa i eines però no el hub", () => {
+    const actions = ["contracts:read", "tools:use", "me:update"];
+    const labels = visibleItems(MAIN_NAV, actions).map((i) => i.labelKey);
     expect(labels).toContain("nav.dashboard");
     expect(labels).toContain("nav.contracts");
     expect(labels).toContain("nav.superSearch");
-    expect(labels).not.toContain("nav.users");
-    expect(labels).not.toContain("nav.securityAudit");
-    // La zona d'administració desapareix sencera.
-    expect(zones.map((z) => z.labelKey)).not.toContain("nav.zone.administration");
+    expect(labels).not.toContain("nav.riskAudit");
+    expect(canSeeAdminHub(actions)).toBe(false);
   });
 
-  it("un admin ho veu tot", () => {
-    const adminActions = [
-      "contracts:read",
-      "tools:use",
-      "users:read",
-      "departments:write",
-      "config:write",
-      "audit_log:read",
-    ];
-
-    const zones = visibleZones(NAV_ZONES, adminActions);
-
-    const labels = zones.flatMap((z) => z.items.map((i) => i.labelKey));
-    expect(labels).toContain("nav.users");
-    expect(labels).toContain("nav.securityAudit");
+  it("un admin veu el hub amb totes les targetes", () => {
+    const adminActions = ADMIN_TILES.map((tile) => tile.action);
+    expect(canSeeAdminHub(adminActions)).toBe(true);
+    expect(visibleItems(ADMIN_TILES, adminActions)).toHaveLength(ADMIN_TILES.length);
   });
 
-  it("sense cap acció només queden les entrades sense requisit", () => {
-    const zones = visibleZones(NAV_ZONES, []);
-
-    const labels = zones.flatMap((z) => z.items.map((i) => i.labelKey));
-    expect(labels).toEqual(["nav.dashboard"]);
+  it("sense cap acció només queda el tauler i cap hub", () => {
+    expect(visibleItems(MAIN_NAV, []).map((i) => i.labelKey)).toEqual(["nav.dashboard"]);
+    expect(canSeeAdminHub([])).toBe(false);
   });
 });
 

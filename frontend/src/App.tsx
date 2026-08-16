@@ -32,6 +32,7 @@ import { AnnualPlan } from "./features/plan/AnnualPlan";
 import { AiAdmin } from "./features/ai/AiAdmin";
 import { Analyst } from "./features/analyst/Analyst";
 import { DocGenerator } from "./features/docgen/DocGenerator";
+import { AdminHub } from "./features/admin/AdminHub";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ export function App() {
               <Route path="/admin/ai" element={<AiAdmin />} />
               <Route path="/analyst" element={<Analyst />} />
               <Route path="/generator" element={<DocGenerator />} />
+              <Route path="/admin" element={<AdminHub />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />

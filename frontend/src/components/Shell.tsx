@@ -2,59 +2,89 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { t } from "../i18n";
-import { NAV_ZONES, visibleZones } from "./navigation";
+import { ADMIN_NAV_ITEM, canSeeAdminHub, MAIN_NAV, visibleItems } from "./navigation";
 import { ThemeToggle } from "./ThemeToggle";
 
-/** Shell autenticat: sidebar per permisos (una crida) + capçalera. */
+/** Shell autenticat (B-015 fase 1): sidebar amb icones i aire + hub d'administració. */
 export function Shell() {
   const { user, permissions, logout } = useAuth();
-  const zones = visibleZones(NAV_ZONES, permissions?.actions ?? []);
+  const actions = permissions?.actions ?? [];
+  const items = visibleItems(MAIN_NAV, actions);
+  const showAdmin = canSeeAdminHub(actions);
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 border-r border-line bg-surface-raised">
-        <div className="px-4 py-5">
-          <p className="text-lg font-bold tracking-tight text-ink">{t("app.name")}</p>
+      <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-surface-raised">
+        <div className="px-6 pb-4 pt-6 text-center">
+          <p className="text-2xl font-extrabold tracking-tight text-ink">
+            LAGAL<span className="text-accent">ia</span>
+          </p>
+          <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">
+            Contractació
+          </p>
         </div>
-        <nav aria-label={t("shell.navigation")} className="px-2 pb-6">
-          {zones.map((zone) => (
-            <div key={zone.labelKey} className="mt-4">
-              <p className="px-2 text-xs font-semibold tracking-wide text-muted uppercase">
-                {t(zone.labelKey)}
-              </p>
-              <ul className="mt-1 space-y-0.5">
-                {zone.items.map((item) => (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      end={item.to === "/"}
-                      className={({ isActive }) =>
-                        `block rounded-md px-2 py-1.5 text-sm ${
-                          isActive
-                            ? "bg-accent-soft font-medium text-accent"
-                            : "text-ink hover:bg-surface-sunken"
-                        }`
-                      }
-                    >
-                      {t(item.labelKey)}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <nav aria-label={t("shell.navigation")} className="flex-1 overflow-y-auto px-3 pb-4">
+          <ul className="space-y-1">
+            {items.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  end={item.to === "/"}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] ${
+                      isActive
+                        ? "bg-accent-soft font-semibold text-accent"
+                        : "text-ink hover:bg-surface-sunken"
+                    }`
+                  }
+                >
+                  <item.icon aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+                  {t(item.labelKey)}
+                </NavLink>
+              </li>
+            ))}
+            {showAdmin && (
+              <li className="pt-3">
+                <div className="mx-3 mb-3 border-t border-line" />
+                <NavLink
+                  to={ADMIN_NAV_ITEM.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] ${
+                      isActive
+                        ? "bg-accent-soft font-semibold text-accent"
+                        : "text-ink hover:bg-surface-sunken"
+                    }`
+                  }
+                >
+                  <ADMIN_NAV_ITEM.icon aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+                  {t(ADMIN_NAV_ITEM.labelKey)}
+                </NavLink>
+              </li>
+            )}
+          </ul>
         </nav>
+        {user && (
+          <div className="border-t border-line px-4 py-4">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-base font-bold text-accent"
+              >
+                {user.name.charAt(0).toUpperCase()}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-ink">{user.name}</span>
+                <span className="mt-0.5 inline-block rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                  {t(`role.${user.role}`)}
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-end gap-3 border-b border-line bg-surface-raised px-6 py-3">
-          {user && (
-            <p className="text-sm text-muted">
-              <span className="font-medium text-ink">{user.name}</span>
-              {" · "}
-              {t(`role.${user.role}`)}
-            </p>
-          )}
           <ThemeToggle />
           <button
             type="button"

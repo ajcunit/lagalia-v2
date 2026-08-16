@@ -105,7 +105,7 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Specs afectades:** [11-metodologia-specs.md](11-metodologia-specs.md) §tests.
 
 ### B-015 · Revisió visual i d'UX: menús, distribució de dades i jerarquia de la informació
-- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** L
+- **Prioritat:** P1 · **Estat:** En curs (fase 1 feta 2026-08-16: sidebar pla amb icones i aire + hub de configuració /admin amb targetes; queden densitat/jerarquia de les pantalles de dades) · **Mida:** L
 - **Descripció:** petició de l'Esteve (2026-08-15): tractar els aspectes visuals i de millora d'UX de manera transversal — reformular els menús (les zones i entrades han crescut orgànicament: Operativa en té 6, Intel·ligència 5, Administració 8) i repensar la distribució de les dades i la informació a les pantalles (densitat, jerarquia, què es veu primer a cada vista, coherència entre llistats/fitxes/panells).
 - **Com desenvolupar-la:** sessió de revisió pantalla a pantalla amb usuaris reals (aprofitar les proves de negoci en curs); proposta de navegació nova (agrupacions, ordre, possibles submenus o cercador d'accions); sistema de disseny consolidat (espaiats, mides de taula, targeta vs taula segons densitat); prototipar 2-3 pantalles clau (tauler, fitxa de contracte, llistat) abans d'estendre-ho. Mantenir WCAG 2.1 AA com a requisit de sortida de cada canvi.
 - **Specs afectades:** [10-ui.md](10-ui.md) (revisió general), specs de pantalla existents a mesura que es toquin.
