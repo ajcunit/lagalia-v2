@@ -112,21 +112,21 @@ function SectionEditor(props: {
   async function draft() {
     setDrafting(true);
     setThinking(0);
-    props.onChange({ ...s, content_md: "" });
     let acc = "";
+    let localSources: Section["sources"] = s.sources ?? [];
+    props.onChange({ ...s, content_md: "" });
     try {
       await streamNdjson(
         `/doc-projects/${props.projectId}/documents/${props.docType}/sections/${props.index}/actions/draft/stream`,
         { instructions: s.instructions || null },
         (event) => {
-          if (event.type === "delta") {
-            acc += String(event.text ?? "");
-            props.onChange({ ...s, content_md: acc });
+          if (event.type === "sources") localSources = event.sources as Section["sources"];
+          if (event.type === "delta") acc += String(event.text ?? "");
+          if (event.type === "thinking") {
+            setThinking((prev) => prev + String(event.text ?? "").length);
+            return;
           }
-          if (event.type === "thinking") setThinking((prev) => prev + String(event.text ?? "").length);
-          if (event.type === "sources") {
-            props.onChange({ ...s, sources: event.sources as Section["sources"], content_md: acc });
-          }
+          props.onChange({ ...s, content_md: acc, sources: localSources });
         },
       );
     } finally {
@@ -316,7 +316,11 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
               index={index}
               section={section}
               onChange={(updated) =>
-                setSections(currentSections.map((s, i) => (i === index ? updated : s)))
+                setSections((prev) => {
+                  const base =
+                    prev ?? ((project.data?.documents[docType] ?? []) as Section[]);
+                  return base.map((s, i) => (i === index ? updated : s));
+                })
               }
             />
           ))

@@ -115,3 +115,60 @@ async def test_docgen_flow(api_client, make_user, monkeypatch: pytest.MonkeyPatc
     assert "wordprocessingml" in export.headers["content-type"]
 
     assert api_client.delete(f"/api/v1/doc-projects/{pid}", headers=mine).status_code == 204
+
+
+async def test_concurrent_section_drafts_do_not_clobber(
+    api_client, make_user, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    """Regressió: desar una secció no pot trepitjar el que una altra
+    redacció ha desat mentre aquesta streamejava (last-writer-wins)."""
+    owner = await make_user("employee")
+    mine = login_headers(api_client, owner.email)
+    pid = api_client.post(
+        "/api/v1/doc-projects", json={"name": "Concurrent"}, headers=mine
+    ).json()["id"]
+    api_client.patch(
+        f"/api/v1/doc-projects/{pid}/documents/PPT",
+        json={
+            "sections": [
+                {"title": "A", "instructions": "", "content_md": "", "sources": []},
+                {"title": "B", "instructions": "", "content_md": "", "sources": []},
+            ]
+        },
+        headers=mine,
+    )
+
+    from app.ai import doc_agent
+
+    async def fake_events(session, project_id, doc_type, title, instructions, **kw):  # type: ignore[no-untyped-def]
+        # Simula que una ALTRA redacció (secció A) acaba i desa mentre
+        # aquesta (secció B) encara streameja.
+        async with session_factory() as other:
+            await other.execute(
+                text(
+                    "UPDATE doc_documents SET sections = jsonb_set(sections, "
+                    "'{0,content_md}', to_jsonb(CAST('CONTINGUT-A' AS text))) "
+                    "WHERE project_id = :p AND doc_type = 'PPT'"
+                ),
+                {"p": project_id},
+            )
+            await other.commit()
+        yield {"type": "sources", "sources": []}
+        yield {"type": "delta", "text": "CONTINGUT-B"}
+
+    monkeypatch.setattr(doc_agent, "draft_section_events", fake_events)
+
+    with api_client.stream(
+        "POST",
+        f"/api/v1/doc-projects/{pid}/documents/PPT/sections/1/actions/draft/stream",
+        json={},
+        headers=mine,
+    ) as response:
+        assert response.status_code == 200
+        list(response.iter_lines())
+
+    detail = api_client.get(f"/api/v1/doc-projects/{pid}", headers=mine).json()
+    sections = detail["documents"]["PPT"]
+    assert sections[0]["content_md"] == "CONTINGUT-A"  # NO trepitjat
+    assert sections[1]["content_md"] == "CONTINGUT-B"
+    api_client.delete(f"/api/v1/doc-projects/{pid}", headers=mine)

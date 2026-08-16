@@ -324,9 +324,34 @@ async def draft_section_stream(
                 elif event["type"] == "sources":
                     sources = event["sources"]
                 yield _line(event)
-            section["content_md"] = "".join(collected)[:50000]
-            section["sources"] = sources
-            await _save_sections(session, id, doc_type, sections)
+            # Desat ATÒMIC de només aquesta secció (jsonb_set sobre l'estat
+            # actual de la BD): redaccions concurrents d'altres seccions no
+            # es trepitgen (el desat de l'array sencer feia last-writer-wins).
+            await session.execute(
+                text(
+                    "UPDATE doc_documents SET sections = jsonb_set(jsonb_set(jsonb_set("
+                    "sections, ARRAY[:i_txt, 'content_md'], "
+                    "to_jsonb(CAST(:content AS text))), "
+                    "ARRAY[:i_txt, 'sources'], CAST(:sources AS jsonb)), "
+                    "ARRAY[:i_txt, 'instructions'], to_jsonb(CAST(:instructions AS text))), "
+                    "updated_at = now() "
+                    "WHERE project_id = :p AND doc_type = :t "
+                    "AND jsonb_array_length(sections) > :i_int"
+                ),
+                {
+                    "i_txt": str(section_index),
+                    "i_int": section_index,
+                    "content": "".join(collected)[:50000],
+                    "sources": json.dumps(sources),
+                    "instructions": str(
+                        body.instructions
+                        if body.instructions is not None
+                        else section.get("instructions", "")
+                    )[:2000],
+                    "p": id,
+                    "t": doc_type,
+                },
+            )
             await _audit(
                 session, authz_ctx.user.id, "docgen.section_drafted",
                 f"{id}/{doc_type}/{section_index}", ctx,
