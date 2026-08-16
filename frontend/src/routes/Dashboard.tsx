@@ -5,6 +5,8 @@ import { useAuth } from "../auth/AuthProvider";
 import { SectionCard, Skeleton } from "../components/ui";
 import { useContractsFacets, useContractsStats } from "../features/contracts/queries";
 import { useTasks } from "../features/tasks/queries";
+import { LayoutDashboard } from "lucide-react";
+import { PageHeader } from "../components/PageHeader";
 import { t } from "../i18n";
 import { formatCurrency, formatDate } from "../lib/format";
 
@@ -92,12 +94,11 @@ export function Dashboard() {
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">
-            {user ? t("dashboard.welcome", { name: user.name }) : t("dashboard.title")}
-          </h1>
-          <p className="mt-1 text-muted">{t("dashboard.intro")}</p>
-        </div>
+        <PageHeader
+          icon={LayoutDashboard}
+          title={user ? t("dashboard.welcome", { name: user.name }) : t("dashboard.title")}
+          subtitle={t("dashboard.intro")}
+        />
         <label className="flex items-center gap-2 text-sm text-ink">
           {t("dashboard.filterYear")}
           <select

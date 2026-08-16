@@ -368,6 +368,7 @@ export const ca = {
   "docgen.instructionsPlaceholder": "Context lliure addicional per a aquesta secció (opcional)…",
   "docgen.sources": "Fonts",
   "docgen.export": "Exporta a Word",
+  "docgen.backToProjects": "Projectes",
   "analyst.title": "Analista de dades",
   "analyst.intro": "Pregunta en llenguatge natural sobre la contractació de l'ens. L'agent consulta les dades amb eines tancades i respon amb les xifres reals — sempre pots veure les dades font de cada pas.",
   "analyst.placeholder": "p. ex. Quina és l'evolució de la despesa en serveis els últims 3 anys?",

@@ -4,6 +4,9 @@ import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { ShieldCheck } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
 
@@ -81,8 +84,7 @@ export function AuditLogAdmin() {
     <div>
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{t("audit.title")}</h1>
-          <p className="mt-1 text-sm text-muted">{t("audit.intro")}</p>
+          <PageHeader icon={ShieldCheck} title={t("audit.title")} subtitle={t("audit.intro")} />
         </div>
         <span className="ml-auto flex items-center gap-2">
           <Button disabled={verify.isPending} onClick={() => verify.mutate()}>

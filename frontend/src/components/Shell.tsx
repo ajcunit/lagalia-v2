@@ -14,8 +14,8 @@ export function Shell() {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-surface-raised">
-        <div className="px-6 pb-4 pt-6 text-center">
+      <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-line bg-surface-raised">
+        <div className="px-6 pb-3 pt-5 text-center">
           <p className="text-2xl font-extrabold tracking-tight text-ink">
             LAGAL<span className="text-accent">ia</span>
           </p>
@@ -23,15 +23,15 @@ export function Shell() {
             Contractació
           </p>
         </div>
-        <nav aria-label={t("shell.navigation")} className="flex-1 overflow-y-auto px-3 pb-4">
-          <ul className="space-y-1">
+        <nav aria-label={t("shell.navigation")} className="min-h-0 flex-1 px-3 pb-2">
+          <ul className="space-y-0.5">
             {items.map((item) => (
               <li key={item.to}>
                 <NavLink
                   to={item.to}
                   end={item.to === "/"}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] ${
+                    `flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
                       isActive
                         ? "bg-accent-soft font-semibold text-accent"
                         : "text-ink hover:bg-surface-sunken"
@@ -44,12 +44,12 @@ export function Shell() {
               </li>
             ))}
             {showAdmin && (
-              <li className="pt-3">
-                <div className="mx-3 mb-3 border-t border-line" />
+              <li className="pt-2">
+                <div className="mx-3 mb-2 border-t border-line" />
                 <NavLink
                   to={ADMIN_NAV_ITEM.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] ${
+                    `flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
                       isActive
                         ? "bg-accent-soft font-semibold text-accent"
                         : "text-ink hover:bg-surface-sunken"
@@ -64,7 +64,7 @@ export function Shell() {
           </ul>
         </nav>
         {user && (
-          <div className="border-t border-line px-4 py-4">
+          <div className="border-t border-line px-4 py-3">
             <div className="flex items-center gap-3">
               <span
                 aria-hidden

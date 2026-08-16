@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { FileText } from "lucide-react";
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 import {
@@ -183,16 +185,15 @@ export function ContractsList() {
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">
-            {t("contracts.title")}
-          </h1>
-          {contracts.data && (
-            <p className="text-sm text-muted">
-              {t("contracts.total", { total: contracts.data.meta.total })}
-            </p>
-          )}
-        </div>
+        <PageHeader
+          icon={FileText}
+          title={t("contracts.title")}
+          subtitle={
+            contracts.data
+              ? t("contracts.total", { total: contracts.data.meta.total })
+              : undefined
+          }
+        />
         <div className="flex items-center gap-2">
         {canExport && (
           <Button onClick={onExport} disabled={exporting}>

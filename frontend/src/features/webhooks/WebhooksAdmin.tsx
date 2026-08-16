@@ -1,6 +1,9 @@
 import { useState } from "react";
 
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Webhook as WebhookIcon } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
 import {
@@ -137,8 +140,7 @@ export function WebhooksAdmin() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{t("webhooks.title")}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted">{t("webhooks.intro")}</p>
+          <PageHeader icon={WebhookIcon} title={t("webhooks.title")} subtitle={t("webhooks.intro")} />
         </div>
         {!creating && (
           <Button tone="accent" onClick={() => { setCreating(true); setNewSecret(null); }}>

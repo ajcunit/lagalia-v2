@@ -6,6 +6,9 @@ import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { Markdown } from "../../components/Markdown";
 import { streamNdjson } from "../../lib/stream";
 import { getAccessToken } from "../../auth/session";
+import { Layers } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 
 type DocType = "PPT" | "PPA" | "REPORT";
@@ -290,12 +293,13 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="text-sm text-accent underline" onClick={props.onBack}>
-          ← {t("contract.back")}
-        </button>
-        <h2 className="text-xl font-bold text-ink">{project.data.name}</h2>
-      </div>
+      <PageHeader
+        icon={Layers}
+        title={project.data.name}
+        actions={
+          <Button onClick={props.onBack}>← {t("docgen.backToProjects")}</Button>
+        }
+      />
       <div className="mt-3"><ReferencePicker projectId={props.projectId} references={project.data.references} /></div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -397,8 +401,7 @@ export function DocGenerator() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("docgen.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("docgen.intro")}</p>
+      <PageHeader icon={Layers} title={t("docgen.title")} subtitle={t("docgen.intro")} />
 
       <form
         className="mt-4 flex flex-wrap items-end gap-2"

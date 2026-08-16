@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Users } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import {
   problemMessage,
@@ -141,7 +144,7 @@ export function UsersAdmin() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{t("admin.users.title")}</h1>
+          <PageHeader icon={Users} title={t("admin.users.title")} />
           {users.data && (
             <p className="text-sm text-muted">
               {t("admin.users.total", { total: users.data.meta.total })}

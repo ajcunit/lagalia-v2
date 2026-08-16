@@ -3,6 +3,9 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { CalendarCheck } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatDate } from "../../lib/format";
 import { api } from "../../api/client";
@@ -321,7 +324,7 @@ export function TasksPage() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{t("tasks.title")}</h1>
+          <PageHeader icon={CalendarCheck} title={t("tasks.title")} />
           {tasks.data && view === "list" && (
             <p className="text-sm text-muted">{t("tasks.total", { total: tasks.data.meta.total })}</p>
           )}

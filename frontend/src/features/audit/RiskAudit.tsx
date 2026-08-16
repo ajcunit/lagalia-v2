@@ -4,6 +4,9 @@ import { Link } from "react-router-dom";
 
 import { api } from "../../api/client";
 import { Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { ShieldAlert } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { streamNdjson } from "../../lib/stream";
@@ -159,8 +162,7 @@ export function RiskAudit() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("riskAudit.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("riskAudit.intro")}</p>
+      <PageHeader icon={ShieldAlert} title={t("riskAudit.title")} subtitle={t("riskAudit.intro")} />
       <AiReport />
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <Block

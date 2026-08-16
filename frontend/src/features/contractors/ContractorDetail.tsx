@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { Badge, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { useContracts } from "../contracts/queries";
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { useContractor } from "./queries";
@@ -34,7 +35,7 @@ export function ContractorDetail() {
       </nav>
 
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-ink">{data.name}</h1>
+        <PageHeader back backTo="/contractors" title={data.name} />
         <span className="flex gap-1.5">
           {data.third_sector && <Badge tone="accent">{t("contractors.thirdSector")}</Badge>}
         </span>

@@ -4,6 +4,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, EmptyState, Skeleton } from "../../components/ui";
 import { useDepartmentOptions } from "../contracts/queries";
+import { Receipt } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { useMinorContracts, type MinorsListParams } from "./queries";
@@ -70,7 +73,7 @@ export function MinorsList() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{t("minors.title")}</h1>
+          <PageHeader icon={Receipt} title={t("minors.title")} />
           {minors.data && (
             <p className="text-sm text-muted">
               {t("minors.total", { total: minors.data.meta.total })}

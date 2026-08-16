@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Copy } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency } from "../../lib/format";
 import {
@@ -128,8 +131,7 @@ export function ContractorDuplicates() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("duplicates.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("duplicates.intro")}</p>
+      <PageHeader icon={Copy} title={t("duplicates.title")} subtitle={t("duplicates.intro")} />
 
       <div role="tablist" className="mt-4 flex gap-1 border-b border-line">
         {TABS.map((candidate) => (

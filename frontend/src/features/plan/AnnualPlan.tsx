@@ -6,6 +6,9 @@ import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { ClipboardList } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 
@@ -206,7 +209,7 @@ export function AnnualPlan() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-ink">{t("plan.title")}</h1>
+        <PageHeader icon={ClipboardList} title={t("plan.title")} />
         <select value={year} onChange={(ev) => setYear(Number(ev.target.value))}
           aria-label={t("plan.year")}
           className="ml-auto rounded-md border border-line bg-surface px-2 py-1.5 text-sm">

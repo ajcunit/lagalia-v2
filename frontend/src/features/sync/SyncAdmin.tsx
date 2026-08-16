@@ -5,6 +5,9 @@ import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { RefreshCw } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
 
@@ -117,8 +120,7 @@ export function SyncAdmin() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("sync.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("sync.intro")}</p>
+      <PageHeader icon={RefreshCw} title={t("sync.title")} subtitle={t("sync.intro")} />
 
       {canExecute && (
         <div className="mt-4 flex flex-wrap gap-2">

@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { ADMIN_TILES, visibleItems } from "../../components/navigation";
 import { EmptyState } from "../../components/ui";
+import { Settings } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 
 /** Hub de configuració (B-015): totes les pantalles d'administració en un lloc. */
@@ -12,8 +15,7 @@ export function AdminHub() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("adminHub.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("adminHub.intro")}</p>
+      <PageHeader icon={Settings} title={t("adminHub.title")} subtitle={t("adminHub.intro")} />
 
       {tiles.length === 0 ? (
         <div className="mt-6">

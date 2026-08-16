@@ -5,6 +5,9 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Globe } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatBytes, formatCurrency, formatDate } from "../../lib/format";
 import { useFolders } from "../favorites/useFolders";
@@ -329,8 +332,7 @@ export function SuperSearch() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("search.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("search.intro")}</p>
+      <PageHeader icon={Globe} title={t("search.title")} subtitle={t("search.intro")} />
 
       <form
         className="mt-4 space-y-3"

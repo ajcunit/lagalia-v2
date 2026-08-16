@@ -4,6 +4,9 @@ import { useMutation } from "@tanstack/react-query";
 import { Badge, Button, EmptyState } from "../../components/ui";
 import { Markdown } from "../../components/Markdown";
 import { streamNdjson } from "../../lib/stream";
+import { BarChart3 } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 
 const EXAMPLES = [
@@ -49,8 +52,7 @@ export function Analyst() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("analyst.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("analyst.intro")}</p>
+      <PageHeader icon={BarChart3} title={t("analyst.title")} subtitle={t("analyst.intro")} />
 
       <div className="mt-4 flex flex-wrap items-end gap-2">
         <textarea

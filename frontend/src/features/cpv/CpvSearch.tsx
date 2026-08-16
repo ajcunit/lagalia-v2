@@ -3,6 +3,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Search } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 
 type CpvRow = {
@@ -173,8 +176,7 @@ export function CpvSearch() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("cpv.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("cpv.intro")}</p>
+      <PageHeader icon={Search} title={t("cpv.title")} subtitle={t("cpv.intro")} />
       <input
         type="search"
         value={text}

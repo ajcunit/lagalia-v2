@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { EmptyState, Skeleton } from "../../components/ui";
+import { Building2 } from "lucide-react";
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency } from "../../lib/format";
 import { useContractors, type ContractorsListParams } from "./queries";
@@ -63,16 +65,15 @@ export function ContractorsList() {
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">
-            {t("contractors.title")}
-          </h1>
-          {contractors.data && (
-            <p className="text-sm text-muted">
-              {t("contractors.total", { total: contractors.data.meta.total })}
-            </p>
-          )}
-        </div>
+        <PageHeader
+          icon={Building2}
+          title={t("contractors.title")}
+          subtitle={
+            contractors.data
+              ? t("contractors.total", { total: contractors.data.meta.total })
+              : undefined
+          }
+        />
       </div>
       <p className="mt-1 max-w-3xl text-sm text-muted">{t("contractors.scopeNote")}</p>
 

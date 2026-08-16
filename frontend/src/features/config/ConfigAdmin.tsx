@@ -5,6 +5,9 @@ import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { SlidersHorizontal } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
 
@@ -305,8 +308,7 @@ export function ConfigAdmin() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("config.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("config.intro")}</p>
+      <PageHeader icon={SlidersHorizontal} title={t("config.title")} subtitle={t("config.intro")} />
 
       <h2 className="mt-6 text-lg font-semibold text-ink">{t("config.connectors")}</h2>
       <div className="mt-3 grid gap-4 lg:grid-cols-2">

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Network } from "lucide-react";
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import {
   problemMessage,
@@ -82,16 +84,15 @@ export function DepartmentsAdmin() {
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">
-            {t("admin.departments.title")}
-          </h1>
-          {departments.data && (
-            <p className="text-sm text-muted">
-              {t("admin.departments.total", { total: departments.data.meta.total })}
-            </p>
-          )}
-        </div>
+        <PageHeader
+          icon={Network}
+          title={t("admin.departments.title")}
+          subtitle={
+            departments.data
+              ? t("admin.departments.total", { total: departments.data.meta.total })
+              : undefined
+          }
+        />
         {canWrite && (
           <Button tone="accent" onClick={openNew}>
             {t("admin.departments.new")}

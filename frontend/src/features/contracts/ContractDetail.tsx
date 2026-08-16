@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { ca } from "../../i18n/ca";
 import {
@@ -104,13 +105,12 @@ export function ContractDetail() {
       </nav>
 
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">
-            {data.file_code}
-            {data.lot && <span className="ml-2 text-base text-muted">lot {data.lot}</span>}
-          </h1>
-          <p className="mt-1 max-w-3xl text-muted">{data.subject}</p>
-        </div>
+        <PageHeader
+          back
+          backTo="/contracts"
+          title={`${data.file_code}${data.lot ? ` · lot ${data.lot}` : ""}`}
+          subtitle={data.subject ?? undefined}
+        />
         <span className="flex items-center gap-1.5">
           {canEnrich && data.phase_urls && Object.keys(data.phase_urls).length > 0 && (
             <Button onClick={onEnrich} disabled={enriching}>

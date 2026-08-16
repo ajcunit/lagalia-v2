@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { Bot } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
 import { Markdown } from "../../components/Markdown";
@@ -511,8 +514,7 @@ export function AiAdmin() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("ai.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("ai.intro")}</p>
+      <PageHeader icon={Bot} title={t("ai.title")} subtitle={t("ai.intro")} />
 
       <div className="mt-4"><NewProviderForm /></div>
 

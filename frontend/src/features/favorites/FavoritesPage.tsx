@@ -4,6 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Star } from "lucide-react";
+
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { useFolders } from "./useFolders";
@@ -246,8 +249,7 @@ export function FavoritesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-ink">{t("favorites.title")}</h1>
-      <p className="mt-1 max-w-3xl text-sm text-muted">{t("favorites.intro")}</p>
+      <PageHeader icon={Star} title={t("favorites.title")} subtitle={t("favorites.intro")} />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr]">
         <aside>

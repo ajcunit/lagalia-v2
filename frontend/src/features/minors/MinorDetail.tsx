@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { useDepartmentOptions } from "../contracts/queries";
+import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate, formatDateTime } from "../../lib/format";
 import { ContractTasks } from "../tasks/ContractTasks";
@@ -91,10 +92,12 @@ export function MinorDetail() {
       </nav>
 
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink">{data.file_code}</h1>
-          <p className="mt-1 max-w-3xl text-muted">{data.description}</p>
-        </div>
+        <PageHeader
+          back
+          backTo="/minor-contracts"
+          title={data.file_code}
+          subtitle={data.description ?? undefined}
+        />
         <span className="flex items-center gap-1.5">
           {canUpdate && !editing && <Button onClick={startEditing}>{t("minors.edit")}</Button>}
           {data.internal_status !== "normal" && (
