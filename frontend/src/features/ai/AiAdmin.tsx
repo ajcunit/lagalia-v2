@@ -484,6 +484,76 @@ function RagPanel() {
   );
 }
 
+function LegalCorpusPanel() {
+  const queryClient = useQueryClient();
+  const norms = useQuery({
+    queryKey: ["legal-norms"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/legal/norms");
+      if (error !== undefined) throw error;
+      return data.data as Record<string, unknown>[];
+    },
+  });
+  const sync = useMutation({
+    mutationFn: async () => {
+      const { error } = await api.POST("/legal/norms/actions/sync", {});
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["legal-norms"] }),
+  });
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-lg font-semibold text-ink">{t("legal.title")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("legal.intro")}</p>
+      <div className="mt-2 rounded-lg border border-line bg-surface-raised p-4 shadow-card">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="ml-auto">
+            <Button disabled={sync.isPending} onClick={() => sync.mutate()}>
+              {t("legal.sync")}
+            </Button>
+          </span>
+        </div>
+        {norms.isPending ? (
+          <Skeleton rows={2} />
+        ) : (norms.data ?? []).length === 0 ? (
+          <p className="text-sm text-muted">{t("legal.empty")}</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted">
+                <th scope="col" className="py-1 pr-3 font-medium">{t("legal.norm")}</th>
+                <th scope="col" className="py-1 pr-3 font-medium">{t("legal.version")}</th>
+                <th scope="col" className="py-1 pr-3 font-medium">{t("legal.articles")}</th>
+                <th scope="col" className="py-1 font-medium">{t("legal.lastCheck")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(norms.data ?? []).map((n, i) => (
+                <tr key={i} className="border-t border-line align-top">
+                  <td className="py-1.5 pr-3">
+                    <span className="block text-ink">{String(n.title ?? "")}</span>
+                    <code className="text-xs text-muted">{String(n.boe_id ?? "")}</code>
+                  </td>
+                  <td className="py-1.5 pr-3 font-mono text-xs">
+                    {String(n.consolidated_version ?? "—")}
+                  </td>
+                  <td className="py-1.5 pr-3">
+                    {String(n.articles_count ?? 0)} · {String(n.chunks ?? 0)} frag.
+                  </td>
+                  <td className="py-1.5 text-xs text-muted">
+                    {n.last_checked_at ? formatDateTime(String(n.last_checked_at)) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AiAdmin() {
   const providers = useQuery({
     queryKey: ["ai-providers"],
@@ -560,6 +630,7 @@ export function AiAdmin() {
       </div>
 
       <RagPanel />
+      <LegalCorpusPanel />
 
       <h2 className="mt-8 text-lg font-semibold text-ink">{t("ai.runs")}</h2>
       <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-surface-raised shadow-card">

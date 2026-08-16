@@ -301,6 +301,52 @@ class RagSearchBody(BaseModel):
     limit: int = Field(default=8, ge=1, le=10)
 
 
+@router.get("/legal/norms", operation_id="listLegalNorms")
+async def list_legal_norms(session: SessionDep, _authz: WriteDep) -> dict[str, Any]:
+    from sqlalchemy import text as sql_text
+
+    rows = (
+        await session.execute(
+            sql_text(
+                "SELECT boe_id, title, rank, consolidated_version, articles_count, "
+                "indexed_at, last_checked_at, "
+                "(SELECT count(*) FROM legal_chunks lc WHERE lc.norm_id = ln.id) AS chunks "
+                "FROM legal_norms ln ORDER BY boe_id"
+            )
+        )
+    ).all()
+    return {
+        "data": [
+            {
+                "boe_id": r.boe_id,
+                "title": r.title,
+                "rank": r.rank,
+                "consolidated_version": r.consolidated_version,
+                "articles_count": r.articles_count,
+                "chunks": r.chunks,
+                "indexed_at": r.indexed_at,
+                "last_checked_at": r.last_checked_at,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/legal/norms/actions/sync", operation_id="syncLegalNorms", status_code=202)
+async def sync_legal_norms(
+    session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> dict[str, Any]:
+    from app.jobs.service import enqueue_job
+
+    job = await enqueue_job(
+        session, job_type="sync.boe_norms", payload={},
+        created_by=authz_ctx.user.id or None, dedup_key="sync.boe_norms",
+    )
+    await _audit(session, authz_ctx.user.id, "legal.norms_sync", "boe", ctx)
+    await session.commit()
+    return {"job_id": str(job.id)}
+
+
 @router.get("/rag/status", operation_id="getRagStatus")
 async def rag_status(session: SessionDep, _authz: WriteDep) -> dict[str, Any]:
     from sqlalchemy import text as sql_text

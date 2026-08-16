@@ -7,7 +7,9 @@ aquí només hi ha el heartbeat que prova la maquinària de punta a punta.
 from datetime import UTC, datetime
 from typing import Any
 
+import app.ai.legal_corpus  # noqa: F401 — registra sync.boe_norms
 import app.ai.rag  # noqa: F401 — registra rag.index
+import app.integrations.boe.connector  # noqa: F401 — registra el connector boe
 import app.integrations.pscp.enrich  # noqa: F401 — registra enrich.contract/batch
 import app.integrations.smtp.connector  # noqa: F401 — registra el connector smtp
 import app.integrations.socrata.sync  # noqa: F401 — registra sync.contracts

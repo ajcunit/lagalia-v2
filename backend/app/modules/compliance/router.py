@@ -7,10 +7,12 @@ from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import legal_corpus, providers
 from app.core import authz
 from app.core.db import get_session
 from app.core.problems import Problem
@@ -112,6 +114,65 @@ async def _check_subject(
         contract_type=row.contract_type,
         estimated_amount=row.estimated_amount,
         fiscal_year=row.fiscal_year,
+    )
+
+
+class ReviewTextBody(BaseModel):
+    text: str = Field(min_length=50, max_length=40000)
+    subject_type: Literal["contract", "minor_contract", "plan_entry", "document"] = "document"
+    subject_id: int | None = None
+
+
+@router.post("/compliance/review-text", operation_id="reviewTextCompliance")
+async def review_text(
+    body: ReviewTextBody, session: SessionDep, authz_ctx: RunDep, ctx: ContextDep
+) -> StreamingResponse:
+    """Capa 2: revisió LLM amb RAG normatiu, citant norma i article."""
+    import json as _json
+
+    def line(payload: dict[str, Any]) -> str:
+        return _json.dumps(payload, ensure_ascii=False, default=str) + "\n"
+
+    async def generate():
+        collected: list[str] = []
+        articles: list[dict[str, Any]] = []
+        try:
+            async for event in legal_corpus.review_text_events(
+                session, body.text, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+            ):
+                if event["type"] == "delta":
+                    collected.append(str(event["text"]))
+                elif event["type"] == "articles":
+                    articles = event["articles"]
+                yield line(event)
+            findings = [
+                {
+                    "rule_id": "legal.llm_review",
+                    "article": ", ".join(a["article"] for a in articles[:3]) or "—",
+                    "status": "avis",
+                    "detail": "".join(collected)[:4000],
+                }
+            ]
+            await _persist(
+                session, body.subject_type, body.subject_id or 0, findings, authz_ctx.user.id
+            )
+            await record_audit(
+                session, actor_type=AuditActorType.USER, action="compliance.review_text",
+                success=True, actor_id=authz_ctx.user.id, resource_type=body.subject_type,
+                resource_id=str(body.subject_id or ""), ip=ctx.ip, user_agent=ctx.user_agent,
+                trace_id=ctx.trace_id,
+            )
+            await session.commit()
+            yield line({"type": "done"})
+        except providers.ProviderError as exc:
+            yield line({"type": "error", "detail": str(exc)})
+        except Problem as exc:
+            yield line({"type": "error", "detail": exc.title})
+
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

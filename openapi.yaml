@@ -1440,6 +1440,46 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /legal/norms:
+    get:
+      tags: [ai]
+      operationId: listLegalNorms
+      summary: Normes del corpus normatiu (BOE) i estat d'indexació
+      x-required-scopes: [config:write]
+      responses:
+        "200":
+          description: Normes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /legal/norms/actions/sync:
+    post:
+      tags: [ai]
+      operationId: syncLegalNorms
+      summary: Encua la comprovació i reindexació de les normes subscrites
+      x-required-scopes: [config:write]
+      responses:
+        "202":
+          description: Job encuat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id]
+                properties:
+                  job_id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /rag/status:
     get:
       tags: [ai]

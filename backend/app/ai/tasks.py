@@ -17,6 +17,7 @@ KNOWN_TASKS: dict[str, str] = {
     "rag.embed": "RAG — embeddings dels documents (cal un model d'embeddings)",
     "doc.index": "Redactor — proposta d'índex a partir de les referències",
     "doc.section": "Redactor — redacció d'una secció amb RAG i citació de fonts",
+    "legal.review": "Assistent legal — revisió de conformitat amb citació d'articles",
 }
 
 
