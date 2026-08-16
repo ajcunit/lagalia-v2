@@ -2,6 +2,7 @@
 
 import io
 import json
+import re as _re
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -366,6 +367,44 @@ async def draft_section_stream(
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _md_to_docx(document: Any, markdown: str) -> None:
+    """Conversió línia a línia: NOMÉS una línia que comença per # és títol
+    (mai el paràgraf que la segueix); llistes -, * i numerades; la resta,
+    paràgrafs acumulats fins a línia en blanc."""
+    paragraph_lines: list[str] = []
+
+    def flush() -> None:
+        if paragraph_lines:
+            document.add_paragraph(" ".join(paragraph_lines).replace("**", ""))
+            paragraph_lines.clear()
+
+    for raw_line in markdown.splitlines():
+        line = raw_line.strip()
+        if not line:
+            flush()
+            continue
+        heading = _re.match(r"^(#{1,6})\s+(.*)$", line)
+        if heading:
+            flush()
+            level = min(2 + len(heading.group(1)) - 1, 4)
+            document.add_heading(heading.group(2).replace("**", "").strip(), level=level)
+            continue
+        if _re.match(r"^[-*]\s+", line):
+            flush()
+            document.add_paragraph(
+                _re.sub(r"^[-*]\s+", "", line).replace("**", ""), style="List Bullet"
+            )
+            continue
+        if _re.match(r"^\d+[.)]\s+", line):
+            flush()
+            document.add_paragraph(
+                _re.sub(r"^\d+[.)]\s+", "", line).replace("**", ""), style="List Number"
+            )
+            continue
+        paragraph_lines.append(line)
+    flush()
 
 
 @router.get(

@@ -172,3 +172,32 @@ async def test_concurrent_section_drafts_do_not_clobber(
     assert sections[0]["content_md"] == "CONTINGUT-A"  # NO trepitjat
     assert sections[1]["content_md"] == "CONTINGUT-B"
     api_client.delete(f"/api/v1/doc-projects/{pid}", headers=mine)
+
+
+def test_md_to_docx_headings_lists_and_paragraphs() -> None:
+    """Regressió: un títol seguit de text SENSE línia en blanc no pot
+    convertir el text en títol."""
+    from docx import Document
+
+    from app.modules.docgen.router import _md_to_docx
+
+    document = Document()
+    _md_to_docx(
+        document,
+        "## Àmbit d'actuació\n"
+        "Aquest text va DESPRÉS del títol sense línia en blanc.\n"
+        "I continua al mateix paràgraf.\n"
+        "\n"
+        "1. **Primer punt** numerat\n"
+        "- Punt de llista\n"
+        "\n"
+        "Paràgraf final amb **negreta**.",
+    )
+    styles = {p.text: p.style.name for p in document.paragraphs if p.text}
+    assert styles["Àmbit d'actuació"].startswith("Heading")
+    long_paragraph = next(t for t in styles if t.startswith("Aquest text"))
+    assert "continua al mateix paràgraf" in long_paragraph
+    assert not styles[long_paragraph].startswith("Heading")
+    assert styles["Primer punt numerat"] == "List Number"
+    assert styles["Punt de llista"] == "List Bullet"
+    assert styles["Paràgraf final amb negreta."] == "Normal"
