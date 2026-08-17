@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 
+import { useAuth } from "../../auth/AuthProvider";
 import { Badge, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { useContracts } from "../contracts/queries";
 import { PageHeader } from "../../components/PageHeader";
@@ -11,9 +12,13 @@ export function ContractorDetail() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
   const contractor = useContractor(id);
+  const { permissions } = useAuth();
+  // Qui pot canviar de vista (admin/gestor) veu TOTS els contractes de
+  // l'adjudicatari; la resta, el seu abast departamental.
+  const view = permissions?.can_switch_view ? ("all" as const) : ("user" as const);
   const contracts = useContracts({
     "page[size]": 10,
-    view: "user",
+    view,
     "filter[contractor_id]": id,
     sort: "-published_at",
   });
@@ -87,7 +92,13 @@ export function ContractorDetail() {
       </div>
 
       <div className="mt-4">
-        <SectionCard title={t("contractors.section.contracts")}>
+        <SectionCard
+          title={
+            view === "all"
+              ? t("contractors.section.contractsAll")
+              : t("contractors.section.contracts")
+          }
+        >
           {contracts.data?.data.length ? (
             <>
               <table className="w-full text-sm">
@@ -144,7 +155,11 @@ export function ContractorDetail() {
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted">{t("contractors.noVisibleContracts")}</p>
+            <p className="text-sm text-muted">
+              {view === "all"
+                ? t("contractors.noContracts")
+                : t("contractors.noVisibleContracts")}
+            </p>
           )}
         </SectionCard>
       </div>

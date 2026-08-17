@@ -260,6 +260,8 @@ export const ca = {
   "contractors.section.contracts": "Contractes recents (dins el teu abast)",
   "contractors.allContracts": "Tots els contractes d'aquest adjudicatari",
   "contractors.noVisibleContracts": "Cap contracte dins el teu abast.",
+  "contractors.section.contractsAll": "Contractes recents",
+  "contractors.noContracts": "Cap contracte major registrat (potser només té contractes menors).",
   "duplicates.title": "Duplicats d'adjudicataris",
   "duplicates.intro": "Parells amb el mateix NIF i noms diferents detectats a cada sincronització. Fusionar transfereix contractes i menors al canònic i converteix l'altre nom en àlies.",
   "duplicates.tab.pending": "Pendents",

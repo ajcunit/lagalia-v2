@@ -7,7 +7,7 @@ Rànquing, fitxa i revisió de duplicats d'adjudicataris ([02-especificacio-func
 ## Comportament
 
 - **/contractors** (amb `contracts:read`, entrada nova a la navegació): rànquing unificat (majors + menors) amb cerca per nom/àlies/NIF i ordenació per volum total, nombre de contractes o nom; columnes: nom, NIF, contractes (majors i menors) i imports. Paginació per cursor.
-- **/contractors/{id}**: fitxa amb dades de l'empresa (nacionalitat, tipus, tercer sector, contacte), àlies coneguts i **contractes vinculats** (enllacen al llistat de majors filtrat per adjudicatari i al de la fitxa de cada contracte).
+- **/contractors/{id}**: fitxa amb dades de l'empresa (nacionalitat, tipus, tercer sector, contacte), àlies coneguts i **contractes vinculats** (enllacen al llistat de majors filtrat per adjudicatari i al de la fitxa de cada contracte). Esmena 2026-08-17: la vista dels contractes vinculats segueix `can_switch_view` — admin/gestor veuen TOTS els contractes de l'adjudicatari (vista global); la resta, el seu abast departamental (abans es forçava Vista Usuari i un admin sense departaments veia la llista buida).
 - **/contractors/duplicates** (amb `duplicates:manage` — admin i resp. contractació; entrada a la zona d'administració): parells pendents amb els dos candidats costat a costat (nom, NIF, volum), accions **Fusiona a l'1 / Fusiona al 2 / Rebutja** amb confirmació i notes opcionals; pestanya per veure els resolts. 409 (ja resolt) visible.
 - > ⚠️ La revisió **agrupada per NIF** (B-011) queda pendent del backend; mentrestant la pantalla treballa amb parells i mostra l'avís del volum pendent.
 
