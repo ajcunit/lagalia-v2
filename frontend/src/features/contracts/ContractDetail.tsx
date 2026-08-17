@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { Markdown } from "../../components/Markdown";
 import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
+import { streamNdjson } from "../../lib/stream";
 import { ca } from "../../i18n/ca";
 import {
   formatBytes,
@@ -37,6 +40,147 @@ function yesNo(value: boolean | null | undefined): string {
 function phaseLabel(phase: string): string {
   const key = `contract.phase.${phase}`;
   return key in ca ? ca[key as keyof typeof ca] : phase;
+}
+
+type PhaseDoc = components["schemas"]["PhaseDocument"];
+
+/** Documents del repositori amb revisió legal en streaming (specs/legal-corpus.md). */
+function DocumentsSection(props: { documents: PhaseDoc[]; canReview: boolean }) {
+  const [reviewing, setReviewing] = useState<{ id: number; title: string } | null>(null);
+  const [reviewText, setReviewText] = useState("");
+  const [articles, setArticles] = useState<{ article?: string; url?: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const review = useMutation({
+    mutationFn: async (doc: PhaseDoc) => {
+      setReviewing({ id: doc.id, title: doc.title ?? String(doc.id) });
+      setReviewText("");
+      setArticles([]);
+      setError(null);
+      await streamNdjson(`/compliance/documents/${doc.id}/review/stream`, {}, (event) => {
+        if (event.type === "articles")
+          setArticles(event.articles as { article?: string; url?: string }[]);
+        if (event.type === "delta") setReviewText((prev) => prev + String(event.text ?? ""));
+        if (event.type === "error") setError(String(event.detail ?? ""));
+      });
+    },
+    onError: (err: Error) => {
+      setError(
+        err.message.includes("409")
+          ? t("contract.documents.reviewNoCopy")
+          : t("contract.documents.reviewError"),
+      );
+    },
+  });
+
+  return (
+    <SectionCard title={`${t("contract.section.documents")} (${props.documents.length})`}>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-muted">
+            <th scope="col" className="py-1 pr-2 font-medium">
+              {t("contract.documents.title")}
+            </th>
+            <th scope="col" className="py-1 pr-2 font-medium">
+              {t("contract.documents.phase")}
+            </th>
+            <th scope="col" className="py-1 text-right font-medium">
+              {t("contract.documents.size")}
+            </th>
+            {props.canReview && (
+              <th scope="col" className="py-1 pl-2 text-right font-medium">
+                <span className="sr-only">{t("contract.documents.actions")}</span>
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {props.documents.map((doc) => (
+            <tr key={doc.id} className="border-t border-line">
+              <td className="py-1.5 pr-2">
+                {doc.download_url ? (
+                  <a
+                    href={doc.download_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent underline-offset-2 hover:underline"
+                    aria-label={`${doc.title ?? ""} — ${t("contract.documents.open")}`}
+                  >
+                    {doc.title ?? "—"} ↗
+                  </a>
+                ) : (
+                  (doc.title ?? "—")
+                )}
+              </td>
+              <td className="py-1.5 pr-2 text-muted">{phaseLabel(doc.phase)}</td>
+              <td className="py-1.5 text-right tabular-nums text-muted">
+                {formatBytes(doc.size)}
+              </td>
+              {props.canReview && (
+                <td className="py-1.5 pl-2 text-right">
+                  {doc.has_copy ? (
+                    <button
+                      type="button"
+                      disabled={review.isPending}
+                      className="text-xs text-accent underline-offset-2 hover:underline disabled:opacity-50"
+                      onClick={() => review.mutate(doc)}
+                    >
+                      ⚖ {t("contract.documents.review")}
+                    </button>
+                  ) : (
+                    <span
+                      className="text-xs text-muted"
+                      title={t("contract.documents.reviewNoCopy")}
+                    >
+                      —
+                    </span>
+                  )}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {reviewing && (
+        <div className="mt-3 rounded-lg border border-accent/40 bg-surface p-3">
+          <div className="flex items-start justify-between gap-2">
+            <h4 className="text-sm font-semibold text-ink">
+              {t("docgen.legalTitle")} — {reviewing.title}
+            </h4>
+            <button
+              type="button"
+              className="text-xs text-muted underline"
+              onClick={() => {
+                setReviewing(null);
+                setReviewText("");
+                setError(null);
+              }}
+            >
+              {t("contract.documents.reviewClose")}
+            </button>
+          </div>
+          {articles.length > 0 && (
+            <p className="mt-1 text-xs text-muted">
+              {t("docgen.legalArticles")}:{" "}
+              {articles.map((a) => a.article).filter(Boolean).join(" · ")}
+            </p>
+          )}
+          {error ? (
+            <p className="mt-2 text-sm text-danger">{error}</p>
+          ) : reviewText ? (
+            <div className="mt-2 max-h-96 overflow-auto rounded-md bg-surface-raised p-3">
+              <Markdown>{reviewText}</Markdown>
+              {review.isPending && <span className="animate-pulse text-muted">▍</span>}
+            </div>
+          ) : (
+            <p className="mt-2 animate-pulse text-sm text-muted">{t("docgen.reviewing")}</p>
+          )}
+          <p className="mt-1 text-xs text-muted">{t("docgen.legalDisclaimer")}</p>
+        </div>
+      )}
+    </SectionCard>
+  );
 }
 
 export function ContractDetail() {
@@ -391,50 +535,10 @@ export function ContractDetail() {
 
       {(documents.data?.data.length ?? 0) > 0 && (
         <div className="mt-4">
-          <SectionCard
-            title={`${t("contract.section.documents")} (${documents.data?.data.length ?? 0})`}
-          >
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted">
-                  <th scope="col" className="py-1 pr-2 font-medium">
-                    {t("contract.documents.title")}
-                  </th>
-                  <th scope="col" className="py-1 pr-2 font-medium">
-                    {t("contract.documents.phase")}
-                  </th>
-                  <th scope="col" className="py-1 text-right font-medium">
-                    {t("contract.documents.size")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.data?.data.map((document) => (
-                  <tr key={document.id} className="border-t border-line">
-                    <td className="py-1.5 pr-2">
-                      {document.download_url ? (
-                        <a
-                          href={document.download_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-accent underline-offset-2 hover:underline"
-                          aria-label={`${document.title ?? ""} — ${t("contract.documents.open")}`}
-                        >
-                          {document.title ?? "—"} ↗
-                        </a>
-                      ) : (
-                        (document.title ?? "—")
-                      )}
-                    </td>
-                    <td className="py-1.5 pr-2 text-muted">{phaseLabel(document.phase)}</td>
-                    <td className="py-1.5 text-right tabular-nums text-muted">
-                      {formatBytes(document.size)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </SectionCard>
+          <DocumentsSection
+            documents={documents.data?.data ?? []}
+            canReview={actions.includes("compliance:run")}
+          />
         </div>
       )}
 

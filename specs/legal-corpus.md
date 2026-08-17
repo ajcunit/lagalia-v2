@@ -29,7 +29,12 @@ El text a revisar es en catala i la norma en castella: nomes amb cosinus els art
 
 - `GET /legal/norms` (estat de les normes: versio, articles, ultima comprovacio) i `POST /legal/norms/actions/sync` (`config:write`).
 - `POST /compliance/review-text` `{text, subject_type?, subject_id?}` (`compliance:run`, **streaming NDJSON**): recupera els articles rellevants del corpus normatiu (cerca hibrida sobre legal_chunks) i executa la checklist de conformitat amb el LLM (tasca `legal.review`), **citant sempre norma i article**; persisteix a `compliance_reviews` amb `ai_run_id`.
-- Pantalla: seccio «Corpus normatiu» a /admin/ai (normes, versio, boto sincronitza) i «Revisió legal amb IA» al generador documental (revisa el document redactat) i a /plan.
+- `POST /compliance/documents/{document_id}/review/stream` (`compliance:run`, **streaming NDJSON**; ampliacio 2026-08-17): revisio legal de **qualsevol document del repositori** (phase_documents amb copia local). L'abast departamental s'aplica al subrecurs: el contracte pare es resol amb `get_scoped_contract` (404 si no es visible). El text s'extreu de la copia de l'object storage (PyMuPDF, en thread); sense copia local → 409 amb indicacio d'indexar primer; PDF sense text extraible → error estructurat dins de l'stream. Persisteix a `compliance_reviews` amb `subject_type='document'` i audita `compliance.review_document`.
+- Pantalla: seccio «Corpus normatiu» a /admin/ai (normes, versio, boto sincronitza), «Revisió legal amb IA» al generador documental (revisa el document redactat), a /plan, i **boto «Revisió legal» a la taula de documents de la fitxa del contracte** (nomes documents amb copia local), amb panell d'streaming markdown + articles citats + disclaimer.
+
+> Els endpoints d'streaming NDJSON no figuren a `openapi.yaml` (convencio existent:
+> reviewDocStream, review-text, analyses/stream); el frontend hi accedeix amb
+> `streamNdjson()` autenticat per capçalera.
 
 ## Fora d'abast
 
@@ -40,3 +45,4 @@ El text a revisar es en catala i la norma en castella: nomes amb cosinus els art
 - [x] LCSP descarregada (422 articles amb cos), parsejada i indexada (510 fragments) en viu.
 - [x] Revisio d'un text citant norma+article, en streaming (verificat: menor de 32.000 € → ❌ amb cita «LCSP art. 118.1»).
 - [x] Pantalles (corpus a /admin/ai, revisio al generador); bateries verdes.
+- [x] Revisio legal d'un document del repositori des de la fitxa del contracte; fora d'abast departamental → 404; sense copia local → 409 (ampliacio 2026-08-17).
