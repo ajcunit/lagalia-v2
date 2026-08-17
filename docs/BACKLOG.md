@@ -117,3 +117,22 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
   2. **Xat per expedient**: dins de la fitxa d'un contracte, poder «parlar de l'expedient» — l'assistent té el context d'aquell expedient (dades, pròrrogues, modificacions, criteris, mesa i **els seus documents indexats al RAG**) i respon amb citació de la font.
 - **Com desenvolupar-la:** taules `chat_threads`/`chat_messages` (àmbit `general | contract`, `subject_id`, propietat per usuari amb abast departamental per al de contracte); reutilitzar el bucle d'eines de l'analista afegint historial de conversa i, per al xat d'expedient, una eina `get_contract_context(id)` + recuperació RAG filtrada als documents d'aquell expedient; streaming NDJSON i render Markdown ja existents; guardrails i comptabilitat a `ai_runs` com la resta d'agents. Decidir retenció i si les converses són privades o compartides per expedient (afecta LOPD: cap dada personal a les preguntes lliures).
 - **Specs afectades:** [ai-analyst.md](../specs/ai-analyst.md) (evolució a multi-torn), [rag-service.md](../specs/rag-service.md), [10-ui.md](10-ui.md) (nova superfície a la fitxa de contracte), [07-agents-ia.md](07-agents-ia.md) §2.5.
+
+### B-017 · Sincronitzar les publicacions de la fase d'execució (dataset 8idu-wkjv)
+- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** M
+- **Descripció:** endpoint aportat per l'Esteve (2026-08-17):
+  `https://analisi.transparenciacatalunya.cat/api/v3/views/8idu-wkjv/` —
+  «Contractació pública a Catalunya: publicacions de la fase d'execució a la PSCP».
+  Per expedient/lot: `tipus_actuacio_execucio`, `denominacio_actuacio`, `data`,
+  `data_fi`, `import_sense_iva`, adjudicatari (`identificacio`/`denominacio`),
+  `observacions` i `url_json` de detall. Ompliria de veritat la pestanya
+  «Execució» de la fitxa (avui només pròrrogues/modificacions del dataset RPC).
+- **Com desenvolupar-la:** clau `dataset_execution` a la config del connector
+  socrata; job `sync.execution` (filtre per `codi_ine10`, incremental si es pot)
+  cap a una taula nova `contract_executions` (FK a contracts per file_code+lot,
+  raw JSONB); font nova `execution` al mapejador de camps; targeta/llista a la
+  pestanya Execució de la fitxa; el `url_json` es pot enriquir via connector
+  pscp com les fases. Classificar `tipus_actuacio_execucio` i decidir si les
+  pròrrogues d'aquest dataset substitueixen o complementen les del RPC.
+- **Specs afectades:** remaining-syncs.md, field-mapping.md, contracts-ui.md,
+  08-hub-integracions.md.
