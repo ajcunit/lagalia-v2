@@ -165,7 +165,8 @@ async def search_public_registry(
     )
 
 
-@router.get("/public-registry/contracts/{file_code}", operation_id="getPublicContract")
+# {file_code:path}: els codis d'expedient porten barres (p. ex. 6477/2026).
+@router.get("/public-registry/contracts/{file_code:path}", operation_id="getPublicContract")
 async def get_public_contract(
     file_code: Annotated[str, Path(min_length=1, max_length=100)],
     session: SessionDep,

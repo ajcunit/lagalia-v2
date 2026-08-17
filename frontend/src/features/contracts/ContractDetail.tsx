@@ -7,6 +7,8 @@ import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { Markdown } from "../../components/Markdown";
 import { PageHeader } from "../../components/PageHeader";
+import { CpvChips, CriteriaBars, InfoPair, SheetTabs, Timeline } from "../../components/contractSheet";
+import { FileTypeIcon } from "../../components/FileTypeIcon";
 import { t } from "../../i18n";
 import { streamNdjson } from "../../lib/stream";
 import { ca } from "../../i18n/ca";
@@ -17,6 +19,8 @@ import {
   formatDateTime,
   formatDuration,
 } from "../../lib/format";
+import { Folder, FolderOpen, Scale } from "lucide-react";
+
 import { ContractTasks } from "../tasks/ContractTasks";
 import {
   useContract,
@@ -73,74 +77,96 @@ function DocumentsSection(props: { documents: PhaseDoc[]; canReview: boolean }) 
     },
   });
 
+  // Carpetes per fase (mateixa metàfora que la fitxa externa).
+  const groups = new Map<string, PhaseDoc[]>();
+  for (const doc of props.documents) {
+    const list = groups.get(doc.phase) ?? [];
+    list.push(doc);
+    groups.set(doc.phase, list);
+  }
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
+
   return (
     <SectionCard title={`${t("contract.section.documents")} (${props.documents.length})`}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-muted">
-            <th scope="col" className="py-1 pr-2 font-medium">
-              {t("contract.documents.title")}
-            </th>
-            <th scope="col" className="py-1 pr-2 font-medium">
-              {t("contract.documents.phase")}
-            </th>
-            <th scope="col" className="py-1 text-right font-medium">
-              {t("contract.documents.size")}
-            </th>
-            {props.canReview && (
-              <th scope="col" className="py-1 pl-2 text-right font-medium">
-                <span className="sr-only">{t("contract.documents.actions")}</span>
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {props.documents.map((doc) => (
-            <tr key={doc.id} className="border-t border-line">
-              <td className="py-1.5 pr-2">
-                {doc.download_url ? (
-                  <a
-                    href={doc.download_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent underline-offset-2 hover:underline"
-                    aria-label={`${doc.title ?? ""} — ${t("contract.documents.open")}`}
-                  >
-                    {doc.title ?? "—"} ↗
-                  </a>
-                ) : (
-                  (doc.title ?? "—")
-                )}
-              </td>
-              <td className="py-1.5 pr-2 text-muted">{phaseLabel(doc.phase)}</td>
-              <td className="py-1.5 text-right tabular-nums text-muted">
-                {formatBytes(doc.size)}
-              </td>
-              {props.canReview && (
-                <td className="py-1.5 pl-2 text-right">
-                  {doc.has_copy ? (
-                    <button
-                      type="button"
-                      disabled={review.isPending}
-                      className="text-xs text-accent underline-offset-2 hover:underline disabled:opacity-50"
-                      onClick={() => review.mutate(doc)}
-                    >
-                      ⚖ {t("contract.documents.review")}
-                    </button>
+      <ul className="space-y-2">
+        {[...groups.entries()].map(([phase, docs]) => {
+          const open = openFolders[phase] ?? groups.size === 1;
+          return (
+            <li key={phase} className="rounded-md border border-line bg-surface">
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => setOpenFolders({ ...openFolders, [phase]: !open })}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-ink hover:bg-accent-soft"
+              >
+                <span aria-hidden>
+                  {open ? (
+                    <FolderOpen className="h-4 w-4 text-accent" />
                   ) : (
-                    <span
-                      className="text-xs text-muted"
-                      title={t("contract.documents.reviewNoCopy")}
-                    >
-                      —
-                    </span>
+                    <Folder className="h-4 w-4 text-muted" />
                   )}
-                </td>
+                </span>
+                {phaseLabel(phase)}
+                <span className="text-xs font-normal text-muted">({docs.length})</span>
+              </button>
+              {open && (
+                <table className="w-full border-t border-line text-sm">
+                  <tbody>
+                    {docs.map((doc) => (
+                      <tr key={doc.id} className="border-t border-line first:border-t-0">
+                        <td className="py-1.5 pl-3 pr-2">
+                          <FileTypeIcon
+                            name={doc.title}
+                            className="mr-1.5 inline h-4 w-4 -translate-y-px"
+                          />
+                          {doc.download_url ? (
+                            <a
+                              href={doc.download_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-accent underline-offset-2 hover:underline"
+                              aria-label={`${doc.title ?? ""} — ${t("contract.documents.open")}`}
+                            >
+                              {doc.title ?? "—"} ↗
+                            </a>
+                          ) : (
+                            (doc.title ?? "—")
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-2 text-right tabular-nums text-muted">
+                          {formatBytes(doc.size)}
+                        </td>
+                        {props.canReview && (
+                          <td className="w-32 py-1.5 pl-2 pr-3 text-right">
+                            {doc.has_copy ? (
+                              <button
+                                type="button"
+                                disabled={review.isPending}
+                                className="text-xs text-accent underline-offset-2 hover:underline disabled:opacity-50"
+                                onClick={() => review.mutate(doc)}
+                              >
+                                <Scale className="mr-1 inline h-3 w-3 -translate-y-px" aria-hidden />
+                                {t("contract.documents.review")}
+                              </button>
+                            ) : (
+                              <span
+                                className="text-xs text-muted"
+                                title={t("contract.documents.reviewNoCopy")}
+                              >
+                                —
+                              </span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            </li>
+          );
+        })}
+      </ul>
 
       {reviewing && (
         <div className="mt-3 rounded-lg border border-accent/40 bg-surface p-3">
@@ -198,6 +224,7 @@ export function ContractDetail() {
   const enrich = useEnrichContract(id);
   const { permissions } = useAuth();
   const actions = permissions?.actions ?? [];
+  const [tab, setTab] = useState("resum");
 
   // Seguiment del job d'enriquiment fins a estat terminal (B-012, v. sondeig).
   const [enrichJobId, setEnrichJobId] = useState<string | null>(null);
@@ -312,99 +339,148 @@ export function ContractDetail() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <SectionCard title={t("contract.section.overview")}>
-          <DefinitionList
-            items={[
-              { label: t("contract.field.status"), value: data.status },
-              { label: t("contract.field.internalStatus"), value: data.internal_status },
-              { label: t("contract.field.type"), value: data.contract_type },
-              { label: t("contract.field.procedure"), value: data.procedure },
-              { label: t("contract.field.processing"), value: data.processing_type },
-              { label: t("contract.field.awardingBody"), value: data.awarding_body },
-              {
-                label: t("contract.field.awardingDepartment"),
-                value: data.awarding_department,
-              },
-              { label: t("contract.field.source"), value: data.source },
-            ]}
-          />
-        </SectionCard>
+      <div className="mt-5">
+        <SheetTabs
+          tabs={[
+            { key: "resum", label: t("sheet.tabSummary") },
+            { key: "documents", label: t("contract.section.documents"), count: documents.data?.data.length ?? 0 },
+            {
+              key: "execucio",
+              label: t("sheet.tabExecution"),
+              count: data.counters.extensions + data.counters.modifications,
+            },
+            { key: "historial", label: t("sheet.tabHistory"), count: data.counters.history },
+            { key: "tasques", label: t("sheet.tabTasks") },
+          ]}
+          active={tab}
+          onSelect={setTab}
+        />
+      </div>
 
-        <SectionCard title={t("contract.section.amounts")}>
-          <DefinitionList
-            items={[
-              { label: t("contract.field.tender"), value: formatCurrency(data.tender_amount) },
-              { label: t("contract.field.award"), value: formatCurrency(data.award_amount) },
-              {
-                label: t("contract.field.awardVat"),
-                value: formatCurrency(data.award_amount_vat),
-              },
-              {
-                label: t("contract.field.budgetNoVat"),
-                value: formatCurrency(data.budget_no_vat),
-              },
-              { label: t("contract.field.budgetVat"), value: formatCurrency(data.budget_vat) },
-            ]}
-          />
-        </SectionCard>
+      {tab === "resum" && (
+      <>
+      <div className="mt-5 grid gap-4 lg:grid-cols-[290px_1fr]">
+        <div className="space-y-4">
+          <SectionCard title={t("sheet.timeline")}>
+            <Timeline
+              events={[
+                { label: t("contract.field.priorNotice"), date: data.prior_notice_date },
+                { label: t("contract.field.published"), date: data.published_at },
+                { label: t("sheet.tenderNotice"), date: data.tender_notice_date },
+                { label: t("sheet.awardNotice"), date: data.award_notice_date },
+                {
+                  label: t("contract.field.formalized"),
+                  date: data.formalization_notice_date ?? data.formalized_at,
+                },
+                { label: t("contract.field.start"), date: data.start_date },
+                {
+                  label: t("contract.field.calculatedEnd"),
+                  date: data.calculated_end_date ?? data.end_date,
+                },
+              ].filter((event, index) => event.date || index >= 1)}
+            />
+          </SectionCard>
+          <SectionCard title={t("sheet.cpvs")}>
+            <CpvChips code={data.cpv_code} description={data.cpv_description} />
+          </SectionCard>
+        </div>
 
-        <SectionCard title={t("contract.section.dates")}>
-          <DefinitionList
-            items={[
-              { label: t("contract.field.published"), value: formatDate(data.published_at) },
-              { label: t("contract.field.formalized"), value: formatDate(data.formalized_at) },
-              { label: t("contract.field.start"), value: formatDate(data.start_date) },
-              { label: t("contract.field.end"), value: formatDate(data.end_date) },
-              {
-                label: t("contract.field.calculatedEnd"),
-                value: formatDate(data.calculated_end_date),
-              },
-              {
-                label: t("contract.field.duration"),
-                value: formatDuration(data.duration_months),
-              },
-              {
-                label: t("contract.field.warningOverride"),
-                value: data.warning_months_override ?? "—",
-              },
-            ]}
-          />
+        <SectionCard title={t("sheet.relevantInfo")}>
+          {data.subject && (
+            <div className="mb-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-accent">
+                {t("sheet.object")}
+              </h4>
+              <p className="mt-1 text-sm text-ink">{data.subject}</p>
+            </div>
+          )}
+          <div className="grid gap-x-8 sm:grid-cols-2">
+            <div>
+              <h4 className="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
+                {t("sheet.general")}
+              </h4>
+              <InfoPair label={t("contract.field.status")} value={data.status} />
+              <InfoPair
+                label={t("contract.field.internalStatus")}
+                value={data.internal_status}
+              />
+              <InfoPair label={t("contract.field.procedure")} value={data.procedure} />
+              <InfoPair label={t("contract.field.type")} value={data.contract_type} />
+              <InfoPair label={t("contract.field.processing")} value={data.processing_type} />
+              <InfoPair label={t("contract.field.source")} value={data.source} />
+              <h4 className="mt-4 text-xs font-semibold uppercase tracking-wide text-accent">
+                {t("contract.section.dates")}
+              </h4>
+              <InfoPair
+                label={t("contract.field.duration")}
+                value={formatDuration(data.duration_months)}
+              />
+              <InfoPair label={t("contract.field.start")} value={formatDate(data.start_date)} />
+              <InfoPair label={t("contract.field.end")} value={formatDate(data.end_date)} />
+              <InfoPair
+                label={t("contract.field.calculatedEnd")}
+                value={formatDate(data.calculated_end_date)}
+              />
+              <InfoPair
+                label={t("contract.field.warningOverride")}
+                value={data.warning_months_override ?? "—"}
+              />
+            </div>
+            <div>
+              <h4 className="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
+                {t("contract.section.amounts")}
+              </h4>
+              <InfoPair
+                label={t("contract.field.budgetVat")}
+                value={formatCurrency(data.budget_vat)}
+              />
+              <InfoPair
+                label={t("contract.field.budgetNoVat")}
+                value={formatCurrency(data.budget_no_vat)}
+              />
+              <InfoPair
+                label={t("contract.field.tender")}
+                value={formatCurrency(data.tender_amount)}
+              />
+              <InfoPair
+                label={t("contract.field.award")}
+                value={formatCurrency(data.award_amount)}
+              />
+              <InfoPair
+                label={t("contract.field.awardVat")}
+                value={formatCurrency(data.award_amount_vat)}
+              />
+              <h4 className="mt-4 text-xs font-semibold uppercase tracking-wide text-accent">
+                {t("contract.section.contractor")}
+              </h4>
+              <InfoPair
+                label={t("contracts.col.contractor")}
+                value={data.contractor?.name ?? "—"}
+              />
+              <InfoPair label={t("contract.field.nif")} value={data.contractor?.tax_id ?? "—"} />
+              <h4 className="mt-4 text-xs font-semibold uppercase tracking-wide text-accent">
+                {t("contract.section.classification")}
+              </h4>
+              <InfoPair
+                label={t("contract.field.nuts")}
+                value={
+                  data.nuts_code
+                    ? `${data.nuts_code}${data.nuts_description ? ` — ${data.nuts_description}` : ""}`
+                    : "—"
+                }
+              />
+              <InfoPair label={t("contract.field.financing")} value={data.financing} />
+              <InfoPair label={t("contract.field.awardingBody")} value={data.awarding_body} />
+              <InfoPair
+                label={t("contract.field.awardingDepartment")}
+                value={data.awarding_department}
+              />
+            </div>
+          </div>
         </SectionCard>
+      </div>
 
-        <SectionCard title={t("contract.section.contractor")}>
-          <DefinitionList
-            items={[
-              {
-                label: t("contracts.col.contractor"),
-                value: data.contractor?.name ?? "—",
-              },
-              { label: t("contract.field.nif"), value: data.contractor?.tax_id ?? "—" },
-              { label: t("contract.field.rawName"), value: data.raw_contractor_name },
-            ]}
-          />
-        </SectionCard>
-
-        <SectionCard title={t("contract.section.classification")}>
-          <DefinitionList
-            items={[
-              {
-                label: t("contract.field.cpv"),
-                value: data.cpv_code
-                  ? `${data.cpv_code}${data.cpv_description ? ` — ${data.cpv_description}` : ""}`
-                  : "—",
-              },
-              {
-                label: t("contract.field.nuts"),
-                value: data.nuts_code
-                  ? `${data.nuts_code}${data.nuts_description ? ` — ${data.nuts_description}` : ""}`
-                  : "—",
-              },
-              { label: t("contract.field.financing"), value: data.financing },
-            ]}
-          />
-        </SectionCard>
-
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <SectionCard title={t("contract.section.tender")}>
           {data.enriched_at ? (
             <DefinitionList
@@ -439,32 +515,12 @@ export function ContractDetail() {
 
         {(criteria.data?.data.length ?? 0) > 0 && (
           <SectionCard title={t("contract.section.criteria")}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted">
-                  <th scope="col" className="py-1 pr-2 font-medium">
-                    #
-                  </th>
-                  <th scope="col" className="py-1 pr-2 font-medium">
-                    {t("contract.criteria.name")}
-                  </th>
-                  <th scope="col" className="py-1 text-right font-medium">
-                    {t("contract.criteria.weight")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {criteria.data?.data.map((criterion) => (
-                  <tr key={criterion.id} className="border-t border-line">
-                    <td className="py-1.5 pr-2 tabular-nums text-muted">{criterion.position}</td>
-                    <td className="py-1.5 pr-2">{criterion.name}</td>
-                    <td className="py-1.5 text-right tabular-nums">
-                      {criterion.weight ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <CriteriaBars
+              criteria={(criteria.data?.data ?? []).map((criterion) => ({
+                name: criterion.name ?? "—",
+                weight: criterion.weight,
+              }))}
+            />
           </SectionCard>
         )}
 
@@ -529,11 +585,16 @@ export function ContractDetail() {
         </div>
       )}
 
-      <div className="mt-4">
-        <ContractTasks contractId={id} />
-      </div>
+      </>
+      )}
 
-      {(documents.data?.data.length ?? 0) > 0 && (
+      {tab === "tasques" && (
+        <div className="mt-4">
+          <ContractTasks contractId={id} />
+        </div>
+      )}
+
+      {tab === "documents" && (documents.data?.data.length ?? 0) > 0 && (
         <div className="mt-4">
           <DocumentsSection
             documents={documents.data?.data ?? []}
@@ -542,6 +603,7 @@ export function ContractDetail() {
         </div>
       )}
 
+      {tab === "execucio" && (
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <SectionCard title={`${t("contract.section.extensions")} (${data.counters.extensions})`}>
           {extensions.data?.data.length ? (
@@ -598,6 +660,9 @@ export function ContractDetail() {
         </SectionCard>
       </div>
 
+      )}
+
+      {tab === "historial" && (
       <div className="mt-4">
         <SectionCard title={`${t("contract.section.history")} (${data.counters.history})`}>
           {history.data?.data.length ? (
@@ -636,6 +701,7 @@ export function ContractDetail() {
           )}
         </SectionCard>
       </div>
+      )}
     </div>
   );
 }

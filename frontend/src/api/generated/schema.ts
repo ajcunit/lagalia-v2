@@ -2676,6 +2676,14 @@ export interface components {
             formalized_at?: string | null;
             /** Format: date */
             end_date?: string | null;
+            /** Format: date */
+            prior_notice_date?: string | null;
+            /** Format: date */
+            tender_notice_date?: string | null;
+            /** Format: date */
+            award_notice_date?: string | null;
+            /** Format: date */
+            formalization_notice_date?: string | null;
             duration_months?: number | null;
             warning_months_override?: number | null;
             cpv_code?: string | null;

@@ -25,6 +25,7 @@ import { Setup } from "./routes/Setup";
 import { AuditLogAdmin } from "./features/audit/AuditLogAdmin";
 import { SyncAdmin } from "./features/sync/SyncAdmin";
 import { SuperSearch } from "./features/search/SuperSearch";
+import { ExternalContract } from "./features/search/ExternalContract";
 import { FavoritesPage } from "./features/favorites/FavoritesPage";
 import { RiskAudit } from "./features/audit/RiskAudit";
 import { CpvSearch } from "./features/cpv/CpvSearch";
@@ -68,6 +69,7 @@ export function App() {
               <Route path="/contractors/duplicates" element={<ContractorDuplicates />} />
               <Route path="/contractors/:id" element={<ContractorDetail />} />
               <Route path="/search" element={<SuperSearch />} />
+              <Route path="/search/detail" element={<ExternalContract />} />
               <Route path="/favorites" element={<FavoritesPage />} />
               <Route path="/audit" element={<RiskAudit />} />
               <Route path="/cpv" element={<CpvSearch />} />

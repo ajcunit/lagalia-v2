@@ -4540,6 +4540,10 @@ components:
             budget_vat: { type: [string, "null"] }
             formalized_at: { type: [string, "null"], format: date }
             end_date: { type: [string, "null"], format: date }
+            prior_notice_date: { type: [string, "null"], format: date }
+            tender_notice_date: { type: [string, "null"], format: date }
+            award_notice_date: { type: [string, "null"], format: date }
+            formalization_notice_date: { type: [string, "null"], format: date }
             duration_months: { type: [integer, "null"] }
             warning_months_override: { type: [integer, "null"] }
             cpv_code: { type: [string, "null"] }

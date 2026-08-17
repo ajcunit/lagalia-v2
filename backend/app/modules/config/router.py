@@ -292,7 +292,7 @@ Source = Annotated[str, Path(min_length=2, max_length=20, pattern="^[a-z0-9_]+$"
 TargetField = Annotated[str, Path(min_length=1, max_length=100, pattern=r"^[a-z0-9_.]+$")]
 
 _FLAT_SOURCE_PATTERN = r"^[a-z0-9_]{1,80}$"
-_PATH_SOURCE_PATTERN = r"^~?[a-zA-Z0-9_.\[\]]{1,200}$"
+_PATH_SOURCE_PATTERN = r"^~?[a-zA-Z0-9_.\[\]|]{1,200}$"
 
 
 def _source_registry(source: str) -> dict[str, Any]:

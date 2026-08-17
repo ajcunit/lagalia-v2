@@ -280,10 +280,15 @@ def test_pscp_path_overrides() -> None:
 
     fixtures = Path(__file__).parent / "fixtures"
     licitacio = json.loads((fixtures / "pscp_licitacio.json").read_text(encoding="utf-8"))
+    adjudicacio = json.loads((fixtures / "pscp_adjudicacio.json").read_text(encoding="utf-8"))
 
     # Comportament per defecte intacte (fixture real).
     base = extract.extract_scalars("licitacio", licitacio)
     assert "is_harmonized" in base or "place_of_execution" in base
+
+    # totalOfertesRebudes (variant real del portal) es captura amb
+    # l'heurístic d'alternatives «~ofertesrebudes|nombreofertes».
+    assert extract.extract_scalars("adjudicacio", adjudicacio)["received_offers"] == 3
 
     # path_get resol camins amb índexs.
     assert extract.path_get({"a": {"b": [{"c": 7}]}}, "a.b[0].c") == 7

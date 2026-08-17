@@ -25,7 +25,25 @@ Funcio estrella de la v1 (02 §2.10): cercar al dataset obert de contractacio de
 
 - Barra de cerca gran + filtres (organisme, tipus de contracte i fase com a desplegables amb els valors reals del dataset, rang d'imports, rang de dates) i boto «Neteja els filtres (N)» per descartar criteris d'un cop. **Estat a la URL** (querystring): una cerca es pot enllaçar/compartir i el navegador recorda enrere/endavant.
 - Resultats en **targetes**: objecte, organisme, expedient+lot, badges de tipus/estat, data, imports i adjudicatari. Paginacio Anterior/Seguent.
-- **Fitxa externa** (nomes lectura) en clicar una targeta: totes les dades del registre + **explorador de fases** (previ, licitacio, avaluacio, adjudicacio, formalitzacio, anul·lacio…): en obrir una fase es carreguen els seus documents descarregables (enllac directe al portal) i la mesa de contractacio.
+- **Fitxa externa** (nomes lectura; redisseny 2026-08-17): pagina propia
+  `/search/detail?code=<expedient>` en clicar el titol d'una targeta, amb
+  **pestanyes** (Resum · Documents · Lots i fases): capçalera (xip
+  d'expedient, titol, organisme, badge d'estat, boto «Desa» i enllaç al
+  portal); Resum = **cronograma del proces** (anunci previ → publicacio →
+  licitacio → adjudicacio → formalitzacio → fi, amb estats fet/proper/
+  pendent), targeta de **CPVs amb descripcions resoltes del cataleg
+  sincronitzat** (GET /cpv per prefix de codi), targeta «Informacio rellevant»
+  (objecte, informacio general, dates, imports, adjudicatari), **criteris
+  d'adjudicacio amb barres de ponderacio** (del JSON de la fase de licitacio)
+  i targeta de l'**organ de contractacio**; Documents = **carpetes per fase**
+  (lucide Folder/FolderOpen, carrega en obrir, icona pel tipus de fitxer
+  segons extensio, «＋ projecte» per document); Lots = taula per fila
+  lot/fase. Components compartits amb la fitxa municipal
+  (`components/contractSheet.tsx`: Timeline, CriteriaBars, CpvChips,
+  InfoPair, SheetTabs; `components/FileTypeIcon.tsx`). Iconografia lucide
+  homogenia (sense emojis).
+- `GET /public-registry/contracts/{file_code}` usa el convertidor `:path`
+  perque els codis d'expedient porten barres (p. ex. `6477/2026`).
 - Buits i errors amb missatges clars; imports formatats; WCAG (focus, aria, taules amb capçaleres).
 
 ## Canvis d'API

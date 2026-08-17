@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
@@ -8,11 +8,10 @@ import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { Globe } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
-import { PhasePanel } from "../../components/PhaseExplorer";
+import { PhasePanel, SaveToFolder } from "../../components/PhaseExplorer";
 import { t } from "../../i18n";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { phasesFromUrls } from "../../lib/phases";
-import { useFolders } from "../favorites/useFolders";
 
 type Card = components["schemas"]["PublicContractCard"];
 
@@ -36,93 +35,6 @@ const PHASES_FILTER = [
   "Publicació agregada de contractes",
 ] as const;
 
-function SaveToFolder(props: { fileCode: string }) {
-  const queryClient = useQueryClient();
-  const folders = useFolders();
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-
-  const add = useMutation({
-    mutationFn: async (folderId: number) => {
-      const { error, response } = await api.POST("/folders/{id}/favorites", {
-        params: { path: { id: folderId } },
-        body: { file_code: props.fileCode },
-      });
-      if (error !== undefined) throw Object.assign(new Error(), { status: response.status });
-    },
-    onSuccess: () => {
-      setMessage(t("favorites.saved"));
-      setOpen(false);
-      void queryClient.invalidateQueries({ queryKey: ["folders"] });
-    },
-    onError: (error: Error & { status?: number }) => {
-      setMessage(error.status === 409 ? t("favorites.alreadySaved") : t("favorites.saveError"));
-      setOpen(false);
-    },
-  });
-  const createAndSave = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await api.POST("/folders", { body: { name: newName } });
-      if (error !== undefined) throw error;
-      await add.mutateAsync((data as { id: number }).id);
-    },
-    onSuccess: () => setNewName(""),
-    onError: () => {
-      setMessage(t("favorites.saveError"));
-      setOpen(false);
-    },
-  });
-
-  const list = folders.data?.data ?? [];
-  return (
-    <span className="relative">
-      <button
-        type="button"
-        aria-expanded={open}
-        className="text-xs text-muted underline hover:text-ink"
-        onClick={() => setOpen(!open)}
-      >
-        ⭐ {t("favorites.save")}
-      </button>
-      {message && <span className="ml-1 text-xs text-muted">{message}</span>}
-      {open && (
-        <span className="absolute right-0 top-6 z-10 block w-64 rounded-md border border-line bg-surface-raised p-2 shadow-card">
-          {list.map((folder) => (
-            <button
-              key={folder.id}
-              type="button"
-              disabled={add.isPending}
-              className="block w-full rounded px-2 py-1 text-left text-sm text-ink hover:bg-accent-soft"
-              onClick={() => add.mutate(folder.id)}
-            >
-              {folder.name}
-            </button>
-          ))}
-          <span
-            className={`flex gap-1 ${list.length > 0 ? "mt-1 border-t border-line pt-1.5" : ""}`}
-          >
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={t("favorites.newFolderPlaceholder")}
-              aria-label={t("favorites.newFolderPlaceholder")}
-              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs"
-            />
-            <Button
-              tone="accent"
-              disabled={createAndSave.isPending || !newName.trim()}
-              onClick={() => createAndSave.mutate()}
-            >
-              {t("search.create")}
-            </Button>
-          </span>
-        </span>
-      )}
-    </span>
-  );
-}
-
 function ResultCard(props: { card: Card }) {
   const c = props.card;
   const [openPhase, setOpenPhase] = useState<string | null>(null);
@@ -133,7 +45,14 @@ function ResultCard(props: { card: Card }) {
     <article className="rounded-lg border border-line bg-surface-raised p-4 shadow-card">
       <div className="flex flex-wrap items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-ink">{c.subject ?? c.file_code}</h3>
+          <h3 className="font-semibold">
+            <Link
+              to={`/search/detail?code=${encodeURIComponent(c.file_code)}`}
+              className="text-ink underline-offset-2 hover:text-accent hover:underline"
+            >
+              {c.subject ?? c.file_code}
+            </Link>
+          </h3>
           <p className="mt-0.5 text-sm text-muted">
             {c.awarding_body}
             {c.awarding_department ? ` · ${c.awarding_department}` : ""}

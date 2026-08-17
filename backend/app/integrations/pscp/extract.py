@@ -66,7 +66,8 @@ PSCP_FIELDS: dict[str, PscpField] = {
     ),
     "appeal_notice": PscpField(f"{_LOT}.peuDeRecurs", "text", "Peu de recurs", _AWARD_PHASES),
     "received_offers": PscpField(
-        "~nombreofertes",
+        # El portal usa totes dues variants segons la fase/l'antiguitat.
+        "~ofertesrebudes|nombreofertes",
         "int",
         "Ofertes rebudes",
         ("licitacio", "avaluacio", "adjudicacio", "formalitzacio"),
@@ -139,11 +140,14 @@ def _walk(node: Any, path: str = "") -> Any:
 
 
 def _find_scalar(data: Any, needle: str) -> Any:
-    """Primer valor escalar el camí del qual conté `needle` (case-insensitive)."""
-    needle = needle.lower()
-    for path, value in _walk(data):
-        if needle in path.lower() and value not in (None, "", {}):
-            return value
+    """Primer valor escalar el camí del qual conté `needle` (case-insensitive).
+
+    Accepta alternatives separades per «|»: es prova cada agulla en ordre.
+    """
+    for candidate in needle.lower().split("|"):
+        for path, value in _walk(data):
+            if candidate in path.lower() and value not in (None, "", {}):
+                return value
     return None
 
 

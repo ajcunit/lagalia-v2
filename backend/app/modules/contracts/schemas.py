@@ -88,6 +88,10 @@ class ContractDetail(ContractSummary):
     budget_vat: Decimal | None = None
     formalized_at: date | None = None
     end_date: date | None = None
+    prior_notice_date: date | None = None
+    tender_notice_date: date | None = None
+    award_notice_date: date | None = None
+    formalization_notice_date: date | None = None
     duration_months: int | None = None
     warning_months_override: int | None = None
     cpv_code: str | None = None
@@ -131,6 +135,10 @@ class ContractDetail(ContractSummary):
             budget_vat=contract.budget_vat,
             formalized_at=contract.formalized_at,
             end_date=contract.end_date,
+            prior_notice_date=contract.prior_notice_date,
+            tender_notice_date=contract.tender_notice_date,
+            award_notice_date=contract.award_notice_date,
+            formalization_notice_date=contract.formalization_notice_date,
             duration_months=contract.duration_months,
             warning_months_override=contract.warning_months_override,
             cpv_code=contract.cpv_code,
