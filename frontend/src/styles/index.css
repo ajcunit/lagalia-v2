@@ -29,6 +29,9 @@
 
 html {
   font-family: var(--font-sans);
+  /* La font fusiona la ela geminada (l·l) en un glif que sembla una «H»:
+     «Intel·ligència» es llegia «InteHigència». Sense lligadures no passa. */
+  font-variant-ligatures: none;
 }
 
 body {
