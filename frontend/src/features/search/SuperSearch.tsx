@@ -37,7 +37,71 @@ function phasesOf(card: Card): { phase: PhaseKey; url: string }[] {
   });
 }
 
-function PhasePanel(props: { url: string }) {
+function AddToProject(props: { title: string; downloadUrl: string; fileCode: string }) {
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const projects = useQuery({
+    queryKey: ["doc-projects"],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/doc-projects");
+      if (error !== undefined) throw error;
+      return data.data as { id: number; name: string }[];
+    },
+  });
+  const add = useMutation({
+    mutationFn: async (projectId: number) => {
+      const { error } = await api.POST("/doc-projects/{id}/external-references", {
+        params: { path: { id: projectId } },
+        body: { title: props.title, source_url: props.downloadUrl, file_code: props.fileCode },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      setMessage(t("search.addedToProject"));
+      setOpen(false);
+    },
+    onError: () => {
+      setMessage(t("favorites.saveError"));
+      setOpen(false);
+    },
+  });
+
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        className="text-xs text-muted underline hover:text-ink"
+        onClick={() => setOpen(!open)}
+      >
+        {t("search.addToProject")}
+      </button>
+      {message && <span className="ml-1 text-xs text-muted">{message}</span>}
+      {open && (
+        <span className="absolute right-0 top-5 z-10 block w-56 rounded-md border border-line bg-surface-raised p-2 shadow-card">
+          {(projects.data ?? []).length === 0 ? (
+            <span className="block text-xs text-muted">{t("search.noProjectsHint")}</span>
+          ) : (
+            (projects.data ?? []).map((project) => (
+              <button
+                key={project.id}
+                type="button"
+                disabled={add.isPending}
+                className="block w-full rounded px-2 py-1 text-left text-sm text-ink hover:bg-accent-soft"
+                onClick={() => add.mutate(project.id)}
+              >
+                {project.name}
+              </button>
+            ))
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function PhasePanel(props: { url: string; fileCode: string }) {
   const phase = useQuery({
     queryKey: ["public-phase", props.url],
     staleTime: 10 * 60 * 1000,
@@ -64,7 +128,7 @@ function PhasePanel(props: { url: string }) {
           <h4 className="text-sm font-semibold text-ink">{t("search.documents")}</h4>
           <ul className="mt-1 space-y-1">
             {documents.map((doc) => (
-              <li key={doc.source_doc_id} className="text-sm">
+              <li key={doc.source_doc_id} className="flex flex-wrap items-center gap-2 text-sm">
                 <a
                   href={doc.download_url}
                   target="_blank"
@@ -72,11 +136,16 @@ function PhasePanel(props: { url: string }) {
                   className="text-accent underline"
                 >
                   {doc.title}
-                </a>{" "}
+                </a>
                 <span className="text-xs text-muted">
                   {doc.doc_type}
                   {doc.size ? ` · ${formatBytes(doc.size)}` : ""}
                 </span>
+                <AddToProject
+                  title={doc.title}
+                  downloadUrl={doc.download_url}
+                  fileCode={props.fileCode}
+                />
               </li>
             ))}
           </ul>
@@ -265,7 +334,7 @@ function ResultCard(props: { card: Card }) {
           const active = phases.find((entry) => entry.phase === openPhase);
           return active ? (
             <div className="mt-2 rounded-md bg-surface p-3">
-              <PhasePanel url={active.url} />
+              <PhasePanel url={active.url} fileCode={c.file_code} />
             </div>
           ) : null;
         })()}

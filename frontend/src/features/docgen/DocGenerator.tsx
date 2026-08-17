@@ -21,12 +21,64 @@ type Section = {
   fields?: SectionField[];
 };
 type Reference = { id: number; title: string | null; doc_type: string | null; file_code: string | null };
+type ExternalRef = {
+  id: number;
+  title: string;
+  file_code: string | null;
+  status: string;
+  error_detail: string | null;
+  chunks_count: number;
+  expires_at: string;
+};
 
 const DOC_TYPES: { key: DocType; label: string }[] = [
   { key: "PPT", label: "PPT" },
   { key: "PPA", label: "PPA" },
   { key: "REPORT", label: "Informe" },
 ];
+
+function ExternalRefs(props: { projectId: number; refs: ExternalRef[] }) {
+  const queryClient = useQueryClient();
+  const remove = useMutation({
+    mutationFn: async (refId: number) => {
+      const { error } = await api.DELETE("/doc-projects/{id}/external-references/{ref_id}", {
+        params: { path: { id: props.projectId, ref_id: refId } },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ["doc-project", props.projectId] }),
+  });
+  if (props.refs.length === 0) return null;
+  return (
+    <div className="mt-3 border-t border-line pt-2">
+      <p className="text-xs font-medium text-muted">{t("docgen.externalRefs")}</p>
+      <ul className="mt-1 space-y-1">
+        {props.refs.map((ref) => (
+          <li key={ref.id} className="flex items-center gap-2 text-sm text-ink">
+            <code className="text-xs text-accent">{ref.file_code ?? "extern"}</code>
+            <span className="min-w-0 flex-1 truncate">{ref.title}</span>
+            {ref.status === "indexed" && (
+              <Badge tone="accent">{t("docgen.extIndexed", { count: String(ref.chunks_count) })}</Badge>
+            )}
+            {ref.status === "pending" && <Badge tone="neutral">{t("docgen.extPending")}</Badge>}
+            {ref.status === "failed" && (
+              <Badge tone="danger">{ref.error_detail?.slice(0, 40) ?? t("docgen.extFailed")}</Badge>
+            )}
+            <button
+              type="button"
+              className="text-xs text-danger underline"
+              onClick={() => remove.mutate(ref.id)}
+            >
+              {t("favorites.remove")}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-[11px] text-muted">{t("docgen.externalNote")}</p>
+    </div>
+  );
+}
 
 function ReferencePicker(props: { projectId: number; references: Reference[] }) {
   const queryClient = useQueryClient();
@@ -239,6 +291,7 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
         id: number;
         name: string;
         references: Reference[];
+        external_references: ExternalRef[];
         documents: Record<string, Section[]>;
       };
     },
@@ -339,7 +392,10 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
           <Button onClick={props.onBack}>← {t("docgen.backToProjects")}</Button>
         }
       />
-      <div className="mt-3"><ReferencePicker projectId={props.projectId} references={project.data.references} /></div>
+      <div className="mt-3">
+        <ReferencePicker projectId={props.projectId} references={project.data.references} />
+        <ExternalRefs projectId={props.projectId} refs={project.data.external_references ?? []} />
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {DOC_TYPES.map((dt) => (

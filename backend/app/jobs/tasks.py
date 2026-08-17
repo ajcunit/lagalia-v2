@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import app.ai.legal_corpus  # noqa: F401 — registra sync.boe_norms
+import app.ai.project_refs  # noqa: F401 — registra docgen.index_external/purge_expired
 import app.ai.rag  # noqa: F401 — registra rag.index
 import app.ai.scheduled_reports  # noqa: F401 — registra reports.audit_monthly
 import app.integrations.boe.connector  # noqa: F401 — registra el connector boe

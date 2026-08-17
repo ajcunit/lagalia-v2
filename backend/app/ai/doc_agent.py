@@ -135,17 +135,27 @@ async def draft_section_events(
     **run_kw: Any,
 ):
     """Streaming NDJSON: sources → thinking/delta → done (el router desa)."""
+    from app.ai import project_refs
+
     doc_ids = await _reference_ids(session, project_id)
     query = f"{title}. {instructions or ''}".strip()
-    passages = (
-        await rag.search(session, query, limit=6, document_ids=doc_ids) if doc_ids else []
+    local = (
+        await rag.search(session, query, limit=5, document_ids=doc_ids) if doc_ids else []
     )
+    for passage in local:
+        passage["origin"] = "local"
+    try:
+        external = await project_refs.search_project_chunks(session, project_id, query)
+    except providers.ProviderError:
+        external = []
+    passages = local + external
     sources = [
         {
             "n": i + 1,
             "file_code": p["file_code"],
             "document_title": p["document_title"],
             "doc_type": p["doc_type"],
+            "origin": p.get("origin", "local"),
         }
         for i, p in enumerate(passages)
     ]

@@ -28,6 +28,12 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=86400,
         dedup_key="sync.boe_norms",
     ),
+    # Purga d'índexs temporals de projectes del generador: diària.
+    ScheduledJob(
+        job_type="docgen.purge_expired",
+        interval_seconds=86400,
+        dedup_key="docgen.purge_expired",
+    ),
     # Informe d'auditoria per a Intervenció: mensual (30 dies).
     ScheduledJob(
         job_type="reports.audit_monthly",

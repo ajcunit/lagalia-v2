@@ -765,6 +765,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/doc-projects/{id}/external-references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Afegeix un document del SuperBuscador (índex temporal d'àmbit del projecte) */
+        post: operations["addExternalReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/doc-projects/{id}/external-references/{ref_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Treu una referència externa (i el seu índex temporal) */
+        delete: operations["removeExternalReference"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/doc-projects/{id}/documents/{doc_type}": {
         parameters: {
             query?: never;
@@ -4359,6 +4393,68 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addExternalReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    source_url: string;
+                    file_code?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Registre creat; indexació encuada */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        id: number;
+                        /** Format: uuid */
+                        job_id: string;
+                        status: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    removeExternalReference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                ref_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Treta */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];

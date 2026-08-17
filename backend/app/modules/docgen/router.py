@@ -37,6 +37,12 @@ class ReferencesBody(BaseModel):
     document_ids: list[int] = Field(max_length=20)
 
 
+class ExternalRefBody(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    source_url: str = Field(min_length=10, max_length=1000)
+    file_code: str | None = Field(default=None, max_length=100)
+
+
 class SectionsBody(BaseModel):
     sections: list[dict[str, Any]] = Field(max_length=30)
 
@@ -183,10 +189,31 @@ async def get_project(
             {"p": id},
         )
     ).all()
+    externals = (
+        await session.execute(
+            text(
+                "SELECT id, file_code, title, status, error_detail, chunks_count, expires_at "
+                "FROM project_documents WHERE project_id = :p ORDER BY id"
+            ),
+            {"p": id},
+        )
+    ).all()
     return {
         "id": project["id"],
         "name": project["name"],
         "references": await _references_detail(session, project["reference_doc_ids"] or []),
+        "external_references": [
+            {
+                "id": r.id,
+                "file_code": r.file_code,
+                "title": r.title,
+                "status": r.status,
+                "error_detail": r.error_detail,
+                "chunks_count": r.chunks_count,
+                "expires_at": r.expires_at,
+            }
+            for r in externals
+        ],
         "documents": {r.doc_type: r.sections for r in documents},
     }
 
@@ -247,6 +274,67 @@ async def _save_sections(
         ),
         {"s": json.dumps(sections), "p": project_id, "t": doc_type},
     )
+
+
+@router.post(
+    "/doc-projects/{id}/external-references",
+    operation_id="addExternalReference",
+    status_code=202,
+)
+async def add_external_reference(
+    id: int, body: ExternalRefBody, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Document del SuperBuscador → índex TEMPORAL d'àmbit del projecte.
+
+    La descàrrega i la indexació van a la cua (crida externa); l'anti-SSRF
+    el fa el connector pscp en descarregar.
+    """
+    await _own_project(session, id, authz_ctx.user.id)
+    from app.ai.project_refs import default_expiry
+    from app.jobs.service import enqueue_job
+
+    ref_id = (
+        await session.execute(
+            text(
+                "INSERT INTO project_documents (project_id, file_code, title, source_url, "
+                "expires_at) VALUES (:p, :f, :t, :u, :e) RETURNING id"
+            ),
+            {
+                "p": id,
+                "f": body.file_code,
+                "t": body.title,
+                "u": body.source_url,
+                "e": default_expiry(),
+            },
+        )
+    ).scalar_one()
+    job = await enqueue_job(
+        session,
+        job_type="docgen.index_external",
+        payload={"project_document_id": ref_id},
+        created_by=authz_ctx.user.id,
+        dedup_key=f"docgen.index_external:{ref_id}",
+    )
+    await _audit(session, authz_ctx.user.id, "docgen.external_ref_added", f"{id}/{ref_id}", ctx)
+    await session.commit()
+    return {"id": ref_id, "job_id": str(job.id), "status": "pending"}
+
+
+@router.delete(
+    "/doc-projects/{id}/external-references/{ref_id}",
+    operation_id="removeExternalReference",
+    status_code=204,
+)
+async def remove_external_reference(
+    id: int, ref_id: int, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
+) -> None:
+    await _own_project(session, id, authz_ctx.user.id)
+    await session.execute(
+        text("DELETE FROM project_documents WHERE id = :r AND project_id = :p"),
+        {"r": ref_id, "p": id},
+    )
+    await _audit(session, authz_ctx.user.id, "docgen.external_ref_removed", f"{id}/{ref_id}", ctx)
+    await session.commit()
 
 
 @router.patch("/doc-projects/{id}/documents/{doc_type}", operation_id="saveDocSections")
