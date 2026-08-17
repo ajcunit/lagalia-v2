@@ -12,21 +12,36 @@ import { t } from "../../i18n";
 
 type Mapping = components["schemas"]["FieldMapping"];
 
-const SOURCE = "socrata";
+const SOURCES = [
+  { key: "socrata", labelKey: "mapping.sourceSocrata" },
+  { key: "rpc", labelKey: "mapping.sourceRpc" },
+  { key: "pscp", labelKey: "mapping.sourcePscp" },
+] as const;
+
+const PSCP_PHASES = ["licitacio", "avaluacio", "adjudicacio", "formalitzacio", "previ"] as const;
 
 /** Mapejador de camps font → model (specs/field-mapping.md). */
 export function FieldMappingsAdmin() {
   const queryClient = useQueryClient();
+  const [source, setSource] = useState<string>("socrata");
   const [fileCode, setFileCode] = useState("");
-  const [sampleCode, setSampleCode] = useState<string | null>(null);
+  const [phase, setPhase] = useState<string>("licitacio");
+  const [sampleKey, setSampleKey] = useState<{ code: string; phase: string | null } | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
 
+  function switchSource(next: string) {
+    setSource(next);
+    setSampleKey(null);
+    setEdits({});
+    setMessage(null);
+  }
+
   const mappings = useQuery({
-    queryKey: ["field-mappings", SOURCE],
+    queryKey: ["field-mappings", source],
     queryFn: async () => {
-      const { data, error } = await api.GET("/connectors/{slug}/field-mappings", {
-        params: { path: { slug: SOURCE } },
+      const { data, error } = await api.GET("/field-mappings/{source}", {
+        params: { path: { source } },
       });
       if (error !== undefined) throw error;
       return data.data;
@@ -34,12 +49,18 @@ export function FieldMappingsAdmin() {
   });
 
   const sample = useQuery({
-    queryKey: ["field-mapping-sample", SOURCE, sampleCode],
-    enabled: sampleCode !== null,
+    queryKey: ["field-mapping-sample", source, sampleKey],
+    enabled: sampleKey !== null,
     retry: false,
     queryFn: async () => {
-      const { data, error } = await api.GET("/connectors/{slug}/field-mappings/sample", {
-        params: { path: { slug: SOURCE }, query: { file_code: sampleCode! } },
+      const { data, error } = await api.GET("/field-mappings/{source}/sample", {
+        params: {
+          path: { source },
+          query: {
+            file_code: sampleKey!.code,
+            ...(source === "pscp" && sampleKey!.phase ? { phase: sampleKey!.phase } : {}),
+          },
+        },
       });
       if (error !== undefined) throw error;
       return data;
@@ -50,42 +71,42 @@ export function FieldMappingsAdmin() {
 
   const save = useMutation({
     mutationFn: async (input: { target: string; sourceField: string }) => {
-      const { error } = await api.PUT("/connectors/{slug}/field-mappings/{target_field}", {
-        params: { path: { slug: SOURCE, target_field: input.target } },
+      const { error } = await api.PUT("/field-mappings/{source}/{target_field}", {
+        params: { path: { source, target_field: input.target } },
         body: { source_field: input.sourceField },
       });
       if (error !== undefined) throw error;
     },
     onSuccess: (_data, input) => {
-      setEdits((prev) => Object.fromEntries(
-        Object.entries(prev).filter(([key]) => key !== input.target),
-      ));
+      setEdits((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([key]) => key !== input.target)),
+      );
       setMessage(t("mapping.saved", { field: input.target }));
-      void queryClient.invalidateQueries({ queryKey: ["field-mappings", SOURCE] });
+      void queryClient.invalidateQueries({ queryKey: ["field-mappings", source] });
     },
     onError: () => setMessage(t("mapping.saveError")),
   });
 
   const reset = useMutation({
     mutationFn: async (target: string) => {
-      const { error } = await api.DELETE("/connectors/{slug}/field-mappings/{target_field}", {
-        params: { path: { slug: SOURCE, target_field: target } },
+      const { error } = await api.DELETE("/field-mappings/{source}/{target_field}", {
+        params: { path: { source, target_field: target } },
       });
       if (error !== undefined) throw error;
     },
     onSuccess: (_data, target) => {
-      setEdits((prev) => Object.fromEntries(
-        Object.entries(prev).filter(([key]) => key !== target),
-      ));
+      setEdits((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([key]) => key !== target)),
+      );
       setMessage(t("mapping.resetDone", { field: target }));
-      void queryClient.invalidateQueries({ queryKey: ["field-mappings", SOURCE] });
+      void queryClient.invalidateQueries({ queryKey: ["field-mappings", source] });
     },
   });
 
   const remap = useMutation({
     mutationFn: async () => {
-      const { data, error } = await api.POST("/connectors/{slug}/actions/remap", {
-        params: { path: { slug: SOURCE } },
+      const { data, error } = await api.POST("/field-mappings/{source}/actions/remap", {
+        params: { path: { source } },
       });
       if (error !== undefined) throw error;
       return data;
@@ -95,11 +116,16 @@ export function FieldMappingsAdmin() {
   });
 
   function sampleValue(sourceField: string): string {
-    if (sampleCode === null || sample.data === undefined) return "";
-    const value = sampleFields[sourceField];
+    if (sampleKey === null || sample.data === undefined) return "";
+    const value = sampleFields[sourceField.startsWith("~") ? "" : sourceField];
     if (value === undefined) return t("mapping.sampleMissing");
     if (typeof value === "object") return JSON.stringify(value).slice(0, 60);
     return String(value).slice(0, 60);
+  }
+
+  function loadSample() {
+    const code = fileCode.trim();
+    if (code) setSampleKey({ code, phase: source === "pscp" ? phase : null });
   }
 
   return (
@@ -114,7 +140,8 @@ export function FieldMappingsAdmin() {
             tone="accent"
             disabled={remap.isPending}
             onClick={() => {
-              if (window.confirm(t("mapping.remapConfirm"))) remap.mutate();
+              if (window.confirm(t(source === "pscp" ? "mapping.remapConfirmPscp" : "mapping.remapConfirm")))
+                remap.mutate();
             }}
           >
             {remap.isPending ? t("mapping.remapping") : t("mapping.remap")}
@@ -122,11 +149,30 @@ export function FieldMappingsAdmin() {
         }
       />
 
+      <div className="mt-4 flex flex-wrap items-center gap-1.5" role="tablist">
+        {SOURCES.map((entry) => (
+          <button
+            key={entry.key}
+            type="button"
+            role="tab"
+            aria-selected={source === entry.key}
+            onClick={() => switchSource(entry.key)}
+            className={`rounded-full border px-3 py-1 text-sm ${
+              source === entry.key
+                ? "border-accent bg-accent-soft text-ink"
+                : "border-line text-muted hover:text-ink"
+            }`}
+          >
+            {t(entry.labelKey as Parameters<typeof t>[0])}
+          </button>
+        ))}
+      </div>
+
       <form
-        className="mt-4 flex flex-wrap items-end gap-2"
+        className="mt-3 flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          setSampleCode(fileCode.trim() || null);
+          loadSample();
         }}
       >
         <label className="text-sm text-ink">
@@ -138,10 +184,26 @@ export function FieldMappingsAdmin() {
             className="mt-1 block w-56 rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
           />
         </label>
-        <Button onClick={() => setSampleCode(fileCode.trim() || null)}>
-          {t("mapping.sampleLoad")}
-        </Button>
-        {sample.isError && <span className="text-sm text-danger">{t("mapping.sampleNotFound")}</span>}
+        {source === "pscp" && (
+          <label className="text-sm text-ink">
+            {t("mapping.phaseLabel")}
+            <select
+              value={phase}
+              onChange={(e) => setPhase(e.target.value)}
+              className="mt-1 block rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+            >
+              {PSCP_PHASES.map((option) => (
+                <option key={option} value={option}>
+                  {t(`search.phase.${option}` as Parameters<typeof t>[0])}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <Button onClick={loadSample}>{t("mapping.sampleLoad")}</Button>
+        {sample.isError && (
+          <span className="text-sm text-danger">{t("mapping.sampleNotFound")}</span>
+        )}
         {sample.data !== undefined && (
           <span className="text-sm text-muted">
             {t("mapping.sampleLoaded", {
@@ -192,6 +254,9 @@ export function FieldMappingsAdmin() {
                         <span className="text-ink">{mapping.label}</span>
                         <span className="mt-0.5 block font-mono text-xs text-muted">
                           {mapping.target_field} · {mapping.kind}
+                          {mapping.phases && mapping.phases.length > 0 && (
+                            <> · {mapping.phases.join(", ")}</>
+                          )}
                         </span>
                       </td>
                       <td className="px-3 py-2">
@@ -202,10 +267,10 @@ export function FieldMappingsAdmin() {
                           onChange={(e) =>
                             setEdits({ ...edits, [mapping.target_field]: e.target.value })
                           }
-                          className="w-64 rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs"
+                          className="w-72 rounded-md border border-line bg-surface px-2 py-1 font-mono text-xs"
                         />
                         {mapping.overridden && (
-                          <span className="mt-1 flex items-center gap-2 text-xs text-muted">
+                          <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
                             <Badge tone="accent">{t("mapping.overridden")}</Badge>
                             {t("mapping.default")}: <code>{mapping.default_source_field}</code>
                           </span>

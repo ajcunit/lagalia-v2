@@ -67,6 +67,23 @@ async def remap_contracts(ctx: JobContext) -> dict[str, Any]:
                 if contract is None or not contract.raw:
                     continue
                 values = mapping.map_contract(dict(contract.raw), overrides)
+                # Les pròrrogues manen sobre la fi calculada (02 §2.8): el
+                # remap re-aplica la propagació per no trepitjar-les.
+                extension_end = (
+                    await session.execute(
+                        text(
+                            "SELECT max(e.end_date) FROM extensions e "
+                            "JOIN contracts c ON c.id = e.contract_id "
+                            "WHERE c.file_code = :f"
+                        ),
+                        {"f": contract.file_code},
+                    )
+                ).scalar_one_or_none()
+                if extension_end is not None and (
+                    values.get("calculated_end_date") is None
+                    or extension_end > values["calculated_end_date"]
+                ):
+                    values["calculated_end_date"] = extension_end
                 changed = False
                 for field in REMAP_FIELDS:
                     old, new = getattr(contract, field), values.get(field)
@@ -101,3 +118,97 @@ async def remap_contracts(ctx: JobContext) -> dict[str, Any]:
         "remap_contracts_finished", total=len(ids), updated=updated, failed=failed
     )
     return {"total": len(ids), "updated": updated, "unchanged": unchanged, "failed": failed}
+
+
+@job("sync.remap_rpc")
+async def remap_rpc(ctx: JobContext) -> dict[str, Any]:
+    """Re-aplica el mapeig RPC al raw guardat de menors, pròrrogues i
+    modificacions. Cap crida externa."""
+    from app.integrations.socrata.sync_rpc import (
+        _MINOR_FIELDS,
+        extension_values,
+        merge_minor_records,
+        modification_values,
+    )
+    from app.modules.contracts.models import Extension, Modification
+    from app.modules.minor_contracts.models import MinorContract
+
+    async with session_factory() as session:
+        overrides = await get_overrides(session, "rpc")
+
+    counters = {"minors": 0, "extensions": 0, "modifications": 0, "failed": 0}
+
+    async with session_factory() as session:
+        minor_ids = [
+            row.id
+            for row in (
+                await session.execute(
+                    text(
+                        "SELECT id FROM minor_contracts "
+                        "WHERE raw_award IS NOT NULL OR raw_settlement IS NOT NULL"
+                    )
+                )
+            ).all()
+        ]
+    for minor_id in minor_ids:
+        async with session_factory() as session:
+            try:
+                minor = await session.get(MinorContract, minor_id)
+                if minor is None:
+                    continue
+                group = [r for r in (minor.raw_award, minor.raw_settlement) if r]
+                values = merge_minor_records(minor.file_code, [dict(r) for r in group], overrides)
+                if values is None:
+                    continue
+                changed = False
+                for field in _MINOR_FIELDS:
+                    if getattr(minor, field) != values.get(field):
+                        setattr(minor, field, values.get(field))
+                        changed = True
+                if changed:
+                    counters["minors"] += 1
+                await session.commit()
+            except Exception as exc:
+                await session.rollback()
+                counters["failed"] += 1
+                logger.warning("remap_minor_failed", minor_id=minor_id, error=str(exc))
+
+    async with session_factory() as session:
+        try:
+            extensions = (
+                await session.execute(
+                    text("SELECT id FROM extensions WHERE raw IS NOT NULL")
+                )
+            ).all()
+            for row in extensions:
+                extension = await session.get(Extension, row.id)
+                if extension is None or not extension.raw:
+                    continue
+                values = extension_values(dict(extension.raw), overrides)
+                if any(getattr(extension, k) != v for k, v in values.items()):
+                    for key, value in values.items():
+                        setattr(extension, key, value)
+                    counters["extensions"] += 1
+            modifications = (
+                await session.execute(
+                    text("SELECT id FROM modifications WHERE raw IS NOT NULL")
+                )
+            ).all()
+            for row in modifications:
+                modification = await session.get(Modification, row.id)
+                if modification is None or not modification.raw:
+                    continue
+                values = modification_values(dict(modification.raw), overrides)
+                if any(getattr(modification, k) != v for k, v in values.items()):
+                    for key, value in values.items():
+                        setattr(modification, key, value)
+                    counters["modifications"] += 1
+            await session.commit()
+        except Exception as exc:
+            await session.rollback()
+            counters["failed"] += 1
+            logger.warning("remap_rpc_failed", error=str(exc))
+
+    await ctx.set_progress(100, "re-mapatge RPC completat")
+    logger.info("remap_rpc_finished", **counters)
+    return counters

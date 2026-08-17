@@ -661,7 +661,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/connectors/{slug}/field-mappings": {
+    "/field-mappings/{source}": {
         parameters: {
             query?: never;
             header?: never;
@@ -678,14 +678,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/connectors/{slug}/field-mappings/sample": {
+    "/field-mappings/{source}/sample": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Fila raw guardada d'un expedient (per triar camps amb valors reals) */
+        /** Valors reals d'un expedient per triar camps (socrata/rpc de la BD; pscp del JSON de fase aplanat) */
         get: operations["getFieldMappingSample"];
         put?: never;
         post?: never;
@@ -695,7 +695,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/connectors/{slug}/field-mappings/{target_field}": {
+    "/field-mappings/{source}/{target_field}": {
         parameters: {
             query?: never;
             header?: never;
@@ -713,7 +713,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/connectors/{slug}/actions/remap": {
+    "/field-mappings/{source}/actions/remap": {
         parameters: {
             query?: never;
             header?: never;
@@ -722,7 +722,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Re-aplica el mapeig vigent sobre el raw guardat (job local) */
+        /** Re-aplica el mapeig vigent de la font a les dades guardades */
         post: operations["remapContracts"];
         delete?: never;
         options?: never;
@@ -2894,6 +2894,8 @@ export interface components {
             default_source_field: string;
             source_field: string;
             overridden: boolean;
+            /** @description Fases del portal on aplica (només pscp). */
+            phases?: string[] | null;
         };
         /**
          * @description Treball en segon pla. Mai inclou el `payload` d'entrada: només
@@ -3076,6 +3078,8 @@ export interface components {
     parameters: {
         ResourceId: number;
         ConnectorSlug: string;
+        /** @description Font de dades mapejable (socrata, rpc, pscp). */
+        MappingSource: string;
         ResourceUuid: string;
         /** @description Elements per pàgina. */
         PageSize: number;
@@ -4257,7 +4261,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                slug: components["parameters"]["ConnectorSlug"];
+                /** @description Font de dades mapejable (socrata, rpc, pscp). */
+                source: components["parameters"]["MappingSource"];
             };
             cookie?: never;
         };
@@ -4282,10 +4287,13 @@ export interface operations {
         parameters: {
             query: {
                 file_code: string;
+                /** @description Només pscp; per defecte la primera fase disponible. */
+                phase?: string;
             };
             header?: never;
             path: {
-                slug: components["parameters"]["ConnectorSlug"];
+                /** @description Font de dades mapejable (socrata, rpc, pscp). */
+                source: components["parameters"]["MappingSource"];
             };
             cookie?: never;
         };
@@ -4299,6 +4307,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         file_code: string;
+                        phase?: string | null;
                         fields: {
                             [key: string]: unknown;
                         };
@@ -4307,6 +4316,15 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            /** @description El portal no respon */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     setFieldMapping: {
@@ -4314,7 +4332,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                slug: components["parameters"]["ConnectorSlug"];
+                /** @description Font de dades mapejable (socrata, rpc, pscp). */
+                source: components["parameters"]["MappingSource"];
                 target_field: string;
             };
             cookie?: never;
@@ -4322,6 +4341,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description Camp pla (socrata/rpc) o camí a.b[0].c / ~cerca (pscp). */
                     source_field: string;
                 };
             };
@@ -4347,7 +4367,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                slug: components["parameters"]["ConnectorSlug"];
+                /** @description Font de dades mapejable (socrata, rpc, pscp). */
+                source: components["parameters"]["MappingSource"];
                 target_field: string;
             };
             cookie?: never;
@@ -4371,7 +4392,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                slug: components["parameters"]["ConnectorSlug"];
+                /** @description Font de dades mapejable (socrata, rpc, pscp). */
+                source: components["parameters"]["MappingSource"];
             };
             cookie?: never;
         };

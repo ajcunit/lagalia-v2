@@ -21,20 +21,27 @@ persisteixen els overrides**: els valors per defecte viuen al codi
 (`MAPPABLE_FIELDS` a `app/integrations/socrata/mapping.py`, transcripció de
 l'annex A1). Restaurar = esborrar la fila.
 
-### Registre declaratiu i aplicació
+### Fonts mapejables (ampliació 2026-08-17: totes les fonts, no només Socrata)
 
-- `MAPPABLE_FIELDS`: per a cada camp de destí, el camp font per defecte, el
-  tipus de transformació (`text | amount | date | datetime | duration`) i
-  l'etiqueta per a la UI. Camps compostos o d'identitat (file_code, status,
-  lot, links, phase_urls, start/end calculats, content_hash, raw) **no són
-  mapejables** i queden al codi.
-- `map_contract(record, overrides=None)` i `contractor_fields(record,
-  overrides=None)` resolen el camp font efectiu per a cada destí (override si
-  n'hi ha, defecte si no). Els overrides es carreguen amb
-  `field_mappings.get_overrides(session, source)`.
-- S'apliquen a **tots els consumidors del mapeig**: job `sync.contracts`
-  (carregats un cop per execució), proxy del SuperBuscador
-  (`/public-registry/*`, per petició) i, per tant, als snapshots de favorits.
+| Font | Registre de defaults | Forma del camp font | Consumidors |
+|---|---|---|---|
+| `socrata` (dataset de contractes) | `MAPPABLE_FIELDS` + `CONTRACTOR_FIELDS` (mapping.py, annex A1) | camp pla del dataset | sync.contracts, proxy SuperBuscador, snapshots de favorits |
+| `rpc` (registre únic: menors, pròrrogues, modificacions) | `RPC_FIELDS` (sync_rpc.py, specs/remaining-syncs.md) | camp pla del dataset RPC | sync.minor_contracts, sync.extensions |
+| `pscp` (JSON de fases del portal, ~67 camps) | `PSCP_FIELDS` (extract.py, specs/pscp-enrichment.md) | **camí** dins del JSON: `a.b[0].c`, o `~text` per cerca heurística | enrich.contract/batch (escalars promocionats i enrichment) |
+
+- Cada registre porta: camp/camí font per defecte, tipus (`text | amount |
+  date | datetime | duration | int | bool | raw`), etiqueta per a la UI i,
+  a pscp, les fases on aplica. Camps compostos o d'identitat (file_code,
+  status, lot, links, phase_urls, start/end calculats, content_hash, raw)
+  **no són mapejables** i queden al codi.
+- `map_contract(record, overrides=None)`, `contractor_fields(...)`,
+  `merge_minor_records(...)`, `extension_values(...)`,
+  `modification_values(...)` i `extract_scalars(phase, payload, overrides)`
+  resolen el camp font efectiu per destí. Els overrides es carreguen amb
+  `field_mappings.get_overrides(session, source)` (un cop per job; per
+  petició al proxy).
+- Les dates-hora naïf del dataset es fixen explícitament a Europe/Madrid
+  (són hores locals del portal); dependència `tzdata` per a Windows.
 
 ### Durada com a rang de dates (desviació documentada de l'A1 §3)
 
@@ -43,38 +50,46 @@ Si `durada_contracte` té la forma `dd/mm/aaaa a dd/mm/aaaa`, es mapeja com:
 entre les dues (arrodonint la fracció ≥ 15 dies). El càlcul
 formalització+durada només s'usa quan NO hi ha rang. Anotat a l'annex A1.
 
-### Job `sync.remap_contracts`
+### Re-aplicar el mapeig a les dades guardades
 
-Re-aplica el mapeig vigent sobre el `raw` guardat de cada contracte, **sense
-cap crida externa**: actualitza els camps mapejables (mai la identitat
-file_code/status/lot ni el contractista), historifica els canvis
-(`contract_history`, change_type `sync`) i reporta comptadors. Encuat des de
-la UI amb dedup.
+- `sync.remap_contracts` (font socrata): re-mapa el `raw` de cada contracte
+  **sense cap crida externa**; mai toca la identitat (file_code/status/lot)
+  ni el contractista; **re-aplica la propagació de pròrrogues** sobre
+  `calculated_end_date` (02 §2.8) perquè el remap no les trepitgi;
+  historifica a `contract_history` (change_type `sync`).
+- `sync.remap_rpc` (font rpc): re-mapa menors (des de `raw_award`/
+  `raw_settlement`), pròrrogues i modificacions (des de `raw`), local.
+- Font pscp: el «remap» encua `enrich.batch` amb `force` (els escalars surten
+  del JSON viu del portal; crides externes, avisat a la UI).
 
 ### API (tag `config`; lectura `config:read`, escriptura `config:write`,
 remap `sync:execute`)
 
-- `GET /connectors/{slug}/field-mappings` — llista completa: destí, etiqueta,
-  tipus, camp per defecte, camp efectiu i si està sobreescrit.
-- `PUT /connectors/{slug}/field-mappings/{target_field}` `{source_field}` —
-  desa l'override (valida destí conegut i `^[a-z0-9_]{1,80}$`); audita.
-- `DELETE /connectors/{slug}/field-mappings/{target_field}` — restaura el
-  defecte; audita.
-- `GET /connectors/{slug}/field-mappings/sample?file_code=` — la fila `raw`
-  guardada d'aquell expedient (per triar camps amb valors reals); 404 si no
-  està sincronitzat. **Cap crida externa**: surt de `contracts.raw`.
-- `POST /connectors/{slug}/actions/remap` — encua `sync.remap_contracts` (202).
-- Només `socrata` és mapejable de moment; altres slugs → 404.
+- `GET /field-mappings/{source}` — llista completa: destí, etiqueta, tipus,
+  camp per defecte, camp efectiu, si està sobreescrit i (pscp) fases.
+- `PUT /field-mappings/{source}/{target_field}` `{source_field}` — desa
+  l'override; valida destí conegut i patró per font (pla `^[a-z0-9_]{1,80}$`;
+  pscp camí `^~?[a-zA-Z0-9_.\[\]]{1,200}$`); audita.
+- `DELETE /field-mappings/{source}/{target_field}` — restaura el defecte; audita.
+- `GET /field-mappings/{source}/sample?file_code=&phase=` — valors reals per
+  triar camps: socrata (contracts.raw) i rpc (raw_award/raw_settlement o raw
+  de pròrroga) **sense crides externes**; pscp descarrega el JSON de la fase
+  indicada i el retorna **aplanat a camins** (`a.b[0].c`, els ~67 camps) —
+  descàrrega puntual de diagnòstic, com el healthcheck.
+- `POST /field-mappings/{source}/actions/remap` — encua el job de la font (202).
+- Fonts reconegudes: `socrata`, `rpc`, `pscp`; qualsevol altra → 404.
 
 ### Pantalla /admin/field-mappings (tessel·la «Mapatge de camps» al hub)
 
-- Entrada d'expedient de mostra (es carrega la fila raw guardada): cada camp
-  mostra el **valor real** que té a la font, tant del camp efectiu com dels
-  candidats (datalist amb tots els camps del raw).
-- Taula agrupada: etiqueta + camp BD, camp font editable amb datalist,
-  defecte visible, marca «sobreescrit» + botó restaura, desa per fila.
-- Botó «Re-aplica el mapeig a les dades guardades» (encua el remap, avís que
-  també s'aplicarà a les properes sincronitzacions).
+- **Selector de font** (pestanyes): dataset de contractes / registre únic /
+  JSON de fases; a pscp també selector de fase per a la mostra.
+- Entrada d'expedient de mostra: cada camp mostra el **valor real** que té a
+  la font, tant del camp efectiu com dels candidats (datalist amb tots els
+  camps o camins del raw/JSON).
+- Taula: etiqueta + camp BD + tipus (+ fases a pscp), camp font editable amb
+  datalist, defecte visible, marca «sobreescrit» + botó restaura, desa per fila.
+- Botó «Re-aplica el mapeig a les dades guardades» (encua el job de la font;
+  a pscp avisa que re-executa l'enriquiment amb crides externes).
 
 ## Canvis d'API
 
@@ -90,13 +105,18 @@ Els cinc endpoints nous de dalt (openapi.yaml + client TS regenerat).
 ## Fora d'abast
 
 - Mapejar transformacions noves des de la UI (el tipus és fix per camp);
-  mapejadors per a altres fonts (Gestiona) quan arribin els connectors;
-  mapeig per lot/fase diferenciat.
+  mapejador per a Gestiona quan arribi el connector; mapeig per lot
+  diferenciat dins d'una mateixa fase pscp.
 
 ## Criteris d'acceptació
 
 - [x] Override persistit s'aplica al sync, al SuperBuscador i al remap.
-- [x] `durada_contracte` en format rang omple inici/fi/durada (cas 2885/2026).
-- [x] Remap local re-omple camps a partir del raw guardat amb historial.
-- [x] Pantalla amb valors reals de mostra; validació + auditoria; 403 sense
-  permís; bateries verdes.
+- [x] `durada_contracte` en format rang omple inici/fi/durada (cas 2885/2026,
+  verificat en viu: 7.5k contractes recuperen dates).
+- [x] Remap local re-omple camps a partir del raw guardat amb historial i
+  re-aplica la propagació de pròrrogues.
+- [x] Font `rpc`: overrides a menors/pròrrogues/modificacions + remap local.
+- [x] Font `pscp`: overrides per camí als escalars promocionats; mostra del
+  JSON de fase aplanat (~67 camps).
+- [x] Pantalla amb selector de font i valors reals de mostra; validació +
+  auditoria; 403 sense permís; bateries verdes.

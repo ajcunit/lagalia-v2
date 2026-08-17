@@ -284,21 +284,39 @@ async def send_smtp_test_email(
 
 
 # ─────────────────────── mapejador de camps ───────────────────────
-# specs/field-mapping.md: overrides manuals del mapeig font → model.
+# specs/field-mapping.md: overrides manuals del mapeig font → model, per a
+# les TRES fonts: dataset de contractes (socrata), registre únic (rpc) i
+# JSON de fases del portal (pscp, camins dins del document).
 
-_MAPPABLE_SOURCES = ("socrata",)
+Source = Annotated[str, Path(min_length=2, max_length=20, pattern="^[a-z0-9_]+$")]
 TargetField = Annotated[str, Path(min_length=1, max_length=100, pattern=r"^[a-z0-9_.]+$")]
 
-
-def _field_defs() -> dict[str, Any]:
-    from app.integrations.socrata.mapping import CONTRACTOR_FIELDS, MAPPABLE_FIELDS
-
-    return {**MAPPABLE_FIELDS, **CONTRACTOR_FIELDS}
+_FLAT_SOURCE_PATTERN = r"^[a-z0-9_]{1,80}$"
+_PATH_SOURCE_PATTERN = r"^~?[a-zA-Z0-9_.\[\]]{1,200}$"
 
 
-def _check_mappable_source(slug: str) -> None:
-    if slug not in _MAPPABLE_SOURCES:
-        raise Problem(404, "Aquesta font no té mapeig de camps", "not-found")
+def _source_registry(source: str) -> dict[str, Any]:
+    """target → (default, kind, label, phases|None). 404 si la font no és mapejable."""
+    if source == "socrata":
+        from app.integrations.socrata.mapping import CONTRACTOR_FIELDS, MAPPABLE_FIELDS
+
+        return {
+            t: (d.source, d.kind, d.label, None)
+            for t, d in {**MAPPABLE_FIELDS, **CONTRACTOR_FIELDS}.items()
+        }
+    if source == "rpc":
+        from app.integrations.socrata.sync_rpc import RPC_FIELDS
+
+        return {t: (d.source, d.kind, d.label, None) for t, d in RPC_FIELDS.items()}
+    if source == "pscp":
+        from app.integrations.pscp.extract import PSCP_FIELDS
+
+        return {t: (d.path, d.kind, d.label, list(d.phases)) for t, d in PSCP_FIELDS.items()}
+    raise Problem(404, "Aquesta font no té mapeig de camps", "not-found")
+
+
+def _source_field_pattern(source: str) -> str:
+    return _PATH_SOURCE_PATTERN if source == "pscp" else _FLAT_SOURCE_PATTERN
 
 
 class FieldMappingRow(BaseModel):
@@ -308,81 +326,143 @@ class FieldMappingRow(BaseModel):
     default_source_field: str
     source_field: str
     overridden: bool
+    phases: list[str] | None = None
 
 
 class FieldMappingUpdate(BaseModel):
-    source_field: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9_]+$")
+    source_field: str = Field(min_length=1, max_length=200)
 
 
-@router.get("/connectors/{slug}/field-mappings", operation_id="listFieldMappings")
+@router.get("/field-mappings/{source}", operation_id="listFieldMappings")
 async def list_field_mappings(
-    slug: Slug, session: SessionDep, _authz: ReadDep
+    source: Source, session: SessionDep, _authz: ReadDep
 ) -> dict[str, list[FieldMappingRow]]:
-    _check_mappable_source(slug)
+    registry = _source_registry(source)
     from app.integrations.field_mappings import get_overrides
 
-    overrides = await get_overrides(session, slug)
+    overrides = await get_overrides(session, source)
     rows = [
         FieldMappingRow(
             target_field=target,
-            label=definition.label,
-            kind=definition.kind,
-            default_source_field=definition.source,
-            source_field=overrides.get(target) or definition.source,
+            label=label,
+            kind=kind,
+            default_source_field=default,
+            source_field=overrides.get(target) or default,
             overridden=target in overrides,
+            phases=phases,
         )
-        for target, definition in _field_defs().items()
+        for target, (default, kind, label, phases) in registry.items()
     ]
     return {"data": rows}
 
 
-@router.get(
-    "/connectors/{slug}/field-mappings/sample", operation_id="getFieldMappingSample"
-)
+@router.get("/field-mappings/{source}/sample", operation_id="getFieldMappingSample")
 async def get_field_mapping_sample(
-    slug: Slug,
+    source: Source,
     file_code: Annotated[str, Query(min_length=1, max_length=100)],
     session: SessionDep,
     _authz: ReadDep,
+    phase: Annotated[str | None, Query(max_length=30)] = None,
 ) -> dict[str, Any]:
-    """La fila `raw` guardada d'un expedient sincronitzat (cap crida externa)."""
-    _check_mappable_source(slug)
+    """Valors reals d'un expedient per triar camps. socrata/rpc: fila raw
+    guardada (cap crida externa). pscp: JSON de fase aplanat a camins
+    (descàrrega puntual de diagnòstic, com el healthcheck)."""
+    _source_registry(source)  # 404 si no és mapejable
     from sqlalchemy import text as sql_text
 
+    if source == "socrata":
+        row = (
+            await session.execute(
+                sql_text(
+                    "SELECT raw FROM contracts WHERE file_code = :f AND raw IS NOT NULL "
+                    "ORDER BY id DESC LIMIT 1"
+                ),
+                {"f": file_code},
+            )
+        ).first()
+        if row is None:
+            raise Problem(404, "Expedient sense fila sincronitzada", "not-found")
+        return {"file_code": file_code, "fields": row.raw}
+
+    if source == "rpc":
+        minor = (
+            await session.execute(
+                sql_text(
+                    "SELECT raw_award, raw_settlement FROM minor_contracts "
+                    "WHERE file_code = :f LIMIT 1"
+                ),
+                {"f": file_code},
+            )
+        ).first()
+        if minor is not None and (minor.raw_award or minor.raw_settlement):
+            fields = {**(minor.raw_settlement or {}), **(minor.raw_award or {})}
+            return {"file_code": file_code, "fields": fields}
+        extension = (
+            await session.execute(
+                sql_text(
+                    "SELECT e.raw FROM extensions e JOIN contracts c ON c.id = e.contract_id "
+                    "WHERE c.file_code = :f AND e.raw IS NOT NULL LIMIT 1"
+                ),
+                {"f": file_code},
+            )
+        ).first()
+        if extension is not None:
+            return {"file_code": file_code, "fields": extension.raw}
+        raise Problem(404, "Expedient sense registres RPC guardats", "not-found")
+
+    # pscp: cal la URL de fase del contracte guardat.
     row = (
         await session.execute(
             sql_text(
-                "SELECT raw FROM contracts WHERE file_code = :f AND raw IS NOT NULL "
-                "ORDER BY id DESC LIMIT 1"
+                "SELECT phase_urls FROM contracts WHERE file_code = :f "
+                "AND phase_urls IS NOT NULL ORDER BY id DESC LIMIT 1"
             ),
             {"f": file_code},
         )
     ).first()
-    if row is None:
-        raise Problem(
-            404,
-            "Expedient sense fila sincronitzada: només es poden mostrar camps "
-            "d'expedients que ja són a la base de dades",
-            "not-found",
-        )
-    return {"file_code": file_code, "fields": row.raw}
+    if row is None or not row.phase_urls:
+        raise Problem(404, "Expedient sense URLs de fase guardades", "not-found")
+    phase_urls: dict[str, str] = dict(row.phase_urls)
+    phase_name = phase or next(iter(phase_urls))
+    url = phase_urls.get(phase_name)
+    if not url:
+        available = ", ".join(phase_urls)
+        raise Problem(404, f"Fase no disponible (té: {available})", "not-found")
+    from app.integrations.base import ConnectorError
+    from app.integrations.pscp.connector import PscpConnector
+    from app.integrations.pscp.extract import flatten_paths
+
+    try:
+        connector = await hub.get_connector(session, "pscp")
+    finally:
+        await session.commit()
+    if not isinstance(connector, PscpConnector):
+        raise TypeError("El hub ha resolt un connector inesperat per a 'pscp'")
+    try:
+        async with connector.client() as client:
+            payload = await client.fetch_phase(url)
+    except ConnectorError as exc:
+        raise Problem(502, "El portal no respon", "upstream", detail=str(exc)) from None
+    return {"file_code": file_code, "phase": phase_name, "fields": flatten_paths(payload)}
 
 
-@router.put(
-    "/connectors/{slug}/field-mappings/{target_field}", operation_id="setFieldMapping"
-)
+@router.put("/field-mappings/{source}/{target_field}", operation_id="setFieldMapping")
 async def set_field_mapping(
-    slug: Slug,
+    source: Source,
     target_field: TargetField,
     body: FieldMappingUpdate,
     session: SessionDep,
     authz_ctx: WriteDep,
     ctx: ContextDep,
 ) -> FieldMappingRow:
-    _check_mappable_source(slug)
-    definition = _field_defs().get(target_field)
+    import re as _re
+
+    registry = _source_registry(source)
+    definition = registry.get(target_field)
     if definition is None:
         raise Problem(404, "Camp de destí desconegut", "not-found")
+    if not _re.fullmatch(_source_field_pattern(source), body.source_field):
+        raise Problem(422, "Camp font invàlid per a aquesta font", "validation")
     from sqlalchemy import text as sql_text
 
     await session.execute(
@@ -392,70 +472,80 @@ async def set_field_mapping(
             "ON CONFLICT ON CONSTRAINT uq_field_mappings_source_target "
             "DO UPDATE SET source_field = :f, updated_by = :u, updated_at = now()"
         ),
-        {"s": slug, "t": target_field, "f": body.source_field, "u": authz_ctx.user.id},
+        {"s": source, "t": target_field, "f": body.source_field, "u": authz_ctx.user.id},
     )
     await _audit(
         session,
         authz_ctx.user.id,
         "config.field_mapping_updated",
-        f"{slug}:{target_field}={body.source_field}",
+        f"{source}:{target_field}={body.source_field}",
         ctx,
     )
     await session.commit()
+    default, kind, label, phases = definition
     return FieldMappingRow(
         target_field=target_field,
-        label=definition.label,
-        kind=definition.kind,
-        default_source_field=definition.source,
+        label=label,
+        kind=kind,
+        default_source_field=default,
         source_field=body.source_field,
-        overridden=body.source_field != definition.source,
+        overridden=body.source_field != default,
+        phases=phases,
     )
 
 
 @router.delete(
-    "/connectors/{slug}/field-mappings/{target_field}",
+    "/field-mappings/{source}/{target_field}",
     operation_id="resetFieldMapping",
     status_code=204,
 )
 async def reset_field_mapping(
-    slug: Slug,
+    source: Source,
     target_field: TargetField,
     session: SessionDep,
     authz_ctx: WriteDep,
     ctx: ContextDep,
 ) -> None:
-    _check_mappable_source(slug)
+    _source_registry(source)
     from sqlalchemy import text as sql_text
 
     await session.execute(
-        sql_text(
-            "DELETE FROM field_mappings WHERE source = :s AND target_field = :t"
-        ),
-        {"s": slug, "t": target_field},
+        sql_text("DELETE FROM field_mappings WHERE source = :s AND target_field = :t"),
+        {"s": source, "t": target_field},
     )
     await _audit(
-        session, authz_ctx.user.id, "config.field_mapping_reset", f"{slug}:{target_field}", ctx
+        session, authz_ctx.user.id, "config.field_mapping_reset", f"{source}:{target_field}", ctx
     )
     await session.commit()
 
 
+_REMAP_JOBS = {
+    # socrata i rpc: re-mapatge LOCAL des del raw guardat (cap crida externa).
+    "socrata": ("sync.remap_contracts", {}),
+    "rpc": ("sync.remap_rpc", {}),
+    # pscp: re-enriquiment des de la font (els escalars surten del JSON viu).
+    "pscp": ("enrich.batch", {"force": True, "download_documents": False, "trigger": "manual"}),
+}
+
+
 @router.post(
-    "/connectors/{slug}/actions/remap", operation_id="remapContracts", status_code=202
+    "/field-mappings/{source}/actions/remap", operation_id="remapContracts", status_code=202
 )
 async def remap_contracts_action(
-    slug: Slug, session: SessionDep, authz_ctx: ExecDep, ctx: ContextDep
+    source: Source, session: SessionDep, authz_ctx: ExecDep, ctx: ContextDep
 ) -> dict[str, Any]:
-    """Re-aplica el mapeig vigent sobre el raw guardat (job local, cap crida externa)."""
-    _check_mappable_source(slug)
+    """Re-aplica el mapeig vigent de la font a les dades guardades."""
+    _source_registry(source)
+    job_type, payload = _REMAP_JOBS[source]
     from app.jobs.service import enqueue_job
 
     job = await enqueue_job(
         session,
-        job_type="sync.remap_contracts",
-        payload={},
+        job_type=job_type,
+        payload=payload,
         created_by=authz_ctx.user.id or None,
-        dedup_key="trigger:sync.remap_contracts",
+        dedup_key=f"trigger:{job_type}",
     )
-    await _audit(session, authz_ctx.user.id, "config.remap_triggered", slug, ctx)
+    await _audit(session, authz_ctx.user.id, "config.remap_triggered", source, ctx)
     await session.commit()
-    return {"job_id": str(job.id), "job_type": "sync.remap_contracts"}
+    return {"job_id": str(job.id), "job_type": job_type}

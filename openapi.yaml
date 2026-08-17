@@ -1079,14 +1079,14 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
-  /connectors/{slug}/field-mappings:
+  /field-mappings/{source}:
     get:
       tags: [config]
       operationId: listFieldMappings
       summary: Mapeig de camps font → model (defectes + overrides manuals)
       x-required-scopes: [config:read]
       parameters:
-        - $ref: "#/components/parameters/ConnectorSlug"
+        - $ref: "#/components/parameters/MappingSource"
       responses:
         "200":
           description: Mapeigs
@@ -1102,18 +1102,22 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
-  /connectors/{slug}/field-mappings/sample:
+  /field-mappings/{source}/sample:
     get:
       tags: [config]
       operationId: getFieldMappingSample
-      summary: Fila raw guardada d'un expedient (per triar camps amb valors reals)
+      summary: Valors reals d'un expedient per triar camps (socrata/rpc de la BD; pscp del JSON de fase aplanat)
       x-required-scopes: [config:read]
       parameters:
-        - $ref: "#/components/parameters/ConnectorSlug"
+        - $ref: "#/components/parameters/MappingSource"
         - name: file_code
           in: query
           required: true
           schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: phase
+          in: query
+          description: Només pscp; per defecte la primera fase disponible.
+          schema: { type: string, maxLength: 30 }
       responses:
         "200":
           description: Camps del registre font
@@ -1124,18 +1128,24 @@ paths:
                 required: [file_code, fields]
                 properties:
                   file_code: { type: string }
+                  phase: { type: [string, "null"] }
                   fields: { type: object, additionalProperties: true }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "502":
+          description: El portal no respon
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
 
-  /connectors/{slug}/field-mappings/{target_field}:
+  /field-mappings/{source}/{target_field}:
     put:
       tags: [config]
       operationId: setFieldMapping
       summary: Desa l'override manual d'un camp (persistit)
       x-required-scopes: [config:write]
       parameters:
-        - $ref: "#/components/parameters/ConnectorSlug"
+        - $ref: "#/components/parameters/MappingSource"
         - name: target_field
           in: path
           required: true
@@ -1149,7 +1159,10 @@ paths:
               required: [source_field]
               properties:
                 source_field:
-                  { type: string, minLength: 1, maxLength: 80, pattern: "^[a-z0-9_]+$" }
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                  description: Camp pla (socrata/rpc) o camí a.b[0].c / ~cerca (pscp).
       responses:
         "200":
           description: Mapeig efectiu
@@ -1166,7 +1179,7 @@ paths:
       summary: Restaura el mapeig per defecte (esborra l'override)
       x-required-scopes: [config:write]
       parameters:
-        - $ref: "#/components/parameters/ConnectorSlug"
+        - $ref: "#/components/parameters/MappingSource"
         - name: target_field
           in: path
           required: true
@@ -1177,14 +1190,14 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
-  /connectors/{slug}/actions/remap:
+  /field-mappings/{source}/actions/remap:
     post:
       tags: [config]
       operationId: remapContracts
-      summary: Re-aplica el mapeig vigent sobre el raw guardat (job local)
+      summary: Re-aplica el mapeig vigent de la font a les dades guardades
       x-required-scopes: [sync:execute]
       parameters:
-        - $ref: "#/components/parameters/ConnectorSlug"
+        - $ref: "#/components/parameters/MappingSource"
       responses:
         "202":
           description: Job encuat
@@ -3854,6 +3867,13 @@ components:
       required: true
       schema: { type: string, minLength: 2, maxLength: 50, pattern: "^[a-z0-9_-]+$" }
 
+    MappingSource:
+      name: source
+      in: path
+      required: true
+      description: Font de dades mapejable (socrata, rpc, pscp).
+      schema: { type: string, minLength: 2, maxLength: 20, pattern: "^[a-z0-9_]+$" }
+
     ResourceUuid:
       name: id
       in: path
@@ -4789,6 +4809,10 @@ components:
         default_source_field: { type: string }
         source_field: { type: string }
         overridden: { type: boolean }
+        phases:
+          type: [array, "null"]
+          description: Fases del portal on aplica (només pscp).
+          items: { type: string }
 
     Job:
       type: object

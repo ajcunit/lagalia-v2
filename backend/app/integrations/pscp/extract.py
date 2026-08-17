@@ -2,12 +2,106 @@
 
 Esquema real fixat a specs/pscp-enrichment.md (fixtures reals als tests).
 Multiidioma sempre ca→es→en; documents i mesa per extracció recursiva.
+Els camins dels escalars són els VALORS PER DEFECTE: sobreescrivibles per
+pantalla i persistits a `field_mappings` (specs/field-mapping.md).
 """
 
+import re
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 DOWNLOAD_PATH = "/portal-api/descarrega-document/{id}/{hash}"
+
+
+@dataclass(frozen=True)
+class PscpField:
+    """Escalar promocionat des del JSON de fase: camí per defecte, tipus,
+    etiqueta i fases on aplica. Un camí «~text» és cerca heurística (el
+    primer valor el camí del qual conté el text)."""
+
+    path: str
+    kind: str  # raw | text | amount | bool | int
+    label: str
+    phases: tuple[str, ...]
+
+
+_LOT = "publicacio.dadesPublicacioLot[0]"
+_DADES = "publicacio.dadesPublicacio"
+_AWARD_PHASES = ("adjudicacio", "formalitzacio")
+
+PSCP_FIELDS: dict[str, PscpField] = {
+    "is_harmonized": PscpField(
+        f"{_DADES}.contracteHarmonitzat", "raw", "Contracte harmonitzat", ("licitacio",)
+    ),
+    "allows_extensions": PscpField(
+        f"{_DADES}.preveuenProrroguesAlsPlecs", "raw", "Preveu pròrrogues", ("licitacio",)
+    ),
+    "allows_modifications": PscpField(
+        f"{_DADES}.preveuenModificacionsAlsPlecs", "raw", "Preveu modificacions", ("licitacio",)
+    ),
+    "social_reserve": PscpField(
+        f"{_LOT}.reservaSocial", "bool", "Reserva social", ("licitacio",)
+    ),
+    "definitive_guarantee": PscpField(
+        f"{_LOT}.garantiaDefinitiva", "text", "Garantia definitiva", ("licitacio",)
+    ),
+    "place_of_execution": PscpField(
+        f"{_LOT}.llocExecucio", "text", "Lloc d'execució", ("licitacio",)
+    ),
+    "award_amount": PscpField(
+        f"{_LOT}.importAdjudicacio", "raw", "Import d'adjudicació", _AWARD_PHASES
+    ),
+    "award_date": PscpField(
+        f"{_LOT}.dataAdjudicacio", "raw", "Data d'adjudicació", _AWARD_PHASES
+    ),
+    "winner_name": PscpField(
+        f"{_LOT}.empresesAdjudicataries[0].denominacio", "text", "Adjudicatari", _AWARD_PHASES
+    ),
+    "winner_tax_id": PscpField(
+        f"{_LOT}.empresesAdjudicataries[0].identificador",
+        "raw",
+        "Adjudicatari (NIF)",
+        _AWARD_PHASES,
+    ),
+    "appeal_notice": PscpField(f"{_LOT}.peuDeRecurs", "text", "Peu de recurs", _AWARD_PHASES),
+    "received_offers": PscpField(
+        "~nombreofertes",
+        "int",
+        "Ofertes rebudes",
+        ("licitacio", "avaluacio", "adjudicacio", "formalitzacio"),
+    ),
+}
+
+_PATH_TOKEN = re.compile(r"([a-zA-Z0-9_]+)|\[(\d+)\]")
+
+
+def path_get(data: Any, path: str) -> Any:
+    """Valor d'un camí «a.b[0].c» dins del JSON; None si no existeix."""
+    node = data
+    for match in _PATH_TOKEN.finditer(path):
+        key, index = match.group(1), match.group(2)
+        if key is not None:
+            if not isinstance(node, dict):
+                return None
+            node = node.get(key)
+        else:
+            if not isinstance(node, list) or int(index) >= len(node):
+                return None
+            node = node[int(index)]
+        if node is None:
+            return None
+    return node
+
+
+def flatten_paths(data: Any, *, max_entries: int = 400) -> dict[str, Any]:
+    """Aplana el JSON de fase a {camí: valor escalar} per a la UI del mapejador."""
+    flattened: dict[str, Any] = {}
+    for path, value in _walk(data):
+        if len(flattened) >= max_entries:
+            break
+        flattened[path.lstrip(".")] = value
+    return flattened
 
 
 def ml(value: Any) -> str | None:
@@ -153,41 +247,41 @@ def collect_criteria(data: Any) -> list[dict[str, Any]]:
     return criteria
 
 
-def _first_lot(phase: dict[str, Any]) -> dict[str, Any]:
-    lots = phase.get("publicacio", {}).get("dadesPublicacioLot") or []
-    return lots[0] if lots and isinstance(lots[0], dict) else {}
-
-
-def extract_scalars(phase_name: str, phase: dict[str, Any]) -> dict[str, Any]:
-    """Escalars promocionats + resum per a contracts.enrichment."""
-    publicacio = phase.get("publicacio", {})
-    dades = publicacio.get("dadesPublicacio") or {}
-    lot = _first_lot(phase)
-
-    scalars: dict[str, Any] = {}
-    if phase_name == "licitacio":
-        scalars["is_harmonized"] = dades.get("contracteHarmonitzat")
-        scalars["allows_extensions"] = dades.get("preveuenProrroguesAlsPlecs")
-        scalars["allows_modifications"] = dades.get("preveuenModificacionsAlsPlecs")
-        scalars["social_reserve"] = (
-            bool(lot.get("reservaSocial")) if lot.get("reservaSocial") is not None else None
-        )
-        scalars["definitive_guarantee"] = ml(lot.get("garantiaDefinitiva"))
-        scalars["place_of_execution"] = ml(lot.get("llocExecucio"))
-    if phase_name in ("adjudicacio", "formalitzacio"):
-        scalars["award_amount"] = lot.get("importAdjudicacio")
-        scalars["award_date"] = lot.get("dataAdjudicacio")
-        winners = lot.get("empresesAdjudicataries") or []
-        if winners and isinstance(winners[0], dict):
-            scalars["winner_name"] = ml(winners[0].get("denominacio")) or winners[0].get(
-                "denominacio"
-            )
-            scalars["winner_tax_id"] = winners[0].get("identificador")
-        scalars["appeal_notice"] = ml(lot.get("peuDeRecurs"))
-    offers = _find_scalar(phase, "nombreofertes")
-    if offers is not None:
+def _convert(value: Any, kind: str) -> Any:
+    if value is None:
+        return None
+    if kind == "text":
+        return ml(value) or (str(value) if not isinstance(value, (dict, list)) else None)
+    if kind == "amount":
+        return _decimal(value)
+    if kind == "bool":
+        return bool(value)
+    if kind == "int":
         try:
-            scalars["received_offers"] = int(offers)
+            return int(value)
         except (TypeError, ValueError):
-            pass
-    return {key: value for key, value in scalars.items() if value is not None}
+            return None
+    return value  # raw
+
+
+def extract_scalars(
+    phase_name: str, phase: dict[str, Any], overrides: dict[str, str] | None = None
+) -> dict[str, Any]:
+    """Escalars promocionats + resum per a contracts.enrichment.
+
+    Els camins per defecte són a PSCP_FIELDS; `overrides` (field_mappings,
+    font «pscp») hi mana. Un camí «~text» fa cerca heurística.
+    """
+    effective = overrides or {}
+    scalars: dict[str, Any] = {}
+    for target, definition in PSCP_FIELDS.items():
+        if phase_name not in definition.phases:
+            continue
+        path = effective.get(target) or definition.path
+        raw_value = (
+            _find_scalar(phase, path[1:]) if path.startswith("~") else path_get(phase, path)
+        )
+        value = _convert(raw_value, definition.kind)
+        if value is not None:
+            scalars[target] = value
+    return scalars

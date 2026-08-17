@@ -31,6 +31,39 @@ logger = structlog.get_logger()
 
 _PAGE_SIZE = 1000
 
+# Camps mapejables del dataset RPC (registre únic; specs/field-mapping.md).
+# Els defaults transcriuen specs/remaining-syncs.md; overrides a field_mappings.
+from app.integrations.socrata.mapping import FieldDef  # noqa: E402
+
+RPC_FIELDS: dict[str, FieldDef] = {
+    "minor.contract_type": FieldDef("tipus_contracte", "text", "Menor: tipus de contracte"),
+    "minor.description": FieldDef("contracte", "text", "Menor: descripció"),
+    "minor.award_amount": FieldDef("import_adjudicacio", "amount", "Menor: import adjudicació"),
+    "minor.award_date": FieldDef("data_adjudicacio", "date", "Menor: data adjudicació"),
+    "minor.fiscal_year": FieldDef("exercici", "int", "Menor: exercici"),
+    "minor.duration_years": FieldDef("anys_durada", "int", "Menor: durada (anys)"),
+    "minor.duration_months": FieldDef("mesos_durada", "int", "Menor: durada (mesos)"),
+    "minor.duration_days": FieldDef("dies_durada", "int", "Menor: durada (dies)"),
+    "minor.settlement_type": FieldDef("tipus_liquidacio", "text", "Menor: tipus de liquidació"),
+    "minor.settlement_date": FieldDef("data_liquidacio", "date", "Menor: data de liquidació"),
+    "minor.settlement_amount": FieldDef(
+        "import_liquidacio", "amount", "Menor: import de liquidació"
+    ),
+    "minor.contractor_name": FieldDef("adjudicatari", "text", "Menor: adjudicatari"),
+    "extension.number": FieldDef("numero_prorroga", "int", "Pròrroga: número"),
+    "extension.start_date": FieldDef("data_inici_prorroga", "date", "Pròrroga: inici"),
+    "extension.end_date": FieldDef("data_fi_prorroga", "date", "Pròrroga: fi"),
+    "extension.amount": FieldDef("import_adjudicacio", "amount", "Pròrroga: import"),
+    "extension.fiscal_year": FieldDef("exercici", "int", "Pròrroga: exercici"),
+    "modification.approved_at": FieldDef("data_adjudicacio", "date", "Modificació: aprovada"),
+    "modification.type": FieldDef("situaci_contractual", "text", "Modificació: tipus"),
+    "modification.amount": FieldDef("import_adjudicacio", "amount", "Modificació: import"),
+}
+
+
+def _src(overrides: dict[str, str] | None, target: str) -> str:
+    return (overrides or {}).get(target) or RPC_FIELDS[target].source
+
 
 async def _rpc_connector() -> SocrataConnector:
     async with session_factory() as session:
@@ -85,7 +118,23 @@ async def _propagate_end_date(
             row.calculated_end_date = new_end
 
 
-async def _upsert_extension(session: AsyncSession, record: dict[str, Any], run_id: int) -> str:
+def extension_values(
+    record: dict[str, Any], overrides: dict[str, str] | None = None
+) -> dict[str, Any]:
+    return {
+        "start_date": sc.parse_date_value(record.get(_src(overrides, "extension.start_date"))),
+        "end_date": sc.parse_date_value(record.get(_src(overrides, "extension.end_date"))),
+        "amount": sc.parse_amount(record.get(_src(overrides, "extension.amount"))),
+        "fiscal_year": sc.parse_int(record.get(_src(overrides, "extension.fiscal_year"))),
+    }
+
+
+async def _upsert_extension(
+    session: AsyncSession,
+    record: dict[str, Any],
+    run_id: int,
+    overrides: dict[str, str] | None = None,
+) -> str:
     file_code = str(record.get("codi_expedient") or "").strip()
     if not file_code:
         raise ValueError("pròrroga sense codi_expedient")
@@ -96,13 +145,8 @@ async def _upsert_extension(session: AsyncSession, record: dict[str, Any], run_i
         return "unmatched"
 
     representative = contracts[0]
-    number = sc.parse_int(record.get("numero_prorroga")) or 1
-    values = {
-        "start_date": sc.parse_date_value(record.get("data_inici_prorroga")),
-        "end_date": sc.parse_date_value(record.get("data_fi_prorroga")),
-        "amount": sc.parse_amount(record.get("import_adjudicacio")),
-        "fiscal_year": sc.parse_int(record.get("exercici")),
-    }
+    number = sc.parse_int(record.get(_src(overrides, "extension.number"))) or 1
+    values = extension_values(record, overrides)
 
     existing = (
         await session.execute(
@@ -129,7 +173,22 @@ async def _upsert_extension(session: AsyncSession, record: dict[str, Any], run_i
     return outcome
 
 
-async def _upsert_modification(session: AsyncSession, record: dict[str, Any], run_id: int) -> str:
+def modification_values(
+    record: dict[str, Any], overrides: dict[str, str] | None = None
+) -> dict[str, Any]:
+    return {
+        "approved_at": sc.parse_date_value(record.get(_src(overrides, "modification.approved_at"))),
+        "type": str(record.get(_src(overrides, "modification.type")) or "")[:100] or None,
+        "amount": sc.parse_amount(record.get(_src(overrides, "modification.amount"))),
+    }
+
+
+async def _upsert_modification(
+    session: AsyncSession,
+    record: dict[str, Any],
+    run_id: int,
+    overrides: dict[str, str] | None = None,
+) -> str:
     file_code = str(record.get("codi_expedient") or "").strip()
     if not file_code:
         raise ValueError("modificació sense codi_expedient")
@@ -146,7 +205,9 @@ async def _upsert_modification(session: AsyncSession, record: dict[str, Any], ru
         )
     ).scalars()
     numbers = [m.number for m in existing_count]
-    number = sc.parse_int(record.get("numero_prorroga")) or (max(numbers, default=0) + 1)
+    number = sc.parse_int(record.get(_src(overrides, "extension.number"))) or (
+        max(numbers, default=0) + 1
+    )
     if number in numbers:
         return "unchanged"
 
@@ -156,10 +217,8 @@ async def _upsert_modification(session: AsyncSession, record: dict[str, Any], ru
         Modification(
             contract_id=representative.id,
             number=number,
-            approved_at=sc.parse_date_value(record.get("data_adjudicacio")),
-            type=str(record.get("situaci_contractual") or "")[:100] or None,
-            amount=sc.parse_amount(record.get("import_adjudicacio")),
             raw=record,
+            **modification_values(record, overrides),
         )
     )
     await session.flush()
@@ -176,6 +235,10 @@ async def sync_extensions(ctx: JobContext) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
 
     try:
+        from app.integrations.field_mappings import get_overrides
+
+        async with session_factory() as session:
+            overrides = await get_overrides(session, "rpc")
         connector = await _rpc_connector()
         rows = await _fetch_rpc_rows(connector, ine10)
         relevant = [
@@ -189,9 +252,9 @@ async def sync_extensions(ctx: JobContext) -> dict[str, Any]:
             async with session_factory() as session:
                 try:
                     if kind == "extension":
-                        outcome = await _upsert_extension(session, record, run_id)
+                        outcome = await _upsert_extension(session, record, run_id, overrides)
                     else:
-                        outcome = await _upsert_modification(session, record, run_id)
+                        outcome = await _upsert_modification(session, record, run_id, overrides)
                     await session.commit()
                     counters[outcome] += 1
                 except Exception as exc:
@@ -237,7 +300,11 @@ _MINOR_FIELDS = (
 )
 
 
-def merge_minor_records(file_code: str, group: list[dict[str, Any]]) -> dict[str, Any] | None:
+def merge_minor_records(
+    file_code: str,
+    group: list[dict[str, Any]],
+    overrides: dict[str, str] | None = None,
+) -> dict[str, Any] | None:
     """Fusió adjudicació + liquidació d'un expedient (02 §2.5)."""
     award = next(
         (r for r in group if sc.classify_situacio(r.get("situaci_contractual")) == "minor_award"),
@@ -251,22 +318,31 @@ def merge_minor_records(file_code: str, group: list[dict[str, Any]]) -> dict[str
         return None
     base = award or settlement or {}
 
+    def src(target: str) -> str:
+        return _src(overrides, target)
+
+    description = base.get(src("minor.description")) or base.get("descripcio_expedient")
     return {
         "file_code": file_code,
-        "contract_type": str(base.get("tipus_contracte") or "")[:100] or None,
-        "description": str(base.get("contracte") or base.get("descripcio_expedient") or "") or None,
-        "award_amount": sc.parse_amount((award or {}).get("import_adjudicacio")),
-        "award_date": sc.parse_date_value((award or {}).get("data_adjudicacio")),
-        "fiscal_year": sc.parse_int(base.get("exercici")),
-        "duration_years": sc.parse_int(base.get("anys_durada")),
-        "duration_months": sc.parse_int(base.get("mesos_durada")),
-        "duration_days": sc.parse_int(base.get("dies_durada")),
-        "settlement_type": str((settlement or {}).get("tipus_liquidacio") or "")[:100] or None,
-        "settlement_date": sc.parse_date_value((settlement or {}).get("data_liquidacio")),
-        "settlement_amount": sc.parse_amount((settlement or {}).get("import_liquidacio")),
+        "contract_type": str(base.get(src("minor.contract_type")) or "")[:100] or None,
+        "description": str(description or "") or None,
+        "award_amount": sc.parse_amount((award or {}).get(src("minor.award_amount"))),
+        "award_date": sc.parse_date_value((award or {}).get(src("minor.award_date"))),
+        "fiscal_year": sc.parse_int(base.get(src("minor.fiscal_year"))),
+        "duration_years": sc.parse_int(base.get(src("minor.duration_years"))),
+        "duration_months": sc.parse_int(base.get(src("minor.duration_months"))),
+        "duration_days": sc.parse_int(base.get(src("minor.duration_days"))),
+        "settlement_type": str((settlement or {}).get(src("minor.settlement_type")) or "")[:100]
+        or None,
+        "settlement_date": sc.parse_date_value(
+            (settlement or {}).get(src("minor.settlement_date"))
+        ),
+        "settlement_amount": sc.parse_amount(
+            (settlement or {}).get(src("minor.settlement_amount"))
+        ),
         "raw_award": award,
         "raw_settlement": settlement,
-        "_contractor_name": str(base.get("adjudicatari") or "").strip() or None,
+        "_contractor_name": str(base.get(src("minor.contractor_name")) or "").strip() or None,
     }
 
 
@@ -312,6 +388,10 @@ async def sync_minor_contracts(ctx: JobContext) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
 
     try:
+        from app.integrations.field_mappings import get_overrides
+
+        async with session_factory() as session:
+            overrides = await get_overrides(session, "rpc")
         connector = await _rpc_connector()
         rows = await _fetch_rpc_rows(connector, ine10, only_minor=True)
         groups: dict[str, list[dict[str, Any]]] = {}
@@ -322,7 +402,7 @@ async def sync_minor_contracts(ctx: JobContext) -> dict[str, Any]:
         await ctx.set_progress(10, f"{len(groups)} expedients menors ({len(rows)} registres)")
 
         for index, (file_code, group) in enumerate(groups.items(), start=1):
-            values = merge_minor_records(file_code, group)
+            values = merge_minor_records(file_code, group, overrides)
             if values is None:
                 continue
             async with session_factory() as session:

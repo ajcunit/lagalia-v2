@@ -202,9 +202,16 @@ def _datetime(record: dict[str, Any], key: str) -> datetime | None:
     if value is None:
         return None
     try:
-        return datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
+    if parsed.tzinfo is None:
+        # Les hores del dataset són locals (portal català): es fixen
+        # explícitament per no dependre del fus del servidor de BD.
+        from zoneinfo import ZoneInfo
+
+        parsed = parsed.replace(tzinfo=ZoneInfo("Europe/Madrid"))
+    return parsed
 
 
 def content_hash(record: dict[str, Any]) -> str:

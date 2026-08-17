@@ -50,6 +50,7 @@ async def _enrich_one(
     contract: Contract,
     *,
     download_documents: bool,
+    overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     phase_urls: dict[str, str] = contract.phase_urls or {}
     enrichment: dict[str, Any] = {}
@@ -73,7 +74,7 @@ async def _enrich_one(
                 "pscp_phase_skipped", contract_id=contract.id, phase=phase_name, error=str(exc)
             )
             continue
-        enrichment[phase_name] = extract.extract_scalars(phase_name, payload)
+        enrichment[phase_name] = extract.extract_scalars(phase_name, payload, overrides)
         # El mateix criteri/membre pot aparèixer a més d'una fase: es dedueix.
         for criterion in extract.collect_criteria(payload):
             if criterion["name"] not in seen_criteria:
@@ -173,6 +174,9 @@ async def enrich_contract(ctx: JobContext) -> dict[str, Any]:
 
     connector = await _pscp_connector()
     async with session_factory() as session:
+        from app.integrations.field_mappings import get_overrides
+
+        overrides = await get_overrides(session, "pscp")
         contract = await session.get(Contract, contract_id)
         if contract is None:
             raise RuntimeError(f"contracte {contract_id} inexistent")
@@ -182,7 +186,8 @@ async def enrich_contract(ctx: JobContext) -> dict[str, Any]:
             return {"skipped": True, "reason": "sense phase_urls"}
         async with connector.client() as client:
             result = await _enrich_one(
-                session, client, contract, download_documents=download_documents
+                session, client, contract,
+                download_documents=download_documents, overrides=overrides,
             )
         await session.commit()
     logger.info("enrich_contract_finished", contract_id=contract_id, **result)
@@ -201,6 +206,9 @@ async def enrich_batch(ctx: JobContext) -> dict[str, Any]:
 
     connector = await _pscp_connector()
     async with session_factory() as session:
+        from app.integrations.field_mappings import get_overrides
+
+        overrides = await get_overrides(session, "pscp")
         stmt = select(Contract.id).where(Contract.phase_urls.is_not(None))
         if not force:
             stmt = stmt.where(Contract.enriched_at.is_(None))
@@ -218,7 +226,8 @@ async def enrich_batch(ctx: JobContext) -> dict[str, Any]:
                     try:
                         already = contract.enriched_at is not None
                         await _enrich_one(
-                            session, client, contract, download_documents=download_documents
+                            session, client, contract,
+                            download_documents=download_documents, overrides=overrides,
                         )
                         await session.commit()
                         counters["updated" if already else "new"] += 1
