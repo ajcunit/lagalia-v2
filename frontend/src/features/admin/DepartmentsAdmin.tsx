@@ -85,6 +85,7 @@ export function DepartmentsAdmin() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
+          backTo="/admin"
           icon={Network}
           title={t("admin.departments.title")}
           subtitle={

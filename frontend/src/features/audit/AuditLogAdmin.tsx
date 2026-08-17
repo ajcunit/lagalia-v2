@@ -84,7 +84,9 @@ export function AuditLogAdmin() {
     <div>
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <PageHeader icon={ShieldCheck} title={t("audit.title")} subtitle={t("audit.intro")} />
+          <PageHeader
+          backTo="/admin"
+          icon={ShieldCheck} title={t("audit.title")} subtitle={t("audit.intro")} />
         </div>
         <span className="ml-auto flex items-center gap-2">
           <Button disabled={verify.isPending} onClick={() => verify.mutate()}>

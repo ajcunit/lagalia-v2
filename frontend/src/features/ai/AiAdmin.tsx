@@ -584,7 +584,9 @@ export function AiAdmin() {
 
   return (
     <div>
-      <PageHeader icon={Bot} title={t("ai.title")} subtitle={t("ai.intro")} />
+      <PageHeader
+          backTo="/admin"
+          icon={Bot} title={t("ai.title")} subtitle={t("ai.intro")} />
 
       <div className="mt-4"><NewProviderForm /></div>
 

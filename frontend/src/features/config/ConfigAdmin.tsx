@@ -308,7 +308,9 @@ export function ConfigAdmin() {
 
   return (
     <div>
-      <PageHeader icon={SlidersHorizontal} title={t("config.title")} subtitle={t("config.intro")} />
+      <PageHeader
+          backTo="/admin"
+          icon={SlidersHorizontal} title={t("config.title")} subtitle={t("config.intro")} />
 
       <h2 className="mt-6 text-lg font-semibold text-ink">{t("config.connectors")}</h2>
       <div className="mt-3 grid gap-4 lg:grid-cols-2">

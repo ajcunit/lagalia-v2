@@ -144,7 +144,9 @@ export function UsersAdmin() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <PageHeader icon={Users} title={t("admin.users.title")} />
+          <PageHeader
+          backTo="/admin"
+          icon={Users} title={t("admin.users.title")} />
           {users.data && (
             <p className="text-sm text-muted">
               {t("admin.users.total", { total: users.data.meta.total })}

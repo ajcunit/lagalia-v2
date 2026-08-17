@@ -48,6 +48,7 @@ export function Shell() {
                 <div className="mx-3 mb-2 border-t border-line" />
                 <NavLink
                   to={ADMIN_NAV_ITEM.to}
+                  end
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
                       isActive

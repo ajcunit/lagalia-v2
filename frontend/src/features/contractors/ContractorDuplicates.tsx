@@ -131,7 +131,9 @@ export function ContractorDuplicates() {
 
   return (
     <div>
-      <PageHeader icon={Copy} title={t("duplicates.title")} subtitle={t("duplicates.intro")} />
+      <PageHeader
+          backTo="/admin"
+          icon={Copy} title={t("duplicates.title")} subtitle={t("duplicates.intro")} />
 
       <div role="tablist" className="mt-4 flex gap-1 border-b border-line">
         {TABS.map((candidate) => (

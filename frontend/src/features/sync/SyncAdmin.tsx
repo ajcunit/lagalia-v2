@@ -120,7 +120,9 @@ export function SyncAdmin() {
 
   return (
     <div>
-      <PageHeader icon={RefreshCw} title={t("sync.title")} subtitle={t("sync.intro")} />
+      <PageHeader
+          backTo="/admin"
+          icon={RefreshCw} title={t("sync.title")} subtitle={t("sync.intro")} />
 
       {canExecute && (
         <div className="mt-4 flex flex-wrap gap-2">

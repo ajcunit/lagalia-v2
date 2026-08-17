@@ -116,7 +116,9 @@ export function ServiceAccountsAdmin() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <PageHeader icon={KeyRound} title={t("sa.title")} subtitle={t("sa.intro")} />
+          <PageHeader
+          backTo="/admin"
+          icon={KeyRound} title={t("sa.title")} subtitle={t("sa.intro")} />
         </div>
         {!creating && (
           <Button tone="accent" onClick={() => { setCreating(true); setNewKey(null); }}>

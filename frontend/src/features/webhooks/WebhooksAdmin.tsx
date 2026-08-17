@@ -140,7 +140,9 @@ export function WebhooksAdmin() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <PageHeader icon={WebhookIcon} title={t("webhooks.title")} subtitle={t("webhooks.intro")} />
+          <PageHeader
+          backTo="/admin"
+          icon={WebhookIcon} title={t("webhooks.title")} subtitle={t("webhooks.intro")} />
         </div>
         {!creating && (
           <Button tone="accent" onClick={() => { setCreating(true); setNewSecret(null); }}>
