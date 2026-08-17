@@ -22,6 +22,7 @@ import {
 } from "../../lib/format";
 import { Folder, FolderOpen, Scale } from "lucide-react";
 
+import { ChatView } from "../chat/ChatView";
 import { ContractTasks } from "../tasks/ContractTasks";
 import {
   useContract,
@@ -362,6 +363,7 @@ export function ContractDetail() {
             },
             { key: "historial", label: t("sheet.tabHistory"), count: data.counters.history },
             { key: "tasques", label: t("sheet.tabTasks") },
+            { key: "xat", label: t("sheet.tabChat") },
           ]}
           active={tab}
           onSelect={setTab}
@@ -602,6 +604,12 @@ export function ContractDetail() {
       {tab === "tasques" && (
         <div className="mt-4">
           <ContractTasks contractId={id} />
+        </div>
+      )}
+
+      {tab === "xat" && (
+        <div className="mt-4">
+          <ChatView scope="contract" contractId={id} />
         </div>
       )}
 

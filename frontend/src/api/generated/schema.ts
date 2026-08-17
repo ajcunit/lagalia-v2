@@ -730,6 +730,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat/threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Converses pròpies (general i per expedient), més recents primer */
+        get: operations["listChatThreads"];
+        put?: never;
+        /** Crea una conversa (contract exigeix expedient visible) */
+        post: operations["createChatThread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/threads/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conversa amb tots els missatges */
+        get: operations["getChatThread"];
+        put?: never;
+        post?: never;
+        /** Esborra la conversa i els seus missatges */
+        delete: operations["deleteChatThread"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit-log": {
         parameters: {
             query?: never;
@@ -2889,6 +2925,29 @@ export interface components {
             /** @description Hi ha còpia del fitxer a l'emmagatzematge local. */
             has_copy?: boolean;
         };
+        ChatThread: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            scope: "general" | "contract";
+            /** Format: int64 */
+            contract_id: number | null;
+            title: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ChatMessage: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            content: string;
+            sources?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Format: date-time */
+            created_at: string;
+        };
         /**
          * @description Mapeig d'un camp del model des de la font de dades. El defecte ve
          *     de l'annex A1; l'override manual queda persistit a `field_mappings`.
@@ -4424,6 +4483,114 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listChatThreads: {
+        parameters: {
+            query?: {
+                scope?: "general" | "contract";
+                contract_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Converses */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ChatThread"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createChatThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    scope: "general" | "contract";
+                    /** Format: int64 */
+                    contract_id?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Conversa creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatThread"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    getChatThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conversa i missatges */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        thread: components["schemas"]["ChatThread"];
+                        messages: components["schemas"]["ChatMessage"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteChatThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Esborrada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listAuditLog: {

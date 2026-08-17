@@ -32,6 +32,7 @@ import { CpvSearch } from "./features/cpv/CpvSearch";
 import { AnnualPlan } from "./features/plan/AnnualPlan";
 import { AiAdmin } from "./features/ai/AiAdmin";
 import { Analyst } from "./features/analyst/Analyst";
+import { ChatPage } from "./features/chat/ChatPage";
 import { DocGenerator } from "./features/docgen/DocGenerator";
 import { AdminHub } from "./features/admin/AdminHub";
 import { FieldMappingsAdmin } from "./features/admin/FieldMappingsAdmin";
@@ -76,6 +77,7 @@ export function App() {
               <Route path="/plan" element={<AnnualPlan />} />
               <Route path="/admin/ai" element={<AiAdmin />} />
               <Route path="/analyst" element={<Analyst />} />
+              <Route path="/chat" element={<ChatPage />} />
               <Route path="/generator" element={<DocGenerator />} />
               <Route path="/admin" element={<AdminHub />} />
               <Route path="/admin/users" element={<UsersAdmin />} />

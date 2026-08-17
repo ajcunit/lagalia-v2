@@ -78,6 +78,7 @@ async def answer_events(
     session: AsyncSession,
     question: str,
     *,
+    history: list[dict[str, str]] | None = None,
     user_id: int | None = None,
     trace_id: str | None = None,
 ):
@@ -85,11 +86,13 @@ async def answer_events(
 
     Cada iteració LLM s'emet en streaming: si comença per '{' és una crida
     d'eina (es recull sencera i s'emet el pas); si no, és la resposta final
-    i els tokens s'emeten en directe.
+    i els tokens s'emeten en directe. `history` (xat general, B-016) són
+    els torns previs de la conversa; la pregunta actual va al final.
     """
     resolved = await tasks.resolve(session, "analyst.chat")
     messages: list[dict[str, str]] = [
         {"role": "system", "content": _system_prompt()},
+        *(history or []),
         {"role": "user", "content": question},
     ]
     for _ in range(_MAX_STEPS):

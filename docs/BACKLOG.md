@@ -111,7 +111,7 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Specs afectades:** [10-ui.md](10-ui.md) (revisió general), specs de pantalla existents a mesura que es toquin.
 
 ### B-016 · Xat general i xat per expedient
-- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** L
+- **Prioritat:** P1 · **Estat:** Implementada (2026-08-17, specs/chat.md) · **Mida:** L
 - **Descripció:** petició de l'Esteve (2026-08-17). Dues superfícies conversacionals:
   1. **Xat general**: conversa multi-torn amb l'assistent sobre la contractació de l'ens (evolució de l'analista de dades, que avui és pregunta-resposta d'un sol torn amb eines tancades).
   2. **Xat per expedient**: dins de la fitxa d'un contracte, poder «parlar de l'expedient» — l'assistent té el context d'aquell expedient (dades, pròrrogues, modificacions, criteris, mesa i **els seus documents indexats al RAG**) i respon amb citació de la font.

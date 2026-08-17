@@ -80,6 +80,8 @@ tags:
     description: Verificador de compliment LCSP (motor de regles determinista)
   - name: docgen
     description: Generador documental amb IA (projectes PPT/PPA/Informe, RAG amb fonts)
+  - name: chat
+    description: Xat general i per expedient, amb historial persistent (B-016)
 
 security:
   - bearerAuth: []
@@ -1213,6 +1215,94 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+
+  # ───────────────────────── chat ─────────────────────────
+  /chat/threads:
+    get:
+      tags: [chat]
+      operationId: listChatThreads
+      summary: Converses pròpies (general i per expedient), més recents primer
+      x-required-scopes: [tools:use]
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [general, contract] }
+        - name: contract_id
+          in: query
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "200":
+          description: Converses
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChatThread" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [chat]
+      operationId: createChatThread
+      summary: Crea una conversa (contract exigeix expedient visible)
+      x-required-scopes: [tools:use]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scope]
+              properties:
+                scope: { type: string, enum: [general, contract] }
+                contract_id: { type: [integer, "null"], format: int64 }
+      responses:
+        "201":
+          description: Conversa creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatThread" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /chat/threads/{id}:
+    get:
+      tags: [chat]
+      operationId: getChatThread
+      summary: Conversa amb tots els missatges
+      x-required-scopes: [tools:use]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Conversa i missatges
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [thread, messages]
+                properties:
+                  thread: { $ref: "#/components/schemas/ChatThread" }
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/ChatMessage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [chat]
+      operationId: deleteChatThread
+      summary: Esborra la conversa i els seus missatges
+      x-required-scopes: [tools:use]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "204": { description: Esborrada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   # ───────────────────────── audit ─────────────────────────
   /audit-log:
@@ -4799,6 +4889,28 @@ components:
         has_copy:
           type: boolean
           description: Hi ha còpia del fitxer a l'emmagatzematge local.
+
+    ChatThread:
+      type: object
+      required: [id, scope, contract_id, title, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        scope: { type: string, enum: [general, contract] }
+        contract_id: { type: [integer, "null"], format: int64 }
+        title: { type: [string, "null"] }
+        updated_at: { type: string, format: date-time }
+
+    ChatMessage:
+      type: object
+      required: [id, role, content, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string }
+        sources:
+          type: [array, "null"]
+          items: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
 
     FieldMapping:
       type: object

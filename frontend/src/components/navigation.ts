@@ -12,6 +12,7 @@ import {
   KeyRound,
   Layers,
   LayoutDashboard,
+  MessagesSquare,
   Network,
   Receipt,
   RefreshCw,
@@ -52,6 +53,7 @@ export const MAIN_NAV: NavItem[] = [
   { to: "/search", labelKey: "nav.superSearch", icon: Globe, action: "tools:use" },
   { to: "/generator", labelKey: "nav.docgen", icon: Layers, action: "tools:use" },
   { to: "/analyst", labelKey: "nav.analyst", icon: BarChart3, action: "audit:run" },
+  { to: "/chat", labelKey: "nav.chat", icon: MessagesSquare, action: "audit:run" },
   { to: "/audit", labelKey: "nav.riskAudit", icon: ShieldAlert, action: "audit:run" },
   { to: "/plan", labelKey: "nav.plan", icon: ClipboardList, action: "plan:read" },
 ];
