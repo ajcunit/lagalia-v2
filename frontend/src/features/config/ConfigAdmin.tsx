@@ -281,6 +281,7 @@ function SettingsTable(props: { canWrite: boolean }) {
                   <input
                     value={edits[setting.key] ?? String(setting.value ?? "")}
                     onChange={(e) => setEdits({ ...edits, [setting.key]: e.target.value })}
+                    placeholder={setting.placeholder ?? ""}
                     className="w-full rounded-md border border-line bg-surface px-2 py-1 text-sm font-mono"
                   />
                   {edits[setting.key] !== undefined && (

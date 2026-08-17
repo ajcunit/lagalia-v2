@@ -2157,6 +2157,7 @@ export interface components {
             description?: string | null;
             is_secret: boolean;
             is_set: boolean;
+            placeholder?: string;
         };
         Connector: {
             slug: string;

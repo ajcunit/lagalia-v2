@@ -16,6 +16,7 @@ from app.integrations import hub
 from app.integrations.models import ConnectorCredential
 from app.modules.audit.models import AuditActorType
 from app.modules.audit.service import record_audit
+from app.modules.config.known_settings import KNOWN_SETTINGS
 from app.modules.config.models import Setting
 from app.modules.users.dependencies import get_request_context
 from app.modules.users.service import RequestContext
@@ -55,6 +56,7 @@ class SettingResponse(BaseModel):
     description: str | None = None
     is_secret: bool
     is_set: bool
+    placeholder: str = ""
 
 
 class SettingUpdate(BaseModel):
@@ -76,8 +78,30 @@ def _setting_response(setting: Setting) -> SettingResponse:
 
 @router.get("/settings", operation_id="listSettings")
 async def list_settings(session: SessionDep, _authz: ReadDep) -> dict[str, list[SettingResponse]]:
-    settings_rows = (await session.execute(select(Setting).order_by(Setting.key))).scalars()
-    return {"data": [_setting_response(s) for s in settings_rows]}
+    """Paràmetres existents + els coneguts encara no creats (editables)."""
+    rows = list((await session.execute(select(Setting).order_by(Setting.key))).scalars())
+    responses = [_setting_response(row) for row in rows]
+    existing = {row.key for row in rows}
+    by_key = {item.key: item for item in KNOWN_SETTINGS}
+    for response in responses:
+        known = by_key.get(response.key)
+        if known is not None:
+            response.placeholder = known.placeholder
+            response.description = response.description or known.description
+    for known in KNOWN_SETTINGS:
+        if known.key not in existing:
+            responses.append(
+                SettingResponse(
+                    key=known.key,
+                    value=None,
+                    description=known.description,
+                    is_secret=known.is_secret,
+                    is_set=False,
+                    placeholder=known.placeholder,
+                )
+            )
+    responses.sort(key=lambda item: item.key)
+    return {"data": responses}
 
 
 @router.put("/settings/{key}", operation_id="putSetting")

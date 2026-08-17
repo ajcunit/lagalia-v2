@@ -119,6 +119,13 @@ async def test_connectors_config_api(api_client, make_user) -> None:  # type: ig
         == 403
     )
 
+    # Els paràmetres coneguts surten encara que no existeixin a la BD.
+    listing_before = api_client.get("/api/v1/settings", headers=admin).json()["data"]
+    recipients = next(
+        s for s in listing_before if s["key"] == "reports.audit_recipients"
+    )
+    assert recipients["is_set"] is False and recipients["placeholder"]
+
     # Paràmetres: secret emmascarat.
     put = api_client.put(
         "/api/v1/settings/test.config_api_secret",

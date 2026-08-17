@@ -3897,6 +3897,7 @@ components:
         description: { type: [string, "null"] }
         is_secret: { type: boolean }
         is_set: { type: boolean }
+        placeholder: { type: string }
 
     Connector:
       type: object
