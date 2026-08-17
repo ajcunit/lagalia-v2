@@ -19,6 +19,7 @@ from app.core.db import get_session
 from app.core.problems import Problem
 from app.integrations import hub
 from app.integrations.base import ConnectorError
+from app.integrations.field_mappings import get_overrides
 from app.integrations.pscp.connector import PscpConnector
 from app.integrations.pscp.extract import collect_committee, collect_criteria, collect_documents
 from app.integrations.socrata.connector import SocrataConnector
@@ -68,9 +69,11 @@ class PhaseResponse(BaseModel):
     criteria: list[dict[str, Any]]
 
 
-def _card(record: dict[str, Any]) -> PublicContractCard:
-    mapped = map_contract(record)
-    contractor = contractor_fields(record)
+def _card(
+    record: dict[str, Any], overrides: dict[str, str] | None = None
+) -> PublicContractCard:
+    mapped = map_contract(record, overrides)
+    contractor = contractor_fields(record, overrides)
     return PublicContractCard(
         file_code=mapped["file_code"],
         lot=mapped["lot"],
@@ -155,8 +158,9 @@ async def search_public_registry(
         raise Problem(502, "El registre públic no respon", "upstream", detail=str(exc)) from None
 
     has_more = len(records) > page_size
+    overrides = await get_overrides(session, "socrata")
     return SearchResponse(
-        data=[_card(r) for r in records[:page_size]],
+        data=[_card(r, overrides) for r in records[:page_size]],
         meta={"page": page, "page_size": page_size, "has_more": has_more},
     )
 
@@ -182,12 +186,13 @@ async def get_public_contract(
     if not records:
         raise Problem(404, "Expedient desconegut al registre públic", "not-found")
 
+    overrides = await get_overrides(session, "socrata")
     rows = []
     for record in records:
-        mapped = map_contract(record)
+        mapped = map_contract(record, overrides)
         mapped.pop("raw", None)
         mapped.pop("content_hash", None)
-        mapped["contractor"] = contractor_fields(record)
+        mapped["contractor"] = contractor_fields(record, overrides)
         rows.append(mapped)
     return {"data": rows}
 

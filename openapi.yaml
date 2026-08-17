@@ -1079,6 +1079,128 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /connectors/{slug}/field-mappings:
+    get:
+      tags: [config]
+      operationId: listFieldMappings
+      summary: Mapeig de camps font → model (defectes + overrides manuals)
+      x-required-scopes: [config:read]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+      responses:
+        "200":
+          description: Mapeigs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/FieldMapping" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /connectors/{slug}/field-mappings/sample:
+    get:
+      tags: [config]
+      operationId: getFieldMappingSample
+      summary: Fila raw guardada d'un expedient (per triar camps amb valors reals)
+      x-required-scopes: [config:read]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+        - name: file_code
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        "200":
+          description: Camps del registre font
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [file_code, fields]
+                properties:
+                  file_code: { type: string }
+                  fields: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /connectors/{slug}/field-mappings/{target_field}:
+    put:
+      tags: [config]
+      operationId: setFieldMapping
+      summary: Desa l'override manual d'un camp (persistit)
+      x-required-scopes: [config:write]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+        - name: target_field
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100, pattern: "^[a-z0-9_.]+$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_field]
+              properties:
+                source_field:
+                  { type: string, minLength: 1, maxLength: 80, pattern: "^[a-z0-9_]+$" }
+      responses:
+        "200":
+          description: Mapeig efectiu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMapping" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [config]
+      operationId: resetFieldMapping
+      summary: Restaura el mapeig per defecte (esborra l'override)
+      x-required-scopes: [config:write]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+        - name: target_field
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100, pattern: "^[a-z0-9_.]+$" }
+      responses:
+        "204": { description: Restaurat }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /connectors/{slug}/actions/remap:
+    post:
+      tags: [config]
+      operationId: remapContracts
+      summary: Re-aplica el mapeig vigent sobre el raw guardat (job local)
+      x-required-scopes: [sync:execute]
+      parameters:
+        - $ref: "#/components/parameters/ConnectorSlug"
+      responses:
+        "202":
+          description: Job encuat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job_id, job_type]
+                properties:
+                  job_id: { type: string, format: uuid }
+                  job_type: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   # ───────────────────────── audit ─────────────────────────
   /audit-log:
     get:
@@ -4653,6 +4775,20 @@ components:
         has_copy:
           type: boolean
           description: Hi ha còpia del fitxer a l'emmagatzematge local.
+
+    FieldMapping:
+      type: object
+      description: |
+        Mapeig d'un camp del model des de la font de dades. El defecte ve
+        de l'annex A1; l'override manual queda persistit a `field_mappings`.
+      required: [target_field, label, kind, default_source_field, source_field, overridden]
+      properties:
+        target_field: { type: string, examples: ["duration_months"] }
+        label: { type: string }
+        kind: { type: string, enum: [text, amount, date, datetime, duration] }
+        default_source_field: { type: string }
+        source_field: { type: string }
+        overridden: { type: boolean }
 
     Job:
       type: object

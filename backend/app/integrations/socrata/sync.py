@@ -110,9 +110,14 @@ async def _assign_department(session: AsyncSession, contract_id: int, department
     )
 
 
-async def _upsert_record(session: AsyncSession, record: dict[str, Any], rules: list[Any]) -> str:
+async def _upsert_record(
+    session: AsyncSession,
+    record: dict[str, Any],
+    rules: list[Any],
+    overrides: dict[str, str] | None = None,
+) -> str:
     """Processa un registre; retorna 'new' | 'updated' | 'unchanged'."""
-    values = mapping.map_contract(record)
+    values = mapping.map_contract(record, overrides)
     if not values["file_code"]:
         raise ValueError("registre sense codi_expedient")
     now = datetime.now(UTC)
@@ -131,7 +136,9 @@ async def _upsert_record(session: AsyncSession, record: dict[str, Any], rules: l
         existing.last_synced_at = now
         return "unchanged"
 
-    contractor = await resolve_contractor(session, **mapping.contractor_fields(record))
+    contractor = await resolve_contractor(
+        session, **mapping.contractor_fields(record, overrides)
+    )
     if contractor is not None:
         values["contractor_id"] = contractor.contractor_id
         values["raw_contractor_name"] = contractor.raw_name
@@ -211,13 +218,17 @@ async def sync_contracts(ctx: JobContext) -> dict[str, Any]:
         async with connector.client() as client:
             async with session_factory() as session:
                 rules = await load_active_rules(session)
+                # Overrides manuals de mapeig, un cop per execució.
+                from app.integrations.field_mappings import get_overrides
+
+                overrides = await get_overrides(session, "socrata")
                 await session.commit()
 
             async for record in client.iter_records(query, page_size=_PAGE_SIZE):
                 processed += 1
                 async with session_factory() as session:
                     try:
-                        outcome = await _upsert_record(session, record, rules)
+                        outcome = await _upsert_record(session, record, rules, overrides)
                         await session.commit()
                         counters[outcome] += 1
                     except Exception as exc:

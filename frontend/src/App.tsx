@@ -33,6 +33,7 @@ import { AiAdmin } from "./features/ai/AiAdmin";
 import { Analyst } from "./features/analyst/Analyst";
 import { DocGenerator } from "./features/docgen/DocGenerator";
 import { AdminHub } from "./features/admin/AdminHub";
+import { FieldMappingsAdmin } from "./features/admin/FieldMappingsAdmin";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +83,7 @@ export function App() {
               <Route path="/admin/config" element={<ConfigAdmin />} />
               <Route path="/admin/audit-log" element={<AuditLogAdmin />} />
               <Route path="/admin/sync" element={<SyncAdmin />} />
+              <Route path="/admin/field-mappings" element={<FieldMappingsAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

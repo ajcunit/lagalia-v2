@@ -12,6 +12,7 @@ import app.ai.project_refs  # noqa: F401 — registra docgen.index_external/purg
 import app.ai.rag  # noqa: F401 — registra rag.index
 import app.ai.scheduled_reports  # noqa: F401 — registra reports.audit_monthly
 import app.integrations.boe.connector  # noqa: F401 — registra el connector boe
+import app.integrations.field_mappings  # noqa: F401 — registra sync.remap_contracts
 import app.integrations.pscp.enrich  # noqa: F401 — registra enrich.contract/batch
 import app.integrations.smtp.connector  # noqa: F401 — registra el connector smtp
 import app.integrations.socrata.sync  # noqa: F401 — registra sync.contracts

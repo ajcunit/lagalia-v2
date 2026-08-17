@@ -90,6 +90,10 @@ Com v1: `department_id`, `rule_type department|body|keyword|cpv|amount`, `source
 - `sync_item_logs`: detall per registre problemàtic (`sync_run_id`, `file_code`, `outcome`, `message`).
 - `jobs`: registre genèric de la cua (`id UUID`, `type`, `payload JSONB`, `status queued|running|success|failed|cancelled`, `progress`, `progress_message`, `result JSONB`, `dedup_key`, `attempts`, timestamps, `created_by`).
 - `job_events`: opcional per a traça fina.
+- `field_mappings` (migració 0025, specs/field-mapping.md): overrides manuals del
+  mapeig font → model (`source`, `target_field`, `source_field`, `updated_by`,
+  UNIQUE(source, target_field)). Els defectes viuen al codi (annex A1); el job
+  `sync.remap_contracts` re-aplica el mapeig al `raw` guardat sense crides externes.
 
 ## 4bis. Tasques i recordatoris (mòdul nou v2)
 

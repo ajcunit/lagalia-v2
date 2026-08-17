@@ -661,6 +661,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/connectors/{slug}/field-mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mapeig de camps font → model (defectes + overrides manuals) */
+        get: operations["listFieldMappings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connectors/{slug}/field-mappings/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fila raw guardada d'un expedient (per triar camps amb valors reals) */
+        get: operations["getFieldMappingSample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connectors/{slug}/field-mappings/{target_field}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Desa l'override manual d'un camp (persistit) */
+        put: operations["setFieldMapping"];
+        post?: never;
+        /** Restaura el mapeig per defecte (esborra l'override) */
+        delete: operations["resetFieldMapping"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connectors/{slug}/actions/remap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-aplica el mapeig vigent sobre el raw guardat (job local) */
+        post: operations["remapContracts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit-log": {
         parameters: {
             query?: never;
@@ -2813,6 +2882,20 @@ export interface components {
             has_copy?: boolean;
         };
         /**
+         * @description Mapeig d'un camp del model des de la font de dades. El defecte ve
+         *     de l'annex A1; l'override manual queda persistit a `field_mappings`.
+         */
+        FieldMapping: {
+            /** @example duration_months */
+            target_field: string;
+            label: string;
+            /** @enum {string} */
+            kind: "text" | "amount" | "date" | "datetime" | "duration";
+            default_source_field: string;
+            source_field: string;
+            overridden: boolean;
+        };
+        /**
          * @description Treball en segon pla. Mai inclou el `payload` d'entrada: només
          *     estat, progrés i resultat.
          */
@@ -4167,6 +4250,150 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listFieldMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["ConnectorSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mapeigs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["FieldMapping"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getFieldMappingSample: {
+        parameters: {
+            query: {
+                file_code: string;
+            };
+            header?: never;
+            path: {
+                slug: components["parameters"]["ConnectorSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Camps del registre font */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file_code: string;
+                        fields: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setFieldMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["ConnectorSlug"];
+                target_field: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    source_field: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Mapeig efectiu */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FieldMapping"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    resetFieldMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["ConnectorSlug"];
+                target_field: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restaurat */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    remapContracts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["ConnectorSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job encuat */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        job_id: string;
+                        job_type: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listAuditLog: {

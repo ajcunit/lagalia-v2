@@ -65,6 +65,15 @@ possiblement_finalitzat = data_final < avui
 
 Els càlculs només s'apliquen si hi ha `data_formalitzacio` **i** durada; altrament els camps queden nuls.
 
+**Ampliació 2026-08-17 (cas real 2885/2026)**: `durada_contracte` també pot
+arribar com a **rang de dates** `"dd/mm/aaaa a dd/mm/aaaa"`. En aquest cas el
+rang mana: `data_inici` = primera data, `data_final` = segona,
+`durada_mesos` = mesos entre les dues (la fracció ≥ 15 dies compta com a mes).
+El càlcul formalització+durada només s'usa quan NO hi ha rang. Els mapejos
+camp a camp d'aquest annex són els **valors per defecte**: es poden
+sobreescriure per pantalla (specs/field-mapping.md) i queden persistits a
+`field_mappings`.
+
 ## 4. Camps que poden arribar com a objecte
 
 `enllac_publicacio` i els nou `url_json_*` (`futura`, `agregada`, `cpm`, `previ`, `licitacio`, `avaluacio`, `adjudicacio`, `formalitzacio`, `anulacio`) poden arribar com a string **o** com a objecte `{"url": "..."}`. Cal normalitzar-ho sempre a string. A la v2 van dins `links` i `phase_urls` (JSONB).

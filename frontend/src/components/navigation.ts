@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  ArrowLeftRight,
   BarChart3,
   Bot,
   Building2,
@@ -99,6 +100,13 @@ export const ADMIN_TILES: AdminTile[] = [
     descriptionKey: "adminHub.sync",
     icon: RefreshCw,
     action: "sync:read",
+  },
+  {
+    to: "/admin/field-mappings",
+    labelKey: "nav.fieldMappings",
+    descriptionKey: "adminHub.fieldMappings",
+    icon: ArrowLeftRight,
+    action: "config:write",
   },
   {
     to: "/admin/webhooks",

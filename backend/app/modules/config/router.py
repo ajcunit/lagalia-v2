@@ -4,7 +4,7 @@ tothom (config:read, sense secrets); escriptura només admin (config:write)."""
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 ContextDep = Annotated[RequestContext, Depends(get_request_context)]
 ReadDep = Annotated[authz.AuthzContext, Depends(authz.Authorize("config:read"))]
 WriteDep = Annotated[authz.AuthzContext, Depends(authz.Authorize("config:write"))]
+ExecDep = Annotated[authz.AuthzContext, Depends(authz.Authorize("sync:execute"))]
 Slug = Annotated[str, Path(min_length=2, max_length=50, pattern="^[a-z0-9_-]+$")]
 
 
@@ -280,3 +281,181 @@ async def send_smtp_test_email(
     await _audit(session, authz_ctx.user.id, "config.smtp_test_email", status, ctx)
     await session.commit()
     return {"status": status, "detail": detail}
+
+
+# ─────────────────────── mapejador de camps ───────────────────────
+# specs/field-mapping.md: overrides manuals del mapeig font → model.
+
+_MAPPABLE_SOURCES = ("socrata",)
+TargetField = Annotated[str, Path(min_length=1, max_length=100, pattern=r"^[a-z0-9_.]+$")]
+
+
+def _field_defs() -> dict[str, Any]:
+    from app.integrations.socrata.mapping import CONTRACTOR_FIELDS, MAPPABLE_FIELDS
+
+    return {**MAPPABLE_FIELDS, **CONTRACTOR_FIELDS}
+
+
+def _check_mappable_source(slug: str) -> None:
+    if slug not in _MAPPABLE_SOURCES:
+        raise Problem(404, "Aquesta font no té mapeig de camps", "not-found")
+
+
+class FieldMappingRow(BaseModel):
+    target_field: str
+    label: str
+    kind: str
+    default_source_field: str
+    source_field: str
+    overridden: bool
+
+
+class FieldMappingUpdate(BaseModel):
+    source_field: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9_]+$")
+
+
+@router.get("/connectors/{slug}/field-mappings", operation_id="listFieldMappings")
+async def list_field_mappings(
+    slug: Slug, session: SessionDep, _authz: ReadDep
+) -> dict[str, list[FieldMappingRow]]:
+    _check_mappable_source(slug)
+    from app.integrations.field_mappings import get_overrides
+
+    overrides = await get_overrides(session, slug)
+    rows = [
+        FieldMappingRow(
+            target_field=target,
+            label=definition.label,
+            kind=definition.kind,
+            default_source_field=definition.source,
+            source_field=overrides.get(target) or definition.source,
+            overridden=target in overrides,
+        )
+        for target, definition in _field_defs().items()
+    ]
+    return {"data": rows}
+
+
+@router.get(
+    "/connectors/{slug}/field-mappings/sample", operation_id="getFieldMappingSample"
+)
+async def get_field_mapping_sample(
+    slug: Slug,
+    file_code: Annotated[str, Query(min_length=1, max_length=100)],
+    session: SessionDep,
+    _authz: ReadDep,
+) -> dict[str, Any]:
+    """La fila `raw` guardada d'un expedient sincronitzat (cap crida externa)."""
+    _check_mappable_source(slug)
+    from sqlalchemy import text as sql_text
+
+    row = (
+        await session.execute(
+            sql_text(
+                "SELECT raw FROM contracts WHERE file_code = :f AND raw IS NOT NULL "
+                "ORDER BY id DESC LIMIT 1"
+            ),
+            {"f": file_code},
+        )
+    ).first()
+    if row is None:
+        raise Problem(
+            404,
+            "Expedient sense fila sincronitzada: només es poden mostrar camps "
+            "d'expedients que ja són a la base de dades",
+            "not-found",
+        )
+    return {"file_code": file_code, "fields": row.raw}
+
+
+@router.put(
+    "/connectors/{slug}/field-mappings/{target_field}", operation_id="setFieldMapping"
+)
+async def set_field_mapping(
+    slug: Slug,
+    target_field: TargetField,
+    body: FieldMappingUpdate,
+    session: SessionDep,
+    authz_ctx: WriteDep,
+    ctx: ContextDep,
+) -> FieldMappingRow:
+    _check_mappable_source(slug)
+    definition = _field_defs().get(target_field)
+    if definition is None:
+        raise Problem(404, "Camp de destí desconegut", "not-found")
+    from sqlalchemy import text as sql_text
+
+    await session.execute(
+        sql_text(
+            "INSERT INTO field_mappings (source, target_field, source_field, updated_by) "
+            "VALUES (:s, :t, :f, :u) "
+            "ON CONFLICT ON CONSTRAINT uq_field_mappings_source_target "
+            "DO UPDATE SET source_field = :f, updated_by = :u, updated_at = now()"
+        ),
+        {"s": slug, "t": target_field, "f": body.source_field, "u": authz_ctx.user.id},
+    )
+    await _audit(
+        session,
+        authz_ctx.user.id,
+        "config.field_mapping_updated",
+        f"{slug}:{target_field}={body.source_field}",
+        ctx,
+    )
+    await session.commit()
+    return FieldMappingRow(
+        target_field=target_field,
+        label=definition.label,
+        kind=definition.kind,
+        default_source_field=definition.source,
+        source_field=body.source_field,
+        overridden=body.source_field != definition.source,
+    )
+
+
+@router.delete(
+    "/connectors/{slug}/field-mappings/{target_field}",
+    operation_id="resetFieldMapping",
+    status_code=204,
+)
+async def reset_field_mapping(
+    slug: Slug,
+    target_field: TargetField,
+    session: SessionDep,
+    authz_ctx: WriteDep,
+    ctx: ContextDep,
+) -> None:
+    _check_mappable_source(slug)
+    from sqlalchemy import text as sql_text
+
+    await session.execute(
+        sql_text(
+            "DELETE FROM field_mappings WHERE source = :s AND target_field = :t"
+        ),
+        {"s": slug, "t": target_field},
+    )
+    await _audit(
+        session, authz_ctx.user.id, "config.field_mapping_reset", f"{slug}:{target_field}", ctx
+    )
+    await session.commit()
+
+
+@router.post(
+    "/connectors/{slug}/actions/remap", operation_id="remapContracts", status_code=202
+)
+async def remap_contracts_action(
+    slug: Slug, session: SessionDep, authz_ctx: ExecDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Re-aplica el mapeig vigent sobre el raw guardat (job local, cap crida externa)."""
+    _check_mappable_source(slug)
+    from app.jobs.service import enqueue_job
+
+    job = await enqueue_job(
+        session,
+        job_type="sync.remap_contracts",
+        payload={},
+        created_by=authz_ctx.user.id or None,
+        dedup_key="trigger:sync.remap_contracts",
+    )
+    await _audit(session, authz_ctx.user.id, "config.remap_triggered", slug, ctx)
+    await session.commit()
+    return {"job_id": str(job.id), "job_type": "sync.remap_contracts"}
