@@ -72,6 +72,21 @@ function AiReport() {
   const [copied, setCopied] = useState(false);
   const [report, setReport] = useState("");
   const [thinkingChars, setThinkingChars] = useState(0);
+  const [sendResult, setSendResult] = useState<string | null>(null);
+  const sendNow = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/ai/audit/report/send-now", {});
+      if (error !== undefined) throw error;
+      return data;
+    },
+    onSuccess: (result) =>
+      setSendResult(
+        result.emailed > 0
+          ? t("riskAudit.sentOk", { count: String(result.emailed) })
+          : t("riskAudit.sentNone", { detail: result.detail ?? "" }),
+      ),
+    onError: () => setSendResult(t("riskAudit.aiError")),
+  });
   const generate = useMutation({
     mutationFn: async () => {
       setReport("");
@@ -107,7 +122,15 @@ function AiReport() {
         <Button tone="accent" disabled={generate.isPending} onClick={() => generate.mutate()}>
           {generate.isPending ? t("riskAudit.aiGenerating") : t("riskAudit.aiGenerate")}
         </Button>
+        <Button disabled={sendNow.isPending} onClick={() => sendNow.mutate()}>
+          {sendNow.isPending ? t("riskAudit.sending") : t("riskAudit.sendNow")}
+        </Button>
       </div>
+      {sendResult && (
+        <p role="status" className="mt-2 rounded-md bg-accent-soft p-2 text-sm text-ink">
+          {sendResult}
+        </p>
+      )}
       {generate.isPending && report === "" && (
         <p role="status" className="mt-2 animate-pulse text-sm text-muted">
           {thinkingChars > 0

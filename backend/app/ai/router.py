@@ -411,6 +411,16 @@ async def search_rag(
     return {"data": results}
 
 
+@router.post("/ai/audit/report/send-now", operation_id="sendAuditReportNow")
+async def send_audit_report_now(
+    _authz: AuditRunDep, session: SessionDep
+) -> dict[str, Any]:
+    """Genera i envia l'informe mensual ara (mateix camí que el job)."""
+    from app.ai import scheduled_reports
+
+    return await scheduled_reports.build_and_send()
+
+
 class TaskConfigBody(BaseModel):
     provider_profile_id: int
     model: str | None = Field(default=None, max_length=200)

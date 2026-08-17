@@ -364,3 +364,56 @@ async def test_stream_endpoint(api_client, make_user, monkeypatch: pytest.Monkey
             sql_text("DELETE FROM ai_provider_profiles WHERE name = 'stream-fake'")
         )
         await session.commit()
+
+
+async def test_scheduled_audit_report_never_crashes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El job mensual reporta el problema en lloc de tombar el scheduler."""
+    from sqlalchemy import text as sql_text
+
+    from app.ai import scheduled_reports
+
+    # Sense perfils actius ni destinataris: ha de retornar un resum, no petar.
+    async with session_factory() as session:
+        enabled = list(
+            (
+                await session.execute(sql_text("SELECT id FROM ai_provider_profiles WHERE enabled"))
+            ).scalars()
+        )
+        await session.execute(sql_text("UPDATE ai_provider_profiles SET enabled = false"))
+        await session.commit()
+    try:
+        result = await scheduled_reports.build_and_send()
+        assert result["generated"] is False
+        assert result["emailed"] == 0
+        assert result["detail"]
+    finally:
+        async with session_factory() as session:
+            if enabled:
+                await session.execute(
+                    sql_text("UPDATE ai_provider_profiles SET enabled = true WHERE id = ANY(:i)"),
+                    {"i": enabled},
+                )
+                await session.commit()
+
+
+async def test_recipients_parsing() -> None:
+    from sqlalchemy import text as sql_text
+
+    from app.ai import scheduled_reports
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text(
+                "INSERT INTO settings (key, value) VALUES (:k, :v) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+            ),
+            {"k": scheduled_reports.RECIPIENTS_SETTING, "v": '"a@cunit.cat; b@cunit.cat, mal"'},
+        )
+        await session.commit()
+    assert await scheduled_reports._recipients() == ["a@cunit.cat", "b@cunit.cat"]
+    async with session_factory() as session:
+        await session.execute(
+            sql_text("DELETE FROM settings WHERE key = :k"),
+            {"k": scheduled_reports.RECIPIENTS_SETTING},
+        )
+        await session.commit()

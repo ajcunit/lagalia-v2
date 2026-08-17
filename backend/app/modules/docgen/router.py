@@ -423,6 +423,38 @@ def _md_to_docx(document: Any, markdown: str) -> None:
     flush()
 
 
+@router.post(
+    "/doc-projects/{id}/documents/{doc_type}/actions/review/stream",
+    operation_id="reviewDocStream",
+)
+async def review_document_stream(
+    id: int, doc_type: DocType, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
+) -> StreamingResponse:
+    """Agent revisor: segona opinió sobre el document sencer (mai reescriu)."""
+    await _own_project(session, id, authz_ctx.user.id)
+    sections = await _get_sections(session, id, doc_type)
+
+    def line(payload: dict[str, Any]) -> str:
+        return json.dumps(payload, ensure_ascii=False, default=str) + "\n"
+
+    async def generate():
+        try:
+            async for event in doc_agent.review_document_events(
+                session, doc_type, sections,
+                user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
+            ):
+                yield line(event)
+            yield line({"type": "done"})
+        except providers.ProviderError as exc:
+            yield line({"type": "error", "detail": str(exc)})
+
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.get(
     "/doc-projects/{id}/documents/{doc_type}/export.docx", operation_id="exportDocDocx"
 )

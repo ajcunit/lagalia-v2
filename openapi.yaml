@@ -1832,6 +1832,27 @@ paths:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
 
+  /ai/audit/report/send-now:
+    post:
+      tags: [ai]
+      operationId: sendAuditReportNow
+      summary: Genera i envia ara l'informe d'auditoria (mateix camí que el job mensual)
+      x-required-scopes: [audit:run]
+      responses:
+        "200":
+          description: Resum del que ha passat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [generated, emailed]
+                properties:
+                  generated: { type: boolean }
+                  emailed: { type: integer }
+                  detail: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /ai/analyses:
     post:
       tags: [ai]

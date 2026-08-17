@@ -18,6 +18,7 @@ KNOWN_TASKS: dict[str, str] = {
     "doc.index": "Redactor — proposta d'índex a partir de les referències",
     "doc.section": "Redactor — redacció d'una secció amb RAG i citació de fonts",
     "legal.review": "Assistent legal — revisió de conformitat amb citació d'articles",
+    "doc.review": "Redactor — agent revisor (coherència, buits i to del document)",
 }
 
 

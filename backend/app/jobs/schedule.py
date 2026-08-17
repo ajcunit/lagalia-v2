@@ -22,6 +22,18 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=3600,
         dedup_key="tasks.reminders",
     ),
+    # Vigilància de consolidació del BOE: diària (08 §3).
+    ScheduledJob(
+        job_type="sync.boe_norms",
+        interval_seconds=86400,
+        dedup_key="sync.boe_norms",
+    ),
+    # Informe d'auditoria per a Intervenció: mensual (30 dies).
+    ScheduledJob(
+        job_type="reports.audit_monthly",
+        interval_seconds=30 * 86400,
+        dedup_key="reports.audit_monthly",
+    ),
     # Reintents de deliveries pendents (l'emissió ja encua un dispatch).
     ScheduledJob(
         job_type="webhooks.dispatch",

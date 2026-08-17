@@ -273,10 +273,26 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
       void queryClient.invalidateQueries({ queryKey: ["doc-project", props.projectId] }),
   });
 
+  const [reviewKind, setReviewKind] = useState<"legal" | "doc">("legal");
   const [legalReview, setLegalReview] = useState("");
   const [legalArticles, setLegalArticles] = useState<{ article?: string; url?: string }[]>([]);
+  const reviewDoc = useMutation({
+    mutationFn: async () => {
+      setReviewKind("doc");
+      setLegalReview("");
+      setLegalArticles([]);
+      await streamNdjson(
+        `/doc-projects/${props.projectId}/documents/${docType}/actions/review/stream`,
+        {},
+        (event) => {
+          if (event.type === "delta") setLegalReview((prev) => prev + String(event.text ?? ""));
+        },
+      );
+    },
+  });
   const reviewLegal = useMutation({
     mutationFn: async () => {
+      setReviewKind("legal");
       const separator = "\n\n";
       const body = currentSections
         .map((section) => ["## " + section.title, section.content_md].join(separator))
@@ -350,6 +366,12 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
             {t("admin.save")}
           </Button>
           <Button
+            disabled={reviewDoc.isPending || currentSections.every((s) => !s.content_md)}
+            onClick={() => reviewDoc.mutate()}
+          >
+            {reviewDoc.isPending ? t("docgen.reviewing") : t("docgen.reviewDoc")}
+          </Button>
+          <Button
             disabled={reviewLegal.isPending || currentSections.every((s) => !s.content_md)}
             onClick={() => reviewLegal.mutate()}
           >
@@ -361,9 +383,11 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
         </span>
       </div>
 
-      {(legalReview || reviewLegal.isPending) && (
+      {(legalReview || reviewLegal.isPending || reviewDoc.isPending) && (
         <div className="mt-3 rounded-lg border border-accent/40 bg-surface-raised p-4 shadow-card">
-          <h3 className="text-sm font-semibold text-ink">{t("docgen.legalTitle")}</h3>
+          <h3 className="text-sm font-semibold text-ink">
+            {reviewKind === "doc" ? t("docgen.docReviewTitle") : t("docgen.legalTitle")}
+          </h3>
           {legalArticles.length > 0 && (
             <p className="mt-1 text-xs text-muted">
               {t("docgen.legalArticles")}:{" "}
@@ -373,12 +397,16 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
           {legalReview ? (
             <div className="mt-2 max-h-96 overflow-auto rounded-md bg-surface p-3">
               <Markdown>{legalReview}</Markdown>
-              {reviewLegal.isPending && <span className="animate-pulse text-muted">▍</span>}
+              {(reviewLegal.isPending || reviewDoc.isPending) && (
+                <span className="animate-pulse text-muted">▍</span>
+              )}
             </div>
           ) : (
             <p className="mt-2 animate-pulse text-sm text-muted">{t("docgen.reviewing")}</p>
           )}
-          <p className="mt-1 text-xs text-muted">{t("docgen.legalDisclaimer")}</p>
+          <p className="mt-1 text-xs text-muted">
+            {reviewKind === "doc" ? t("docgen.docReviewNote") : t("docgen.legalDisclaimer")}
+          </p>
         </div>
       )}
 

@@ -1091,6 +1091,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/audit/report/send-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Genera i envia ara l'informe d'auditoria (mateix camí que el job mensual) */
+        post: operations["sendAuditReportNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/analyses": {
         parameters: {
             query?: never;
@@ -5022,6 +5039,32 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    sendAuditReportNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resum del que ha passat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        generated: boolean;
+                        emailed: number;
+                        detail?: string | null;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     createAnalysis: {
