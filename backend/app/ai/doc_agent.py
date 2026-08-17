@@ -132,9 +132,15 @@ async def draft_section_events(
     title: str,
     instructions: str | None,
     fields: list[dict[str, Any]] | None = None,
+    improve_text: str | None = None,
     **run_kw: Any,
 ):
-    """Streaming NDJSON: sources → thinking/delta → done (el router desa)."""
+    """Streaming NDJSON: sources → thinking/delta → done (el router desa).
+
+    Amb `improve_text` (mode manual → millora): el model rep el text escrit
+    pel tècnic i el millora (claredat, estructura, to) sense inventar dades
+    noves ni perdre'n cap.
+    """
     from app.ai import project_refs
 
     doc_ids = await _reference_ids(session, project_id)
@@ -167,9 +173,20 @@ async def draft_section_events(
     )
     filled = [f for f in (fields or []) if str(f.get("value", "")).strip()]
     fields_block = "\n".join(f"{f.get('label')}: {f.get('value')}" for f in filled)
+    improve_block = ""
+    if improve_text:
+        improve_block = (
+            f"<esborrany_tecnic>\n{improve_text[:20000]}\n</esborrany_tecnic>\n\n"
+            "MODE MILLORA: el text de <esborrany_tecnic> l'ha escrit la persona "
+            "redactora. Reescriu-lo millorant claredat, estructura, to "
+            "administratiu i format Markdown, MANTENINT totes les dades i "
+            "decisions que conté (no n'inventis ni n'eliminis cap); pots "
+            "completar amb les referències i les dades del tècnic si escau.\n\n"
+        )
     user_content = (
         (f"<referencies>\n{references_block}\n</referencies>\n\n" if references_block else "")
         + (f"<dades_tecnic>\n{fields_block}\n</dades_tecnic>\n\n" if fields_block else "")
+        + improve_block
         + (
             f"Instruccions de l'usuari: {instructions}"
             if instructions

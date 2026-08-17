@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
@@ -39,6 +39,7 @@ const DOC_TYPES: { key: DocType; label: string }[] = [
 
 function ExternalRefs(props: { projectId: number; refs: ExternalRef[] }) {
   const queryClient = useQueryClient();
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const remove = useMutation({
     mutationFn: async (refId: number) => {
       const { error } = await api.DELETE("/doc-projects/{id}/external-references/{ref_id}", {
@@ -49,10 +50,54 @@ function ExternalRefs(props: { projectId: number; refs: ExternalRef[] }) {
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: ["doc-project", props.projectId] }),
   });
-  if (props.refs.length === 0) return null;
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const token = getAccessToken();
+      const form = new FormData();
+      form.append("file", file);
+      const response = await fetch(
+        `/api/v1/doc-projects/${props.projectId}/external-references/upload`,
+        {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: form,
+        },
+      );
+      if (!response.ok) {
+        const problem = (await response.json().catch(() => null)) as { title?: string } | null;
+        throw new Error(problem?.title ?? `HTTP ${response.status}`);
+      }
+    },
+    onSuccess: () =>
+      void queryClient.invalidateQueries({ queryKey: ["doc-project", props.projectId] }),
+  });
   return (
     <div className="mt-3 border-t border-line pt-2">
-      <p className="text-xs font-medium text-muted">{t("docgen.externalRefs")}</p>
+      <p className="flex items-center gap-2 text-xs font-medium text-muted">
+        {t("docgen.externalRefs")}
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/pdf,.pdf"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) upload.mutate(file);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          disabled={upload.isPending}
+          className="text-xs text-accent underline disabled:opacity-50"
+          onClick={() => fileInput.current?.click()}
+        >
+          {upload.isPending ? t("docgen.uploading") : t("docgen.uploadPdf")}
+        </button>
+        {upload.isError && (
+          <span className="text-danger">{(upload.error as Error).message}</span>
+        )}
+      </p>
       <ul className="mt-1 space-y-1">
         {props.refs.map((ref) => (
           <li key={ref.id} className="flex items-center gap-2 text-sm text-ink">
@@ -166,16 +211,22 @@ function SectionEditor(props: {
   const [thinking, setThinking] = useState(0);
   const [open, setOpen] = useState(false);
 
-  async function draft() {
+  async function draft(mode: "draft" | "improve" = "draft") {
     setDrafting(true);
     setThinking(0);
     let acc = "";
     let localSources: Section["sources"] = s.sources ?? [];
+    const currentText = s.content_md;
     props.onChange({ ...s, content_md: "" });
     try {
       await streamNdjson(
         `/doc-projects/${props.projectId}/documents/${props.docType}/sections/${props.index}/actions/draft/stream`,
-        { instructions: s.instructions || null, fields: s.fields ?? [] },
+        {
+          instructions: s.instructions || null,
+          fields: s.fields ?? [],
+          mode,
+          ...(mode === "improve" ? { content: currentText } : {}),
+        },
         (event) => {
           if (event.type === "sources") localSources = event.sources as Section["sources"];
           if (event.type === "delta") acc += String(event.text ?? "");
@@ -208,6 +259,11 @@ function SectionEditor(props: {
           className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-ink hover:border-line"
         />
         {s.content_md && <Badge tone="accent">{t("docgen.drafted")}</Badge>}
+        {s.content_md && (
+          <Button disabled={drafting} onClick={() => void draft("improve")}>
+            {drafting ? t("docgen.drafting") : t("docgen.improve")}
+          </Button>
+        )}
         <Button tone="accent" disabled={drafting} onClick={() => void draft()}>
           {drafting ? t("docgen.drafting") : t("docgen.draft")}
         </Button>
@@ -415,6 +471,22 @@ function ProjectView(props: { projectId: number; onBack: () => void }) {
           </button>
         ))}
         <span className="ml-auto flex gap-2">
+          <Button
+            onClick={() =>
+              setSections([
+                ...currentSections,
+                {
+                  title: t("docgen.newSectionTitle"),
+                  content_md: "",
+                  instructions: "",
+                  fields: [],
+                  sources: [],
+                } as Section,
+              ])
+            }
+          >
+            {t("docgen.addSection")}
+          </Button>
           <Button disabled={generateIndex.isPending} onClick={() => generateIndex.mutate()}>
             {generateIndex.isPending ? t("docgen.indexing") : t("docgen.generateIndex")}
           </Button>

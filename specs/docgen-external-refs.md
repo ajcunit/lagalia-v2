@@ -37,9 +37,19 @@ Esborra `project_documents` amb `expires_at < now()` (i els seus chunks per CASC
 - El selector de projecte permet **crear un projecte al vol** (nom + «Crea»): crea el projecte i hi afegeix la referencia d'un sol gest. Simetricament, el boto «⭐ Desa» del SuperBuscador permet **crear una carpeta de favorits al vol**.
 - **Generador**: el panell de referencies mostra les externes amb el seu estat (indexant / N fragments / error) i la data de caducitat.
 
+### Pujada de PDFs propis (ampliacio 2026-08-17)
+
+- `POST /doc-projects/{id}/external-references/upload` (multipart, camp `file`):
+  PDF de l'ordinador de l'usuari, validat (extensio, capçalera %PDF, buit,
+  limit 15 MB), desat directament a l'storage (`projects/<pid>/<uuid>.pdf`) i
+  inserit a `project_documents` SENSE `source_url` (migracio 0027 la fa
+  opcional). El job `docgen.index_external` salta la descarrega quan la fila
+  ja te `storage_key` i indexa des de l'storage; mateixa caducitat i purga.
+- UI: boto «Puja un PDF propi» al panell de referencies externes del projecte.
+
 ## Fora d'abast
 
-- Pujada manual de PDFs propis (seguent iteracio); renovacio automatica de la caducitat; OCR de PDFs escanejats.
+- Renovacio automatica de la caducitat; OCR de PDFs escanejats; altres formats (DOCX).
 
 ## Criteris d'acceptacio
 

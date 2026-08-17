@@ -56,6 +56,8 @@ class MessageResponse(BaseModel):
 
 class MessageBody(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
+    # Acota el xat d'expedient a UN document (specs/chat.md); ignorat al general.
+    document_id: int | None = Field(default=None, ge=1)
 
 
 async def _own_thread(session: AsyncSession, thread_id: int, user_id: int) -> ChatThread:
@@ -211,7 +213,8 @@ async def stream_message(
             if thread.scope == ChatScope.CONTRACT:
                 events = chat_agent.contract_chat_events(
                     session, thread.contract_id or 0, body.content,
-                    history=history, user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
+                    history=history, document_id=body.document_id,
+                    user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
                 )
             else:
                 events = analyst_agent.answer_events(

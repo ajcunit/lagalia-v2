@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "tzdata>=2024.1",  # ZoneInfo a Windows (mapatge de dates locals del dataset)
+    "python-multipart>=0.0.20",  # pujada de PDFs propis al generador
     "defusedxml>=0.7",
     "python-docx>=1.1",
     "pymupdf>=1.24",

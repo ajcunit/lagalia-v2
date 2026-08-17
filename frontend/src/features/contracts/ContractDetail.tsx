@@ -609,7 +609,13 @@ export function ContractDetail() {
 
       {tab === "xat" && (
         <div className="mt-4">
-          <ChatView scope="contract" contractId={id} />
+          <ChatView
+            scope="contract"
+            contractId={id}
+            documents={(documents.data?.data ?? [])
+              .filter((doc) => doc.indexed)
+              .map((doc) => ({ id: doc.id, title: doc.title ?? null }))}
+          />
         </div>
       )}
 

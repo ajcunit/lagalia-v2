@@ -90,17 +90,29 @@ async def _contract_context(session: AsyncSession, contract_id: int) -> dict[str
     )
 
 
-async def _document_ids(session: AsyncSession, contract_id: int) -> list[int]:
-    rows = (
-        await session.execute(
-            text(
-                "SELECT id FROM phase_documents WHERE contract_id = :i "
-                "AND indexed_at IS NOT NULL"
-            ),
-            {"i": contract_id},
-        )
-    ).all()
+async def _document_ids(
+    session: AsyncSession, contract_id: int, document_id: int | None = None
+) -> list[int]:
+    """Documents indexats de l'expedient; si es demana un document concret,
+    només aquell (validat contra el contracte: mai un document d'un altre)."""
+    query = (
+        "SELECT id FROM phase_documents WHERE contract_id = :i AND indexed_at IS NOT NULL"
+    )
+    params: dict[str, int] = {"i": contract_id}
+    if document_id is not None:
+        query += " AND id = :d"
+        params["d"] = document_id
+    rows = (await session.execute(text(query), params)).all()
     return [row.id for row in rows]
+
+
+async def _document_title(session: AsyncSession, document_id: int) -> str | None:
+    row = (
+        await session.execute(
+            text("SELECT title FROM phase_documents WHERE id = :d"), {"d": document_id}
+        )
+    ).first()
+    return row.title if row else None
 
 
 async def contract_chat_events(
@@ -109,18 +121,26 @@ async def contract_chat_events(
     question: str,
     *,
     history: list[dict[str, str]] | None = None,
+    document_id: int | None = None,
     user_id: int | None = None,
     trace_id: str | None = None,
 ):
-    """Streaming NDJSON: sources → thinking/delta → (el caller emet done)."""
+    """Streaming NDJSON: sources → thinking/delta → (el caller emet done).
+
+    `document_id` acota la conversa a UN document de l'expedient: la
+    recuperació RAG només mira aquell i el model n'és informat.
+    """
     context = await _contract_context(session, contract_id)
 
     fragments: list[dict[str, Any]] = []
-    document_ids = await _document_ids(session, contract_id)
+    document_ids = await _document_ids(session, contract_id, document_id)
     if document_ids:
         try:
             fragments = await rag.search(
-                session, question, limit=5, document_ids=document_ids
+                session,
+                question,
+                limit=8 if document_id is not None else 5,
+                document_ids=document_ids,
             )
         except Exception:  # sense embeddings configurats, el xat segueix sense RAG
             fragments = []
@@ -138,6 +158,14 @@ async def contract_chat_events(
         f"{str(fragment.get('content'))[:2000]}"
         for fragment in fragments
     )
+    focus_note = ""
+    if document_id is not None:
+        title = await _document_title(session, document_id)
+        focus_note = (
+            f"\n\nATENCIÓ: l'usuari pregunta NOMÉS sobre el document "
+            f"«{title or document_id}»; respon exclusivament amb els fragments "
+            "d'aquest document (si no hi ha prou informació, digues-ho)."
+        )
     resolved = await tasks.resolve(session, "chat.contract")
     messages = [
         {"role": "system", "content": _SYSTEM},
@@ -147,6 +175,7 @@ async def contract_chat_events(
                 f"<expedient>\n{json.dumps(context, ensure_ascii=False)}\n</expedient>\n\n"
                 f"<documents>\n{documents_block or '(cap document indexat)'}\n</documents>\n\n"
                 "A partir d'ara respon les preguntes sobre aquest expedient."
+                + focus_note
             ),
         },
         {

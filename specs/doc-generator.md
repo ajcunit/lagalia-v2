@@ -32,6 +32,20 @@
 - La redaccio els injecta com a **dades AUTORITATIVES** (`<dades_tecnic>`, regla primera del prompt): s'incorporen literalment, mai es contradiuen ni se n'inventen; si falta una dada necessaria, el text porta `[PENDENT: ...]`. Verificat en viu (VEC/durada/prorroga incorporats literalment).
 - Els camps es desen amb la seccio (PATCH i desat atomic del draft).
 
+### Mode manual i millora amb IA (ampliacio 2026-08-17)
+
+- **Comencar a ma**: boto «Afegeix seccio» a la pantalla — crea una seccio
+  buida (titol editable) sense passar per l'index d'IA; el tecnic escriu el
+  contingut directament a l'editor Markdown i desa. Cap canvi d'API (el PATCH
+  de seccions ja ho cobria).
+- **«Millora amb IA»**: per a una seccio amb contingut, el boto envia el text
+  ACTUAL de l'editor (`{mode: "improve", content}` al cos del draft/stream —
+  mai una versio desactualitzada de la BD) i el model el reescriu millorant
+  claredat, estructura i to administratiu MANTENINT totes les dades i
+  decisions (regla explicita al prompt), amb les referencies i les dades del
+  tecnic disponibles com fins ara. El resultat es desa atomicament com
+  qualsevol redaccio.
+
 ## Fora d'abast
 
 - Agent revisor (07 §2.3.4); plantilles d'index administrables; export PDF; doc_exports persistits; cartipas global multi-pantalla (les referencies es trien al projecte; el boto «envia al cartipas» des de fitxes/SuperBuscador arribara amb el cartipas global).

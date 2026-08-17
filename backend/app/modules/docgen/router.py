@@ -5,7 +5,7 @@ import json
 import re as _re
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -50,6 +50,11 @@ class SectionsBody(BaseModel):
 class DraftBody(BaseModel):
     instructions: str | None = Field(default=None, max_length=2000)
     fields: list[dict[str, Any]] | None = Field(default=None, max_length=10)
+    # "draft" redacta de zero; "improve" millora el text manual existent.
+    mode: Literal["draft", "improve"] = "draft"
+    # Text actual de l'editor (mode improve): evita millorar una versió
+    # desactualitzada si el tècnic encara no havia desat.
+    content: str | None = Field(default=None, max_length=50000)
 
 
 async def _own_project(session: AsyncSession, project_id: int, user_id: int) -> dict[str, Any]:
@@ -320,6 +325,67 @@ async def add_external_reference(
     return {"id": ref_id, "job_id": str(job.id), "status": "pending"}
 
 
+_UPLOAD_MAX_BYTES = 15 * 1024 * 1024  # PDFs de plecs reals rarament passen de 15 MB
+
+
+@router.post(
+    "/doc-projects/{id}/external-references/upload",
+    operation_id="uploadProjectDocument",
+    status_code=202,
+)
+async def upload_project_document(
+    id: int,
+    session: SessionDep,
+    authz_ctx: UseDep,
+    ctx: ContextDep,
+    file: UploadFile,
+) -> dict[str, Any]:
+    """PDF propi de l'ordinador de l'usuari → índex TEMPORAL del projecte.
+
+    Mateixa taula i caducitat que les referències del SuperBuscador; el job
+    salta la descàrrega perquè el fitxer ja és a l'storage.
+    """
+    await _own_project(session, id, authz_ctx.user.id)
+    filename = (file.filename or "document.pdf").strip()
+    if not filename.lower().endswith(".pdf"):
+        raise Problem(422, "Només s'accepten fitxers PDF", "validation")
+    content = await file.read()
+    if len(content) == 0:
+        raise Problem(422, "El fitxer és buit", "validation")
+    if len(content) > _UPLOAD_MAX_BYTES:
+        raise Problem(422, "El fitxer supera el límit de 15 MB", "validation")
+    if not content.startswith(b"%PDF"):
+        raise Problem(422, "El fitxer no sembla un PDF vàlid", "validation")
+
+    import uuid as _uuid
+
+    from app.ai.project_refs import default_expiry
+    from app.core.storage import get_storage
+    from app.jobs.service import enqueue_job
+
+    storage_key = f"projects/{id}/{_uuid.uuid4().hex}.pdf"
+    await get_storage().put(storage_key, content, "application/pdf")
+    ref_id = (
+        await session.execute(
+            text(
+                "INSERT INTO project_documents (project_id, title, storage_key, expires_at) "
+                "VALUES (:p, :t, :k, :e) RETURNING id"
+            ),
+            {"p": id, "t": filename[:500], "k": storage_key, "e": default_expiry()},
+        )
+    ).scalar_one()
+    job = await enqueue_job(
+        session,
+        job_type="docgen.index_external",
+        payload={"project_document_id": ref_id},
+        created_by=authz_ctx.user.id,
+        dedup_key=f"docgen.index_external:{ref_id}",
+    )
+    await _audit(session, authz_ctx.user.id, "docgen.document_uploaded", f"{id}/{ref_id}", ctx)
+    await session.commit()
+    return {"id": ref_id, "job_id": str(job.id), "status": "pending"}
+
+
 @router.delete(
     "/doc-projects/{id}/external-references/{ref_id}",
     operation_id="removeExternalReference",
@@ -416,10 +482,14 @@ async def draft_section_stream(
             draft_fields = (
                 body.fields if body.fields is not None else section.get("fields") or []
             )
+            improve_text = None
+            if body.mode == "improve":
+                improve_text = body.content or str(section.get("content_md", ""))
             async for event in doc_agent.draft_section_events(
                 session, id, doc_type, str(section.get("title", "")),
                 body.instructions or str(section.get("instructions", "")) or None,
                 fields=draft_fields,
+                improve_text=improve_text or None,
                 user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
             ):
                 if event["type"] == "delta":

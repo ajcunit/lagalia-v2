@@ -38,6 +38,11 @@ multi-torn amb historial persistent:
      `{"type":"sources"}` amb títol i fase dels documents usats.
   3. Streaming de la resposta amb citació («segons el PPT…»); historial del
      fil com a missatges previs.
+  4. **Filtre per document** (ampliació 2026-08-17): `document_id` al cos del
+     missatge acota la recuperació RAG a UN document de l'expedient (validat
+     que hi pertany; límit de fragments més alt) i el model n'és informat.
+     A la UI, selector «Pregunta sobre:» amb els documents indexats
+     (`PhaseDocumentResponse.indexed` nou a l'API de documents del contracte).
 - Guardrails habituals: comptabilitat a `ai_runs`, cap escriptura automàtica,
   resultats delimitats com a dades.
 
@@ -48,7 +53,7 @@ multi-torn amb historial persistent:
   exigeix contracte **visible** per abast departamental, si no 404).
 - `GET /chat/threads/{id}` — fil + missatges.
 - `DELETE /chat/threads/{id}` — esborra fil i missatges.
-- `POST /chat/threads/{id}/messages/stream {content}` — **streaming NDJSON**
+- `POST /chat/threads/{id}/messages/stream {content, document_id?}` — **streaming NDJSON**
   (fora d'openapi.yaml, convenció existent): persisteix el missatge d'usuari,
   executa l'agent amb l'historial, i persisteix la resposta sencera al final
   (amb `sources`). Autorització per àmbit del fil: general → `audit:run`

@@ -370,6 +370,7 @@ class PhaseDocumentResponse(BaseModel):
     size: int | None = None
     download_url: str | None = None
     has_copy: bool = False
+    indexed: bool = False  # al RAG: el xat per document només té sentit si ho està
 
     @classmethod
     def from_document(cls, document: PhaseDocument) -> "PhaseDocumentResponse":
@@ -381,6 +382,7 @@ class PhaseDocumentResponse(BaseModel):
             size=document.size,
             download_url=document.download_url,
             has_copy=document.storage_key is not None,
+            indexed=document.indexed_at is not None,
         )
 
 

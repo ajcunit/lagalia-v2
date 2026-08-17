@@ -23,10 +23,16 @@ interface LiveState {
 const EMPTY_LIVE: LiveState = { answer: "", thinkingChars: 0, steps: [], sources: [] };
 
 /** Conversa multi-torn amb streaming (specs/chat.md). Compartit entre el xat
- * general (/chat) i la pestanya Xat de la fitxa d'un contracte. */
-export function ChatView(props: { scope: "general" | "contract"; contractId?: number }) {
+ * general (/chat) i la pestanya Xat de la fitxa d'un contracte. `documents`
+ * (opcionals, només contract) permeten acotar la conversa a UN document. */
+export function ChatView(props: {
+  scope: "general" | "contract";
+  contractId?: number;
+  documents?: { id: number; title: string | null }[];
+}) {
   const queryClient = useQueryClient();
   const [threadId, setThreadId] = useState<number | null>(null);
+  const [documentId, setDocumentId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [live, setLive] = useState<LiveState>(EMPTY_LIVE);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -102,7 +108,11 @@ export function ChatView(props: { scope: "general" | "contract"; contractId?: nu
       setPendingQuestion(content);
       setLive(EMPTY_LIVE);
       let failed: string | null = null;
-      await streamNdjson(`/chat/threads/${id}/messages/stream`, { content }, (event) => {
+      const payload = {
+        content,
+        ...(documentId !== null ? { document_id: documentId } : {}),
+      };
+      await streamNdjson(`/chat/threads/${id}/messages/stream`, payload, (event) => {
         if (event.type === "delta")
           setLive((prev) => ({ ...prev, answer: prev.answer + String(event.text ?? "") }));
         if (event.type === "thinking")
@@ -223,12 +233,32 @@ export function ChatView(props: { scope: "general" | "contract"; contractId?: nu
           <p className="px-4 pb-1 text-sm text-danger">{t("chat.error")}</p>
         )}
         <form
-          className="flex items-end gap-2 border-t border-line p-3"
+          className="border-t border-line p-3"
           onSubmit={(e) => {
             e.preventDefault();
             submit();
           }}
         >
+          {props.scope === "contract" && (props.documents ?? []).length > 0 && (
+            <label className="mb-2 flex items-center gap-2 text-xs text-muted">
+              {t("chat.docFilterLabel")}
+              <select
+                value={documentId ?? ""}
+                onChange={(e) =>
+                  setDocumentId(e.target.value === "" ? null : Number(e.target.value))
+                }
+                className="min-w-0 max-w-96 rounded-md border border-line bg-surface px-2 py-1 text-xs"
+              >
+                <option value="">{t("chat.docFilterAll")}</option>
+                {(props.documents ?? []).map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.title ?? doc.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="flex items-end gap-2">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -250,6 +280,7 @@ export function ChatView(props: { scope: "general" | "contract"; contractId?: nu
             <SendHorizonal className="h-4 w-4" aria-hidden />
             <span className="sr-only">{t("chat.send")}</span>
           </Button>
+          </div>
         </form>
         <p className="px-4 pb-2 text-xs text-muted">{t("chat.disclaimer")}</p>
       </section>

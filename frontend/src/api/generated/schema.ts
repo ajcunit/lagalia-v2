@@ -887,6 +887,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/doc-projects/{id}/external-references/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Puja un PDF propi (índex temporal d'àmbit del projecte) */
+        post: operations["uploadProjectDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/doc-projects/{id}/external-references/{ref_id}": {
         parameters: {
             query?: never;
@@ -2924,6 +2941,8 @@ export interface components {
             download_url?: string | null;
             /** @description Hi ha còpia del fitxer a l'emmagatzematge local. */
             has_copy?: boolean;
+            /** @description El document està indexat al RAG (permet el xat per document). */
+            indexed?: boolean;
         };
         ChatThread: {
             /** Format: int64 */
@@ -4859,6 +4878,47 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    uploadProjectDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description PDF, màx. 15 MB.
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Fitxer desat; indexació encuada */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        id: number;
+                        /** Format: uuid */
+                        job_id: string;
+                        status: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
         };
     };
     removeExternalReference: {

@@ -36,8 +36,8 @@ async def index_external(ctx: JobContext) -> dict[str, Any]:
         row = (
             await session.execute(
                 text(
-                    "SELECT id, project_id, title, source_url FROM project_documents "
-                    "WHERE id = :id"
+                    "SELECT id, project_id, title, source_url, storage_key "
+                    "FROM project_documents WHERE id = :id"
                 ),
                 {"id": ref_id},
             )
@@ -57,18 +57,25 @@ async def index_external(ctx: JobContext) -> dict[str, Any]:
             await failed_session.commit()
 
     try:
-        async with session_factory() as session:
-            connector = await hub.get_connector(session, "pscp")
-            await session.commit()
-        if not isinstance(connector, PscpConnector):  # defensa de registre
-            raise TypeError("El hub ha resolt un connector inesperat per a 'pscp'")
-        async with connector.client() as client:
-            content, content_type = await client.download_document(row.source_url)
+        if row.storage_key:
+            # Pujada local: el fitxer ja és a l'storage, no cal descarregar res.
+            storage_key = row.storage_key
+            content = await get_storage().get(storage_key)
+        else:
+            if not row.source_url:
+                raise ValueError("referència sense URL d'origen ni fitxer pujat")
+            async with session_factory() as session:
+                connector = await hub.get_connector(session, "pscp")
+                await session.commit()
+            if not isinstance(connector, PscpConnector):  # defensa de registre
+                raise TypeError("El hub ha resolt un connector inesperat per a 'pscp'")
+            async with connector.client() as client:
+                content, content_type = await client.download_document(row.source_url)
 
-        import uuid as _uuid
+            import uuid as _uuid
 
-        storage_key = f"projects/{row.project_id}/{_uuid.uuid4().hex}.pdf"
-        await get_storage().put(storage_key, content, content_type)
+            storage_key = f"projects/{row.project_id}/{_uuid.uuid4().hex}.pdf"
+            await get_storage().put(storage_key, content, content_type)
 
         import asyncio as _asyncio
 

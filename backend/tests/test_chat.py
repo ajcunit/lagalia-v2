@@ -170,11 +170,15 @@ async def test_chat_contract_scope(  # type: ignore[no-untyped-def]
     assert created.status_code == 201, created.text
     thread_id = created.json()["id"]
 
-    # Stream d'expedient amb agent simulat: emet fonts i es persisteixen.
+    # Stream d'expedient amb agent simulat: emet fonts, es persisteixen i el
+    # filtre per document arriba a l'agent.
+    seen_document_ids: list = []
+
     async def fake_contract_events(  # type: ignore[no-untyped-def]
-        session, cid, question, *, history=None, user_id=None, trace_id=None
+        session, cid, question, *, history=None, document_id=None, user_id=None, trace_id=None
     ):
         assert cid == contract_id
+        seen_document_ids.append(document_id)
         yield {"type": "sources", "sources": [{"title": "PPT neteja", "doc_type": "PPT"}]}
         yield {"type": "delta", "text": "Segons el PPT, la garantia és del 5%."}
 
@@ -183,9 +187,10 @@ async def test_chat_contract_scope(  # type: ignore[no-untyped-def]
     )
     response = api_client.post(
         f"/api/v1/chat/threads/{thread_id}/messages/stream",
-        json={"content": "Quina garantia hi ha?"},
+        json={"content": "Quina garantia hi ha?", "document_id": 4242},
         headers=admin,
     )
+    assert seen_document_ids == [4242]
     assert response.status_code == 200, response.text
     events = [json.loads(line) for line in response.text.splitlines() if line.strip()]
     assert any(e["type"] == "sources" for e in events)
