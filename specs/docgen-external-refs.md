@@ -33,6 +33,7 @@ Esborra `project_documents` amb `expires_at < now()` (i els seus chunks per CASC
 - `DELETE /doc-projects/{id}/external-references/{ref_id}`.
 - El detall del projecte inclou `external_references` amb estat i comptador de fragments.
 - **SuperBuscador i Favorits**: l'explorador de fases (component compartit `PhaseExplorer`) es mostra a les dues pantalles; cada document te boto «＋ projecte» amb selector de projecte. Als favorits, les fases surten de les `phase_urls` guardades al snapshot (fusionades entre lots) — mai de les taules municipals.
+- **Fitxa municipal** (ampliacio 2026-08-17): la pestanya Documents de `/contracts/:id` tambe te «＋ projecte» per document (mateix component; la referencia s'indexa temporalment al projecte via la URL publica del portal, com les altres fonts).
 - El selector de projecte permet **crear un projecte al vol** (nom + «Crea»): crea el projecte i hi afegeix la referencia d'un sol gest. Simetricament, el boto «⭐ Desa» del SuperBuscador permet **crear una carpeta de favorits al vol**.
 - **Generador**: el panell de referencies mostra les externes amb el seu estat (indexant / N fragments / error) i la data de caducitat.
 

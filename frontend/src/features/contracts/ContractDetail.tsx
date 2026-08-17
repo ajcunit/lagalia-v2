@@ -9,6 +9,7 @@ import { Markdown } from "../../components/Markdown";
 import { PageHeader } from "../../components/PageHeader";
 import { CpvChips, CriteriaBars, InfoPair, SheetTabs, Timeline } from "../../components/contractSheet";
 import { FileTypeIcon } from "../../components/FileTypeIcon";
+import { AddToProject } from "../../components/PhaseExplorer";
 import { t } from "../../i18n";
 import { streamNdjson } from "../../lib/stream";
 import { ca } from "../../i18n/ca";
@@ -48,8 +49,9 @@ function phaseLabel(phase: string): string {
 
 type PhaseDoc = components["schemas"]["PhaseDocument"];
 
-/** Documents del repositori amb revisió legal en streaming (specs/legal-corpus.md). */
-function DocumentsSection(props: { documents: PhaseDoc[]; canReview: boolean }) {
+/** Documents del repositori amb revisió legal en streaming (specs/legal-corpus.md)
+ * i enviament directe a un projecte del generador (specs/docgen-external-refs.md). */
+function DocumentsSection(props: { documents: PhaseDoc[]; canReview: boolean; fileCode: string }) {
   const [reviewing, setReviewing] = useState<{ id: number; title: string } | null>(null);
   const [reviewText, setReviewText] = useState("");
   const [articles, setArticles] = useState<{ article?: string; url?: string }[]>([]);
@@ -135,6 +137,15 @@ function DocumentsSection(props: { documents: PhaseDoc[]; canReview: boolean }) 
                         </td>
                         <td className="py-1.5 pr-2 text-right tabular-nums text-muted">
                           {formatBytes(doc.size)}
+                        </td>
+                        <td className="w-28 py-1.5 pl-2 text-right">
+                          {doc.download_url && (
+                            <AddToProject
+                              title={doc.title ?? String(doc.id)}
+                              downloadUrl={doc.download_url}
+                              fileCode={props.fileCode}
+                            />
+                          )}
                         </td>
                         {props.canReview && (
                           <td className="w-32 py-1.5 pl-2 pr-3 text-right">
@@ -599,6 +610,7 @@ export function ContractDetail() {
           <DocumentsSection
             documents={documents.data?.data ?? []}
             canReview={actions.includes("compliance:run")}
+            fileCode={data.file_code}
           />
         </div>
       )}
