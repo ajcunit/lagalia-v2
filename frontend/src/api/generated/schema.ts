@@ -5647,6 +5647,7 @@ export interface operations {
                 q?: string;
                 "filter[organisme]"?: string;
                 "filter[contract_type]"?: string;
+                "filter[phase]"?: string;
                 "filter[amount_min]"?: number;
                 "filter[amount_max]"?: number;
                 "filter[from]"?: string;

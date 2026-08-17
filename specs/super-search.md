@@ -9,7 +9,7 @@ Funcio estrella de la v1 (02 §2.10): cercar al dataset obert de contractacio de
 ### API (accio `tools:use`; tag `public-registry`; 05 §referencia-i-cerca)
 
 - `GET /public-registry/search` — proxy Socrata **parametritzat** (mai SoQL cru; tot passa pel query builder):
-  - `q` (cerca de text completa `$q`), `filter[organisme]` (conte, case-insensitive, sobre `nom_organ`), `filter[amount_min]`/`filter[amount_max]` (sobre `pressupost_licitacio_amb`), `filter[from]`/`filter[to]` (sobre `data_publicacio_anunci`), `filter[contract_type]` (igualtat).
+  - `q` (cerca de text completa `$q`), `filter[organisme]` (conte, case-insensitive, sobre `nom_organ`), `filter[amount_min]`/`filter[amount_max]` (sobre `pressupost_licitacio_amb`), `filter[from]`/`filter[to]` (sobre `data_publicacio_anunci`), `filter[contract_type]` (igualtat), `filter[phase]` (igualtat sobre `fase_publicacio`; ampliacio 2026-08-17).
   - Paginacio per pagina (`page`, `page_size` ≤ 50; `$limit`/`$offset`; `meta.has_more` demanant-ne un de mes — el dataset no dona total barat).
   - Ordre fix: `data_publicacio_anunci` desc.
   - Resposta en targetes: file_code, lot, subject, organisme, departament, tipus, procediment, estat, data de publicacio, pressupost (amb IVA), import d'adjudicacio, adjudicatari, `phase_urls` i `links`.
@@ -23,7 +23,7 @@ Funcio estrella de la v1 (02 §2.10): cercar al dataset obert de contractacio de
 
 ### Pantalla /search
 
-- Barra de cerca gran + filtres (organisme, tipus, rang d'imports, rang de dates). **Estat a la URL** (querystring): una cerca es pot enllaçar/compartir i el navegador recorda enrere/endavant.
+- Barra de cerca gran + filtres (organisme, tipus de contracte i fase com a desplegables amb els valors reals del dataset, rang d'imports, rang de dates) i boto «Neteja els filtres (N)» per descartar criteris d'un cop. **Estat a la URL** (querystring): una cerca es pot enllaçar/compartir i el navegador recorda enrere/endavant.
 - Resultats en **targetes**: objecte, organisme, expedient+lot, badges de tipus/estat, data, imports i adjudicatari. Paginacio Anterior/Seguent.
 - **Fitxa externa** (nomes lectura) en clicar una targeta: totes les dades del registre + **explorador de fases** (previ, licitacio, avaluacio, adjudicacio, formalitzacio, anul·lacio…): en obrir una fase es carreguen els seus documents descarregables (enllac directe al portal) i la mesa de contractacio.
 - Buits i errors amb missatges clars; imports formatats; WCAG (focus, aria, taules amb capçaleres).

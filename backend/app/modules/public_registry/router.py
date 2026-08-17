@@ -109,6 +109,7 @@ async def search_public_registry(
     contract_type: Annotated[
         str | None, Query(alias="filter[contract_type]", max_length=100)
     ] = None,
+    phase: Annotated[str | None, Query(alias="filter[phase]", max_length=100)] = None,
     amount_min: Annotated[Decimal | None, Query(alias="filter[amount_min]", ge=0)] = None,
     amount_max: Annotated[Decimal | None, Query(alias="filter[amount_max]", ge=0)] = None,
     published_from: Annotated[datetime | None, Query(alias="filter[from]")] = None,
@@ -125,6 +126,8 @@ async def search_public_registry(
             query = query.where_contains("nom_organ", organisme)
         if contract_type:
             query = query.where_eq("tipus_contracte", contract_type)
+        if phase:
+            query = query.where_eq("fase_publicacio", phase)
         if amount_min is not None:
             query = query.where_gte_number("pressupost_licitacio_amb", amount_min)
         if amount_max is not None:

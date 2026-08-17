@@ -2364,6 +2364,9 @@ paths:
         - name: filter[contract_type]
           in: query
           schema: { type: string, maxLength: 100 }
+        - name: filter[phase]
+          in: query
+          schema: { type: string, maxLength: 100 }
         - name: filter[amount_min]
           in: query
           schema: { type: number, minimum: 0 }

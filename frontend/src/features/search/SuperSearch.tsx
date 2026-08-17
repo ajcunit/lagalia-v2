@@ -29,6 +29,26 @@ const PHASE_ORDER = [
 
 type PhaseKey = (typeof PHASE_ORDER)[number];
 
+const CONTRACT_TYPES = [
+  "Serveis",
+  "Subministraments",
+  "Obres",
+  "Concessió de serveis",
+  "Concessió d'obres",
+  "Administratiu especial",
+] as const;
+
+const PHASES_FILTER = [
+  "Anunci previ",
+  "Anunci de licitació",
+  "Expedient en avaluació",
+  "Adjudicació",
+  "Formalització",
+  "Execució",
+  "Anul·lació",
+  "Publicació agregada de contractes",
+] as const;
+
 function phasesOf(card: Card): { phase: PhaseKey; url: string }[] {
   const urls = card.phase_urls ?? {};
   return PHASE_ORDER.flatMap((phase) => {
@@ -347,6 +367,8 @@ export function SuperSearch() {
   const applied = {
     q: params.get("q") ?? "",
     organisme: params.get("organisme") ?? "",
+    type: params.get("type") ?? "",
+    phase: params.get("phase") ?? "",
     amount_min: params.get("amount_min") ?? "",
     amount_max: params.get("amount_max") ?? "",
     from: params.get("from") ?? "",
@@ -354,7 +376,14 @@ export function SuperSearch() {
     page: Math.max(1, Number(params.get("page") ?? "1") || 1),
   };
   const [form, setForm] = useState({ ...applied });
-  const hasQuery = [applied.q, applied.organisme, applied.amount_min, applied.amount_max, applied.from, applied.to].some(Boolean);
+  const hasQuery = [
+    applied.q, applied.organisme, applied.type, applied.phase,
+    applied.amount_min, applied.amount_max, applied.from, applied.to,
+  ].some(Boolean);
+  const activeFilters = [
+    applied.organisme, applied.type, applied.phase,
+    applied.amount_min, applied.amount_max, applied.from, applied.to,
+  ].filter(Boolean).length;
 
   const results = useQuery({
     queryKey: ["public-search", applied],
@@ -366,6 +395,8 @@ export function SuperSearch() {
           query: {
             ...(applied.q ? { q: applied.q } : {}),
             ...(applied.organisme ? { "filter[organisme]": applied.organisme } : {}),
+            ...(applied.type ? { "filter[contract_type]": applied.type } : {}),
+            ...(applied.phase ? { "filter[phase]": applied.phase } : {}),
             ...(applied.amount_min ? { "filter[amount_min]": Number(applied.amount_min) } : {}),
             ...(applied.amount_max ? { "filter[amount_max]": Number(applied.amount_max) } : {}),
             ...(applied.from ? { "filter[from]": new Date(applied.from).toISOString() } : {}),
@@ -384,6 +415,8 @@ export function SuperSearch() {
     const next = new URLSearchParams();
     if (form.q) next.set("q", form.q);
     if (form.organisme) next.set("organisme", form.organisme);
+    if (form.type) next.set("type", form.type);
+    if (form.phase) next.set("phase", form.phase);
     if (form.amount_min) next.set("amount_min", form.amount_min);
     if (form.amount_max) next.set("amount_max", form.amount_max);
     if (form.from) next.set("from", form.from);
@@ -436,6 +469,32 @@ export function SuperSearch() {
             />
           </label>
           <label className="text-sm text-ink">
+            {t("search.filterType")}
+            <select
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="mt-1 block rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+            >
+              <option value="">{t("search.filterAny")}</option>
+              {CONTRACT_TYPES.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-ink">
+            {t("search.filterPhase")}
+            <select
+              value={form.phase}
+              onChange={(e) => setForm({ ...form, phase: e.target.value })}
+              className="mt-1 block rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+            >
+              <option value="">{t("search.filterAny")}</option>
+              {PHASES_FILTER.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-ink">
             {t("search.filterAmountMin")}
             <input
               type="number"
@@ -473,6 +532,22 @@ export function SuperSearch() {
               className="mt-1 block rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
             />
           </label>
+          {activeFilters > 0 && (
+            <button
+              type="button"
+              className="text-sm text-accent underline"
+              onClick={() => {
+                const cleared = { ...form, organisme: "", type: "", phase: "",
+                  amount_min: "", amount_max: "", from: "", to: "" };
+                setForm(cleared);
+                const next = new URLSearchParams();
+                if (cleared.q) next.set("q", cleared.q);
+                setParams(next);
+              }}
+            >
+              {t("search.clearFilters", { count: String(activeFilters) })}
+            </button>
+          )}
         </div>
       </form>
 
