@@ -14,7 +14,8 @@
 ### Pantalla /favorites (zona Operativa, entrada «Favorits»)
 
 - Mestre-detall: carpetes a l'esquerra (color, comptador; crear/editar/esborrar amb confirmacio), favorits de la carpeta a la dreta (targetes com les del SuperBuscador, amb fases i enllaç al portal, des del snapshot).
-- Des del SuperBuscador: boto «⭐ Desa» a cada targeta amb selector de carpeta (o crear-ne una al vol).
+- **Explorador de fases al favorit** (ampliacio 2026-08-17): les `phase_urls` del snapshot (fusionades entre lots) obren el mateix explorador que al SuperBuscador (documents descarregables, criteris, mesa) i cada document te «＋ projecte» cap al generador (vegeu specs/docgen-external-refs.md).
+- Des del SuperBuscador: boto «⭐ Desa» a cada targeta amb selector de carpeta (o crear-ne una al vol: nom + «Crea» dins del mateix selector).
 
 ## Canvis d'API
 
@@ -31,7 +32,7 @@ Migracio 0014: `favorite_folders` (user_id FK CASCADE, name, description, color)
 
 ## Fora d'abast
 
-- Compartir carpetes; enviar snapshot al cartipas del generador (2.14); refresc automatic del snapshot.
+- Compartir carpetes; refresc automatic del snapshot. (Enviar documents del favorit al generador ja es cobreix a specs/docgen-external-refs.md.)
 
 ## Criteris d'acceptacio
 
@@ -39,4 +40,6 @@ Migracio 0014: `favorite_folders` (user_id FK CASCADE, name, description, color)
 - [x] Afegir per file_code desa snapshot sense tocar `contracts` (comptatge igual abans/despres).
 - [x] Duplicat → 409; inexistent → 404.
 - [x] Pantalla mestre-detall + desar des del SuperBuscador.
+- [x] Explorador de fases del snapshot amb «＋ projecte» per document (2026-08-17).
+- [x] Creacio de carpeta al vol des del boto «⭐ Desa» (2026-08-17).
 - [x] Bateries verdes.

@@ -32,7 +32,8 @@ Esborra `project_documents` amb `expires_at < now()` (i els seus chunks per CASC
 - `POST /doc-projects/{id}/external-references` `{title, source_url, file_code?}` → crea el registre i encua el job (202).
 - `DELETE /doc-projects/{id}/external-references/{ref_id}`.
 - El detall del projecte inclou `external_references` amb estat i comptador de fragments.
-- **SuperBuscador**: a l'explorador de fases, cada document te boto «Afegeix a un projecte» amb selector de projecte.
+- **SuperBuscador i Favorits**: l'explorador de fases (component compartit `PhaseExplorer`) es mostra a les dues pantalles; cada document te boto «＋ projecte» amb selector de projecte. Als favorits, les fases surten de les `phase_urls` guardades al snapshot (fusionades entre lots) — mai de les taules municipals.
+- El selector de projecte permet **crear un projecte al vol** (nom + «Crea»): crea el projecte i hi afegeix la referencia d'un sol gest. Simetricament, el boto «⭐ Desa» del SuperBuscador permet **crear una carpeta de favorits al vol**.
 - **Generador**: el panell de referencies mostra les externes amb el seu estat (indexant / N fragments / error) i la data de caducitat.
 
 ## Fora d'abast
@@ -45,3 +46,5 @@ Esborra `project_documents` amb `expires_at < now()` (i els seus chunks per CASC
 - [x] Els seus fragments NO apareixen a la cerca RAG general ni al corpus municipal (test d'aillament).
 - [x] Caducitat (30 dies) + job de purga diari; esborrat en cascada amb el projecte (test).
 - [x] Botons a les dues pantalles; bateries verdes (416).
+- [x] Els documents dels expedients guardats a Favorits tambe es poden dur a un projecte (ampliacio 2026-08-17).
+- [x] «＋ projecte» i «⭐ Desa» permeten crear projecte/carpeta al vol (ampliacio 2026-08-17).

@@ -40,8 +40,8 @@ Funcio estrella de la v1 (02 §2.10): cercar al dataset obert de contractacio de
 
 ## Fora d'abast (seguent PR)
 
-- **Favorits** (02 §2.11): carpetes personals i importacio d'expedients externs (`origen='extern'`).
-- Enviar documents al cartipas del generador (02 §2.14, fase posterior).
+- ~~**Favorits** (02 §2.11)~~ → implementat, vegeu specs/favorites.md (snapshot JSONB, mai a `contracts`).
+- ~~Enviar documents al generador~~ → implementat, vegeu specs/docgen-external-refs.md («＋ projecte» a l'explorador de fases, amb creacio de projecte al vol).
 
 ## Criteris d'acceptacio
 

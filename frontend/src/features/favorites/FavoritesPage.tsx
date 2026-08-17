@@ -7,7 +7,9 @@ import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { Star } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
+import { PhasePanel } from "../../components/PhaseExplorer";
 import { t } from "../../i18n";
+import { phasesFromUrls } from "../../lib/phases";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { useFolders } from "./useFolders";
 
@@ -123,6 +125,18 @@ function FavoriteCard(props: { favorite: Favorite; folderId: number }) {
   const rows = f.snapshot;
   const first = rows[0] ?? {};
   const [open, setOpen] = useState(false);
+  const [openPhase, setOpenPhase] = useState<string | null>(null);
+
+  // Les fases viuen al snapshot (mai a les taules municipals): fusiona les
+  // phase_urls de totes les files (lots) del codi d'expedient.
+  const mergedPhaseUrls: Record<string, unknown> = {};
+  for (const row of rows) {
+    const urls = (row.phase_urls ?? {}) as Record<string, unknown>;
+    for (const [phase, url] of Object.entries(urls)) {
+      if (!(phase in mergedPhaseUrls)) mergedPhaseUrls[phase] = url;
+    }
+  }
+  const phases = phasesFromUrls(mergedPhaseUrls);
 
   const remove = useMutation({
     mutationFn: async () => {
@@ -175,6 +189,34 @@ function FavoriteCard(props: { favorite: Favorite; folderId: number }) {
           </Button>
         </span>
       </div>
+      {phases.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-2">
+          {phases.map(({ phase }) => (
+            <button
+              key={phase}
+              type="button"
+              aria-expanded={openPhase === phase}
+              onClick={() => setOpenPhase(openPhase === phase ? null : phase)}
+              className={`rounded-full border px-2.5 py-0.5 text-xs ${
+                openPhase === phase
+                  ? "border-accent bg-accent-soft text-ink"
+                  : "border-line text-muted hover:text-ink"
+              }`}
+            >
+              {t(`search.phase.${phase}` as const)}
+            </button>
+          ))}
+        </div>
+      )}
+      {openPhase !== null &&
+        (() => {
+          const active = phases.find((entry) => entry.phase === openPhase);
+          return active ? (
+            <div className="mt-2 rounded-md bg-surface p-3">
+              <PhasePanel url={active.url} fileCode={f.file_code} />
+            </div>
+          ) : null;
+        })()}
       {open && (
         <div className="mt-2 overflow-x-auto rounded-md bg-surface p-3 text-sm">
           <table className="w-full text-xs">

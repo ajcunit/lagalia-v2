@@ -8,26 +8,13 @@ import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
 import { Globe } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
+import { PhasePanel } from "../../components/PhaseExplorer";
 import { t } from "../../i18n";
-import { formatBytes, formatCurrency, formatDate } from "../../lib/format";
+import { formatCurrency, formatDate } from "../../lib/format";
+import { phasesFromUrls } from "../../lib/phases";
 import { useFolders } from "../favorites/useFolders";
 
 type Card = components["schemas"]["PublicContractCard"];
-
-/** Ordre canònic de fases del portal (02 §2.10). */
-const PHASE_ORDER = [
-  "futura",
-  "agregada",
-  "cpm",
-  "previ",
-  "licitacio",
-  "avaluacio",
-  "adjudicacio",
-  "formalitzacio",
-  "anulacio",
-] as const;
-
-type PhaseKey = (typeof PHASE_ORDER)[number];
 
 const CONTRACT_TYPES = [
   "Serveis",
@@ -49,171 +36,12 @@ const PHASES_FILTER = [
   "Publicació agregada de contractes",
 ] as const;
 
-function phasesOf(card: Card): { phase: PhaseKey; url: string }[] {
-  const urls = card.phase_urls ?? {};
-  return PHASE_ORDER.flatMap((phase) => {
-    const url = urls[phase];
-    return typeof url === "string" && url ? [{ phase, url }] : [];
-  });
-}
-
-function AddToProject(props: { title: string; downloadUrl: string; fileCode: string }) {
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const projects = useQuery({
-    queryKey: ["doc-projects"],
-    enabled: open,
-    queryFn: async () => {
-      const { data, error } = await api.GET("/doc-projects");
-      if (error !== undefined) throw error;
-      return data.data as { id: number; name: string }[];
-    },
-  });
-  const add = useMutation({
-    mutationFn: async (projectId: number) => {
-      const { error } = await api.POST("/doc-projects/{id}/external-references", {
-        params: { path: { id: projectId } },
-        body: { title: props.title, source_url: props.downloadUrl, file_code: props.fileCode },
-      });
-      if (error !== undefined) throw error;
-    },
-    onSuccess: () => {
-      setMessage(t("search.addedToProject"));
-      setOpen(false);
-    },
-    onError: () => {
-      setMessage(t("favorites.saveError"));
-      setOpen(false);
-    },
-  });
-
-  return (
-    <span className="relative">
-      <button
-        type="button"
-        aria-expanded={open}
-        className="text-xs text-muted underline hover:text-ink"
-        onClick={() => setOpen(!open)}
-      >
-        {t("search.addToProject")}
-      </button>
-      {message && <span className="ml-1 text-xs text-muted">{message}</span>}
-      {open && (
-        <span className="absolute right-0 top-5 z-10 block w-56 rounded-md border border-line bg-surface-raised p-2 shadow-card">
-          {(projects.data ?? []).length === 0 ? (
-            <span className="block text-xs text-muted">{t("search.noProjectsHint")}</span>
-          ) : (
-            (projects.data ?? []).map((project) => (
-              <button
-                key={project.id}
-                type="button"
-                disabled={add.isPending}
-                className="block w-full rounded px-2 py-1 text-left text-sm text-ink hover:bg-accent-soft"
-                onClick={() => add.mutate(project.id)}
-              >
-                {project.name}
-              </button>
-            ))
-          )}
-        </span>
-      )}
-    </span>
-  );
-}
-
-function PhasePanel(props: { url: string; fileCode: string }) {
-  const phase = useQuery({
-    queryKey: ["public-phase", props.url],
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await api.GET("/public-registry/phase", {
-        params: { query: { url: props.url } },
-      });
-      if (error !== undefined) throw error;
-      return data;
-    },
-  });
-
-  if (phase.isPending) return <Skeleton rows={3} />;
-  if (phase.isError) return <p className="text-sm text-muted">{t("search.phaseError")}</p>;
-
-  const { documents, committee, criteria } = phase.data;
-  if (documents.length === 0 && committee.length === 0 && criteria.length === 0) {
-    return <p className="text-sm text-muted">{t("search.phaseEmpty")}</p>;
-  }
-  return (
-    <div className="space-y-3">
-      {documents.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-ink">{t("search.documents")}</h4>
-          <ul className="mt-1 space-y-1">
-            {documents.map((doc) => (
-              <li key={doc.source_doc_id} className="flex flex-wrap items-center gap-2 text-sm">
-                <a
-                  href={doc.download_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-accent underline"
-                >
-                  {doc.title}
-                </a>
-                <span className="text-xs text-muted">
-                  {doc.doc_type}
-                  {doc.size ? ` · ${formatBytes(doc.size)}` : ""}
-                </span>
-                <AddToProject
-                  title={doc.title}
-                  downloadUrl={doc.download_url}
-                  fileCode={props.fileCode}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {criteria.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-ink">{t("search.criteria")}</h4>
-          <ul className="mt-1 space-y-0.5 text-sm">
-            {criteria.map((criterion, index) => (
-              <li key={index}>
-                {String(criterion.name ?? "—")}
-                {criterion.weight !== null && criterion.weight !== undefined && (
-                  <span className="text-muted"> · {String(criterion.weight)}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {committee.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-ink">{t("search.committee")}</h4>
-          <ul className="mt-1 space-y-0.5 text-sm">
-            {committee.map((member, index) => {
-              const name = [member.first_name, member.last_name]
-                .filter((part): part is string => typeof part === "string" && part.length > 0)
-                .join(" ");
-              const role = typeof member.role === "string" ? member.role : null;
-              return (
-                <li key={index}>
-                  {name || "—"}
-                  {role && <span className="text-muted"> · {role}</span>}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function SaveToFolder(props: { fileCode: string }) {
   const queryClient = useQueryClient();
   const folders = useFolders();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
 
   const add = useMutation({
     mutationFn: async (folderId: number) => {
@@ -233,6 +61,18 @@ function SaveToFolder(props: { fileCode: string }) {
       setOpen(false);
     },
   });
+  const createAndSave = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/folders", { body: { name: newName } });
+      if (error !== undefined) throw error;
+      await add.mutateAsync((data as { id: number }).id);
+    },
+    onSuccess: () => setNewName(""),
+    onError: () => {
+      setMessage(t("favorites.saveError"));
+      setOpen(false);
+    },
+  });
 
   const list = folders.data?.data ?? [];
   return (
@@ -247,22 +87,36 @@ function SaveToFolder(props: { fileCode: string }) {
       </button>
       {message && <span className="ml-1 text-xs text-muted">{message}</span>}
       {open && (
-        <span className="absolute right-0 top-6 z-10 block w-56 rounded-md border border-line bg-surface-raised p-2 shadow-card">
-          {list.length === 0 ? (
-            <span className="block text-xs text-muted">{t("favorites.noFoldersHint")}</span>
-          ) : (
-            list.map((folder) => (
-              <button
-                key={folder.id}
-                type="button"
-                disabled={add.isPending}
-                className="block w-full rounded px-2 py-1 text-left text-sm text-ink hover:bg-accent-soft"
-                onClick={() => add.mutate(folder.id)}
-              >
-                {folder.name}
-              </button>
-            ))
-          )}
+        <span className="absolute right-0 top-6 z-10 block w-64 rounded-md border border-line bg-surface-raised p-2 shadow-card">
+          {list.map((folder) => (
+            <button
+              key={folder.id}
+              type="button"
+              disabled={add.isPending}
+              className="block w-full rounded px-2 py-1 text-left text-sm text-ink hover:bg-accent-soft"
+              onClick={() => add.mutate(folder.id)}
+            >
+              {folder.name}
+            </button>
+          ))}
+          <span
+            className={`flex gap-1 ${list.length > 0 ? "mt-1 border-t border-line pt-1.5" : ""}`}
+          >
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={t("favorites.newFolderPlaceholder")}
+              aria-label={t("favorites.newFolderPlaceholder")}
+              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs"
+            />
+            <Button
+              tone="accent"
+              disabled={createAndSave.isPending || !newName.trim()}
+              onClick={() => createAndSave.mutate()}
+            >
+              {t("search.create")}
+            </Button>
+          </span>
         </span>
       )}
     </span>
@@ -272,7 +126,7 @@ function SaveToFolder(props: { fileCode: string }) {
 function ResultCard(props: { card: Card }) {
   const c = props.card;
   const [openPhase, setOpenPhase] = useState<string | null>(null);
-  const phases = phasesOf(c);
+  const phases = phasesFromUrls(c.phase_urls);
   const profileUrl = c.links?.enllac_perfil_contractant ?? c.links?.enllac_publicacio;
 
   return (
