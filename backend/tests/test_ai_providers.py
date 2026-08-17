@@ -396,6 +396,52 @@ async def test_scheduled_audit_report_never_crashes(monkeypatch: pytest.MonkeyPa
                 await session.commit()
 
 
+async def test_scheduled_report_success_path_emits_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Camí d'èxit complet: el bug d'emit_event() només sortia aquí."""
+    from sqlalchemy import text as sql_text
+
+    from app.ai import scheduled_reports
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text(
+                "INSERT INTO ai_provider_profiles "
+                "(name, protocol, base_url, default_model, enabled) "
+                "VALUES ('report-fake', 'openai_compatible', 'http://rep.fake/v1', 'm', true)"
+            )
+        )
+        await session.commit()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "# Informe mensual"}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+            },
+        )
+
+    monkeypatch.setattr(providers, "_transport", httpx.MockTransport(handler))
+    result = await scheduled_reports.build_and_send()
+    assert result["generated"] is True
+
+    async with session_factory() as session:
+        events = (
+            await session.execute(
+                sql_text(
+                    "SELECT count(*) FROM outbox_events WHERE event_type = 'audit.report_ready'"
+                )
+            )
+        ).scalar_one()
+        assert events >= 1
+        await session.execute(
+            sql_text("DELETE FROM ai_provider_profiles WHERE name = 'report-fake'")
+        )
+        await session.commit()
+
+
 async def test_recipients_parsing() -> None:
     from sqlalchemy import text as sql_text
 

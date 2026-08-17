@@ -132,8 +132,10 @@ async def sync_boe_norms(ctx: JobContext) -> dict[str, Any]:
                 chunks += await index_norm(session, boe_id, meta, articles)
                 await emit_event(
                     session,
-                    "legal.norm_updated",
-                    {
+                    event_type="legal.norm_updated",
+                    aggregate="legal_norm",
+                    aggregate_id=boe_id,
+                    data={
                         "boe_id": boe_id,
                         "title": meta.get("titulo", ""),
                         "consolidated_version": version,

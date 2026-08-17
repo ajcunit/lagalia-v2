@@ -84,8 +84,10 @@ async def build_and_send() -> dict[str, Any]:
     async with session_factory() as session:
         await emit_event(
             session,
-            "audit.report_ready",
-            {
+            event_type="audit.report_ready",
+            aggregate="audit_report",
+            aggregate_id=report["generated_at"],
+            data={
                 "generated_at": report["generated_at"],
                 "model": report["model"],
                 "emailed": result["emailed"],

@@ -85,7 +85,12 @@ function AiReport() {
           ? t("riskAudit.sentOk", { count: String(result.emailed) })
           : t("riskAudit.sentNone", { detail: result.detail ?? "" }),
       ),
-    onError: () => setSendResult(t("riskAudit.aiError")),
+    onError: (error: unknown) =>
+      setSendResult(
+        t("riskAudit.sentNone", {
+          detail: String((error as { detail?: string })?.detail ?? error),
+        }),
+      ),
   });
   const generate = useMutation({
     mutationFn: async () => {
