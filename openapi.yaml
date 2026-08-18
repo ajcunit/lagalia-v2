@@ -3908,6 +3908,10 @@ paths:
           in: query
           schema:
             { type: string, enum: [queued, running, success, failed, cancelled, dead] }
+        - name: type
+          in: query
+          description: Filtra per tipus de job (p. ex. sync.nightly)
+          schema: { type: string, pattern: "^[a-z0-9_.]{1,80}$" }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 50 }

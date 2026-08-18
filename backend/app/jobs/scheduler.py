@@ -37,6 +37,40 @@ async def _tick(redis: Redis) -> None:
                 logger.info("scheduled_job_enqueued", job_type=item.job_type, job_id=str(job.id))
             except Exception as exc:
                 logger.error("scheduled_job_failed", job_type=item.job_type, error=str(exc))
+    await _tick_nightly(redis)
+
+
+async def _tick_nightly(redis: Redis) -> None:
+    """Cadena nocturna configurable (specs/sync-schedule.md): la config es
+    llegeix de la BD a cada tick, així canviar l'hora no demana reinici."""
+    from datetime import UTC, datetime
+
+    from app.jobs import nightly
+
+    async with session_factory() as session:
+        values = await nightly.load_schedule_settings(session)
+    now = datetime.now(UTC)
+    if not nightly.nightly_due(
+        now,
+        enabled_raw=values.get(nightly.SETTING_ENABLED),
+        time_raw=values.get(nightly.SETTING_TIME),
+        days_raw=values.get(nightly.SETTING_DAYS),
+    ):
+        return
+    local_date = now.astimezone(nightly.TIMEZONE).date().isoformat()
+    # Un dispar per dia local, encara que hi hagi molts ticks (26 h de marge
+    # perquè la clau no caduqui abans del tomb de dia).
+    due = await redis.set(f"sched:sync.nightly:{local_date}", "1", nx=True, ex=26 * 3600)
+    if not due:
+        return
+    async with session_factory() as session:
+        try:
+            job = await enqueue_job(
+                session, job_type="sync.nightly", dedup_key="sync.nightly"
+            )
+            logger.info("nightly_sync_enqueued", job_id=str(job.id), date=local_date)
+        except Exception as exc:
+            logger.error("nightly_sync_failed", error=str(exc))
 
 
 async def main() -> None:

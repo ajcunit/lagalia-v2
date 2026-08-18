@@ -168,9 +168,10 @@ async def list_jobs(
     status: Annotated[
         str | None, Query(pattern="^(queued|running|success|failed|cancelled|dead)$")
     ] = None,
+    type: Annotated[str | None, Query(pattern=r"^[a-z0-9_.]{1,80}$")] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> dict[str, list[JobResponse]]:
-    """Safata de jobs (B-009): llistat per estat per a l'administració."""
+    """Safata de jobs (B-009): llistat per estat/tipus per a l'administració."""
     from app.core import authz
 
     if authz.evaluate(current.user, "sync:read") is None:
@@ -182,6 +183,8 @@ async def list_jobs(
         from app.jobs.models import JobStatus
 
         stmt = stmt.where(Job.status == JobStatus(status))
+    if type:
+        stmt = stmt.where(Job.type == type)
     jobs = (await session.execute(stmt)).scalars().all()
     return {"data": [JobResponse.from_job(j) for j in jobs]}
 

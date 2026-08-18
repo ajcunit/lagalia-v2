@@ -5,9 +5,10 @@ import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
-import { RefreshCw } from "lucide-react";
+import { CalendarClock, Inbox, RefreshCw } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
+import { SheetTabs } from "../../components/contractSheet";
 import { t } from "../../i18n";
 import { formatDateTime } from "../../lib/format";
 
@@ -79,6 +80,7 @@ export function SyncAdmin() {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [tab, setTab] = useState("execucions");
 
   const runs = useQuery({
     queryKey: ["sync-runs"],
@@ -124,6 +126,20 @@ export function SyncAdmin() {
           backTo="/admin"
           icon={RefreshCw} title={t("sync.title")} subtitle={t("sync.intro")} />
 
+      <div className="mt-4">
+        <SheetTabs
+          tabs={[
+            { key: "execucions", label: t("sync.tabRuns"), icon: RefreshCw },
+            { key: "programacio", label: t("sync.tabSchedule"), icon: CalendarClock },
+            { key: "jobs", label: t("sync.jobsTray"), icon: Inbox },
+          ]}
+          active={tab}
+          onSelect={setTab}
+        />
+      </div>
+
+      {tab === "execucions" && (
+      <>
       {canExecute && (
         <div className="mt-4 flex flex-wrap gap-2">
           {KINDS.map((kind) => (
@@ -209,7 +225,145 @@ export function SyncAdmin() {
         )}
       </div>
 
-      <JobsTray />
+      </>
+      )}
+
+      {tab === "programacio" && <NightlyScheduleCard />}
+
+      {tab === "jobs" && <JobsTray />}
+    </div>
+  );
+}
+
+/** Programació nocturna configurable (specs/sync-schedule.md): la cadena
+ *  contracts → extensions → menors → execució, un cop al dia. */
+function NightlyScheduleCard() {
+  const { permissions } = useAuth();
+  const canWrite = permissions?.actions.includes("config:write") ?? false;
+  const queryClient = useQueryClient();
+
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/settings");
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+  const put = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: unknown }) => {
+      const { error } = await api.PUT("/settings/{key}", {
+        params: { path: { key } },
+        body: { value },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["settings"] }),
+  });
+
+  const byKey = new Map((settings.data?.data ?? []).map((s) => [s.key, s.value]));
+  const enabled = String(byKey.get("sync.nightly_enabled") ?? "true").toLowerCase() !== "false";
+  const time = String(byKey.get("sync.nightly_time") ?? "02:30");
+  const rawDays = byKey.get("sync.nightly_days");
+  const days = new Set<number>(
+    (() => {
+      try {
+        const parsed = typeof rawDays === "string" ? JSON.parse(rawDays) : rawDays;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(Number);
+      } catch {
+        // valor invàlid = tots els dies (mateix criteri que el backend)
+      }
+      return [1, 2, 3, 4, 5, 6, 7];
+    })(),
+  );
+
+  const nightlyJobs = useQuery({
+    queryKey: ["nightly-last"],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/jobs", {
+        params: { query: { type: "sync.nightly", limit: 1 } },
+      });
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+  const last = nightlyJobs.data?.[0];
+
+  function toggleDay(day: number) {
+    const next = new Set(days);
+    if (next.has(day)) next.delete(day);
+    else next.add(day);
+    if (next.size === 0) return; // mai zero dies: desactiva el commutador
+    put.mutate({ key: "sync.nightly_days", value: JSON.stringify([...next].sort()) });
+  }
+
+  const dayLabels = ["dl", "dt", "dc", "dj", "dv", "ds", "dg"];
+
+  return (
+    <div className="mt-4 rounded-lg border border-line bg-surface-raised p-4 shadow-card">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold text-ink">{t("sync.nightlyTitle")}</h2>
+        {canWrite && (
+          <label className="ml-auto flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) =>
+                put.mutate({ key: "sync.nightly_enabled", value: String(e.target.checked) })
+              }
+            />
+            {t("sync.nightlyEnabled")}
+          </label>
+        )}
+      </div>
+      <p className="mt-1 text-sm text-muted">{t("sync.nightlyIntro")}</p>
+      <div className="mt-3 flex flex-wrap items-end gap-4">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-xs text-muted">{t("sync.nightlyTime")}</span>
+          <input
+            type="time"
+            defaultValue={time}
+            disabled={!canWrite}
+            onBlur={(e) => {
+              if (e.target.value && e.target.value !== time)
+                put.mutate({ key: "sync.nightly_time", value: e.target.value });
+            }}
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+          />
+        </label>
+        <div className="flex flex-col gap-1 text-sm">
+          <span className="text-xs text-muted">{t("sync.nightlyDays")}</span>
+          <div className="flex gap-1" role="group" aria-label={t("sync.nightlyDays")}>
+            {dayLabels.map((label, index) => {
+              const day = index + 1;
+              const active = days.has(day);
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  disabled={!canWrite}
+                  aria-pressed={active}
+                  onClick={() => toggleDay(day)}
+                  className={`rounded-md border px-2 py-1 text-xs ${
+                    active
+                      ? "border-accent bg-accent-soft font-medium text-ink"
+                      : "border-line text-muted hover:text-ink"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <p className="text-sm text-muted">
+          {t("sync.nightlyLast")}{" "}
+          {last !== undefined
+            ? `${formatDateTime(last.created_at)} · ${t(`sync.jobStatus.${last.status}` as Parameters<typeof t>[0])}`
+            : "—"}
+        </p>
+      </div>
     </div>
   );
 }
@@ -243,7 +397,7 @@ function JobsTray() {
   const requeuable = statusFilter === "dead" || statusFilter === "failed" || statusFilter === "cancelled";
 
   return (
-    <div className="mt-6">
+    <div className="mt-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-semibold text-ink">{t("sync.jobsTray")}</h2>
         <select

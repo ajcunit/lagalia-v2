@@ -97,9 +97,11 @@ Alimenta el corpus normatiu de l'assistent legal ([07-agents-ia.md](07-agents-ia
 
 | Job | Origen | Programació |
 |---|---|---|
-| `sync.contracts` | socrata majors | cron configurable (hora, dies, TZ) + manual |
-| `sync.extensions` | socrata RPC | encadenat després de contracts |
-| `sync.minor_contracts` | socrata RPC (procediment Menor) | cron + manual |
+| `sync.nightly` | intern | cadena diària configurable (hora, dies, TZ Europe/Madrid; specs/sync-schedule.md): contracts → extensions → menors → execució |
+| `sync.contracts` | socrata majors | dins de `sync.nightly` + manual |
+| `sync.extensions` | socrata RPC | encadenat després de contracts (dins de `sync.nightly`) + manual |
+| `sync.minor_contracts` | socrata RPC (procediment Menor) | dins de `sync.nightly` + manual |
+| `sync.execution` | socrata execució (8idu-wkjv) | dins de `sync.nightly` + manual (specs/execution-sync.md) |
 | `sync.cpv` | socrata CPV | manual / trimestral |
 | `enrich.contract` / `enrich.batch` | pscp | auto per a nous + batch manual (`force`) |
 | `rag.index_document` | intern | subscrit a descàrregues |

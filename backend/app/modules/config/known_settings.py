@@ -31,6 +31,22 @@ KNOWN_SETTINGS: list[KnownSetting] = [
         "intervencio@cunit.cat, secretaria@cunit.cat",
     ),
     KnownSetting(
+        "sync.nightly_enabled",
+        "Sincronització nocturna de contractes activada (true/false; no definit = activada)",
+        "true",
+    ),
+    KnownSetting(
+        "sync.nightly_time",
+        "Hora local (Europe/Madrid) de la cadena nocturna, format HH:MM",
+        "02:30",
+    ),
+    KnownSetting(
+        "sync.nightly_days",
+        "Dies de la setmana de la cadena nocturna (llista JSON ISO: 1=dilluns … "
+        "7=diumenge; buit = tots)",
+        "[1, 2, 3, 4, 5, 6, 7]",
+    ),
+    KnownSetting(
         "rag.indexable_phases",
         "Fases dels documents que es descarreguen i s'indexen al RAG (llista JSON; "
         "buit o no definit = totes). La resta es mostren només amb enllaç al portal.",

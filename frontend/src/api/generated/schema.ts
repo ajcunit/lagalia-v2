@@ -7813,6 +7813,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "queued" | "running" | "success" | "failed" | "cancelled" | "dead";
+                /** @description Filtra per tipus de job (p. ex. sync.nightly) */
+                type?: string;
                 limit?: number;
             };
             header?: never;
