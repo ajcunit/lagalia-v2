@@ -69,6 +69,7 @@ class SyncKind(enum.StrEnum):
     CPV = "cpv"
     EXTENSIONS = "extensions"
     ENRICHMENT = "enrichment"
+    EXECUTION = "execution"
 
 
 class SyncTrigger(enum.StrEnum):

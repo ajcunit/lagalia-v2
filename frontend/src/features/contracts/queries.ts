@@ -144,6 +144,19 @@ export function useContract(id: number) {
   });
 }
 
+export function useContractExecutions(id: number) {
+  return useQuery({
+    queryKey: ["contract-executions", id],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contracts/{id}/executions", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+}
+
 export function useContractExtensions(id: number) {
   return useQuery({
     queryKey: ["contract-extensions", id],

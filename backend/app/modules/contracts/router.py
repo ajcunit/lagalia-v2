@@ -357,3 +357,26 @@ async def get_contract_documents(
     await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
     documents = await repository.documents_of(session, id)
     return {"data": [PhaseDocumentResponse.from_document(d) for d in documents]}
+
+
+@router.get("/contracts/{id}/executions", operation_id="getContractExecutions")
+async def get_contract_executions(
+    id: ResourceId, session: SessionDep, authz_ctx: ReadDep
+) -> dict[str, list[dict[str, Any]]]:
+    """Actuacions de la fase d'execució (specs/execution-sync.md): totes les
+    files de l'expedient (per file_code, tots els lots), més recents primer."""
+    contract = await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
+    from sqlalchemy import text as sql_text
+
+    rows = (
+        await session.execute(
+            sql_text(
+                "SELECT id, lot, action_type, action_name, date, end_date, amount, "
+                "contractor_name, contractor_tax_id, observations, url_json "
+                "FROM contract_executions WHERE file_code = :f "
+                "ORDER BY date DESC NULLS LAST, id DESC"
+            ),
+            {"f": contract.file_code},
+        )
+    ).mappings().all()
+    return {"data": [dict(row) for row in rows]}

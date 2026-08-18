@@ -119,7 +119,7 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Specs afectades:** [ai-analyst.md](../specs/ai-analyst.md) (evolució a multi-torn), [rag-service.md](../specs/rag-service.md), [10-ui.md](10-ui.md) (nova superfície a la fitxa de contracte), [07-agents-ia.md](07-agents-ia.md) §2.5.
 
 ### B-017 · Sincronitzar les publicacions de la fase d'execució (dataset 8idu-wkjv)
-- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** M
+- **Prioritat:** P1 · **Estat:** Implementada (2026-08-18, specs/execution-sync.md) · **Mida:** M
 - **Descripció:** endpoint aportat per l'Esteve (2026-08-17):
   `https://analisi.transparenciacatalunya.cat/api/v3/views/8idu-wkjv/` —
   «Contractació pública a Catalunya: publicacions de la fase d'execució a la PSCP».

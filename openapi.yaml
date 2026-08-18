@@ -819,6 +819,29 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /contracts/{id}/executions:
+    get:
+      tags: [contracts]
+      operationId: getContractExecutions
+      summary: Actuacions de la fase d'execució de l'expedient (dataset 8idu-wkjv)
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Actuacions, més recents primer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContractExecution" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ───────────────────────── minor-contracts ─────────────────────────
   /minor-contracts:
     get:
@@ -2509,7 +2532,7 @@ paths:
           schema: { type: string }
         - name: filter[kind]
           in: query
-          schema: { type: string, enum: [contracts, minor, cpv, extensions, enrichment] }
+          schema: { type: string, enum: [contracts, minor, cpv, extensions, enrichment, execution] }
         - name: filter[status]
           in: query
           schema: { type: string, enum: [running, success, failed, partial] }
@@ -2580,7 +2603,7 @@ paths:
               properties:
                 kind:
                   type: string
-                  enum: [contracts, minor, cpv, extensions, enrichment]
+                  enum: [contracts, minor, cpv, extensions, enrichment, execution]
                 full:
                   type: boolean
                   default: false
@@ -4313,7 +4336,7 @@ components:
       required: [id, kind, trigger, status, new_count, updated_count, unchanged_count]
       properties:
         id: { type: integer, format: int64 }
-        kind: { type: string, enum: [contracts, minor, cpv, extensions, enrichment] }
+        kind: { type: string, enum: [contracts, minor, cpv, extensions, enrichment, execution] }
         trigger: { type: string, enum: [manual, scheduled, api] }
         status: { type: string, enum: [running, success, failed, partial] }
         started_at: { type: [string, "null"], format: date-time }
@@ -4928,6 +4951,22 @@ components:
         indexed:
           type: boolean
           description: El document està indexat al RAG (permet el xat per document).
+
+    ContractExecution:
+      type: object
+      required: [id, action_type]
+      properties:
+        id: { type: integer, format: int64 }
+        lot: { type: [string, "null"] }
+        action_type: { type: [string, "null"] }
+        action_name: { type: [string, "null"] }
+        date: { type: [string, "null"], format: date }
+        end_date: { type: [string, "null"], format: date }
+        amount: { type: [string, "null"] }
+        contractor_name: { type: [string, "null"] }
+        contractor_tax_id: { type: [string, "null"] }
+        observations: { type: [string, "null"] }
+        url_json: { type: [string, "null"] }
 
     ChatThread:
       type: object

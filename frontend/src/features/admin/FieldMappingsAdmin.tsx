@@ -15,6 +15,7 @@ type Mapping = components["schemas"]["FieldMapping"];
 const SOURCES = [
   { key: "socrata", labelKey: "mapping.sourceSocrata" },
   { key: "rpc", labelKey: "mapping.sourceRpc" },
+  { key: "execution", labelKey: "mapping.sourceExecution" },
   { key: "pscp", labelKey: "mapping.sourcePscp" },
 ] as const;
 

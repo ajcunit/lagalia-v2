@@ -14,7 +14,7 @@ import { formatDateTime } from "../../lib/format";
 type SyncRun = components["schemas"]["SyncRun"];
 type Kind = SyncRun["kind"];
 
-const KINDS: Kind[] = ["contracts", "minor", "cpv", "extensions", "enrichment"];
+const KINDS: Kind[] = ["contracts", "minor", "cpv", "extensions", "enrichment", "execution"];
 
 function statusBadge(status: SyncRun["status"]) {
   const tone = status === "success" ? "accent" : status === "running" ? "neutral" : "danger";

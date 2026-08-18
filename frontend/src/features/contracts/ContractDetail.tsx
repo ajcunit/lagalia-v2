@@ -27,6 +27,7 @@ import { ContractTasks } from "../tasks/ContractTasks";
 import {
   useContract,
   useContractCommittee,
+  useContractExecutions,
   useContractCriteria,
   useContractDocuments,
   useContractExtensions,
@@ -226,6 +227,7 @@ export function ContractDetail() {
   const id = Number(params.id);
   const contract = useContract(id);
   const extensions = useContractExtensions(id);
+  const executions = useContractExecutions(id);
   const modifications = useContractModifications(id);
   const history = useContractHistory(id);
   const criteria = useContractCriteria(id);
@@ -359,7 +361,10 @@ export function ContractDetail() {
             {
               key: "execucio",
               label: t("sheet.tabExecution"),
-              count: data.counters.extensions + data.counters.modifications,
+              count:
+                data.counters.extensions +
+                data.counters.modifications +
+                (executions.data?.data.length ?? 0),
             },
             { key: "historial", label: t("sheet.tabHistory"), count: data.counters.history },
             { key: "tasques", label: t("sheet.tabTasks") },
@@ -630,6 +635,57 @@ export function ContractDetail() {
       )}
 
       {tab === "execucio" && (
+      <>
+      {(executions.data?.data.length ?? 0) > 0 && (
+        <div className="mt-4">
+          <SectionCard
+            title={`${t("contract.section.executions")} (${executions.data?.data.length ?? 0})`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th scope="col" className="py-1 pr-2 font-medium">{t("contract.execution.type")}</th>
+                    <th scope="col" className="py-1 pr-2 font-medium">{t("contract.execution.name")}</th>
+                    <th scope="col" className="py-1 pr-2 font-medium">{t("contract.execution.period")}</th>
+                    <th scope="col" className="py-1 pr-2 text-right font-medium">{t("contract.extension.amount")}</th>
+                    <th scope="col" className="py-1 font-medium">{t("search.contractor")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(executions.data?.data ?? []).map((row) => (
+                    <tr key={row.id} className="border-t border-line align-top">
+                      <td className="py-1.5 pr-2">
+                        {row.action_type ? <Badge tone="neutral">{row.action_type}</Badge> : "—"}
+                        {row.lot ? <span className="ml-1 text-xs text-muted">lot {row.lot}</span> : null}
+                      </td>
+                      <td className="py-1.5 pr-2">
+                        {row.action_name ?? "—"}
+                        {row.observations && (
+                          <span className="mt-0.5 block text-xs text-muted">{row.observations}</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap text-muted">
+                        {formatDate(row.date)}
+                        {row.end_date ? ` → ${formatDate(row.end_date)}` : ""}
+                      </td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">
+                        {formatCurrency(row.amount)}
+                      </td>
+                      <td className="py-1.5">
+                        {row.contractor_name ?? "—"}
+                        {row.contractor_tax_id ? (
+                          <span className="text-xs text-muted"> ({row.contractor_tax_id})</span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+        </div>
+      )}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <SectionCard title={`${t("contract.section.extensions")} (${data.counters.extensions})`}>
           {extensions.data?.data.length ? (
@@ -686,6 +742,7 @@ export function ContractDetail() {
         </SectionCard>
       </div>
 
+      </>
       )}
 
       {tab === "historial" && (

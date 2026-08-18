@@ -502,6 +502,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contracts/{id}/executions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Actuacions de la fase d'execució de l'expedient (dataset 8idu-wkjv) */
+        get: operations["getContractExecutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/minor-contracts": {
         parameters: {
             query?: never;
@@ -2403,7 +2420,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             /** @enum {string} */
-            kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment";
+            kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment" | "execution";
             /** @enum {string} */
             trigger: "manual" | "scheduled" | "api";
             /** @enum {string} */
@@ -2943,6 +2960,22 @@ export interface components {
             has_copy?: boolean;
             /** @description El document està indexat al RAG (permet el xat per document). */
             indexed?: boolean;
+        };
+        ContractExecution: {
+            /** Format: int64 */
+            id: number;
+            lot?: string | null;
+            action_type: string | null;
+            action_name?: string | null;
+            /** Format: date */
+            date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            amount?: string | null;
+            contractor_name?: string | null;
+            contractor_tax_id?: string | null;
+            observations?: string | null;
+            url_json?: string | null;
         };
         ChatThread: {
             /** Format: int64 */
@@ -4035,6 +4068,32 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["PhaseDocument"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContractExecutions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Actuacions, més recents primer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ContractExecution"][];
                     };
                 };
             };
@@ -6025,7 +6084,7 @@ export interface operations {
             query?: {
                 "page[size]"?: number;
                 "page[cursor]"?: string;
-                "filter[kind]"?: "contracts" | "minor" | "cpv" | "extensions" | "enrichment";
+                "filter[kind]"?: "contracts" | "minor" | "cpv" | "extensions" | "enrichment" | "execution";
                 "filter[status]"?: "running" | "success" | "failed" | "partial";
             };
             header?: never;
@@ -6093,7 +6152,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment";
+                    kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment" | "execution";
                     /**
                      * @description Sync completa (ignora l'incremental); a enrichment, re-enriquir també els ja enriquits.
                      * @default false

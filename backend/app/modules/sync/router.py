@@ -39,6 +39,7 @@ _KIND_TO_JOB: dict[str, str] = {
     "cpv": "sync.cpv",
     "extensions": "sync.extensions",
     "enrichment": "enrich.batch",
+    "execution": "sync.execution",
 }
 
 
@@ -76,7 +77,7 @@ class PagedItemsResponse(BaseModel):
 
 
 class TriggerRequest(BaseModel):
-    kind: Literal["contracts", "minor", "cpv", "extensions", "enrichment"]
+    kind: Literal["contracts", "minor", "cpv", "extensions", "enrichment", "execution"]
     full: bool = False
     limit: Annotated[int | None, Field(ge=1, le=10000)] = None
 

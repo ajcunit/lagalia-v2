@@ -308,6 +308,10 @@ def _source_registry(source: str) -> dict[str, Any]:
         from app.integrations.socrata.sync_rpc import RPC_FIELDS
 
         return {t: (d.source, d.kind, d.label, None) for t, d in RPC_FIELDS.items()}
+    if source == "execution":
+        from app.integrations.socrata.sync_execution import EXECUTION_FIELDS
+
+        return {t: (d.source, d.kind, d.label, None) for t, d in EXECUTION_FIELDS.items()}
     if source == "pscp":
         from app.integrations.pscp.extract import PSCP_FIELDS
 
@@ -409,6 +413,20 @@ async def get_field_mapping_sample(
         if extension is not None:
             return {"file_code": file_code, "fields": extension.raw}
         raise Problem(404, "Expedient sense registres RPC guardats", "not-found")
+
+    if source == "execution":
+        row = (
+            await session.execute(
+                sql_text(
+                    "SELECT raw FROM contract_executions WHERE file_code = :f "
+                    "ORDER BY id DESC LIMIT 1"
+                ),
+                {"f": file_code},
+            )
+        ).first()
+        if row is None:
+            raise Problem(404, "Expedient sense actuacions d'execució guardades", "not-found")
+        return {"file_code": file_code, "fields": row.raw}
 
     # pscp: cal la URL de fase del contracte guardat.
     row = (
@@ -523,6 +541,7 @@ _REMAP_JOBS = {
     # socrata i rpc: re-mapatge LOCAL des del raw guardat (cap crida externa).
     "socrata": ("sync.remap_contracts", {}),
     "rpc": ("sync.remap_rpc", {}),
+    "execution": ("sync.remap_execution", {}),
     # pscp: re-enriquiment des de la font (els escalars surten del JSON viu).
     "pscp": ("enrich.batch", {"force": True, "download_documents": False, "trigger": "manual"}),
 }

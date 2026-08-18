@@ -16,6 +16,7 @@ MANIFEST = Manifest(
         "base_url": "https://analisi.transparenciacatalunya.cat",
         "dataset_contracts": "ybgg-dgi6",
         "dataset_rpc": "hb6v-jcbf",
+        "dataset_execution": "8idu-wkjv",
         "dataset_cpv": "wxdw-5eyv",
         "min_interval_seconds": 0.5,
         # Camp d'actualització per a sync incremental "quan el dataset ho
@@ -33,7 +34,7 @@ class SocrataConnector:
     def __init__(self, config: dict[str, Any], credentials: dict[str, str]) -> None:
         self.config = config
         self._app_token = credentials.get("app_token")
-        for key in ("dataset_contracts", "dataset_rpc", "dataset_cpv"):
+        for key in ("dataset_contracts", "dataset_rpc", "dataset_cpv", "dataset_execution"):
             validate_dataset_id(config[key])
 
     def client(self) -> SocrataClient:
