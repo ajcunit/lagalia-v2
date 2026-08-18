@@ -67,10 +67,13 @@ Els errors per fila (detalls caducats) es registren i no aturen el job.
   els lots), ordenades per data descendent.
 - **Fitxa del contracte, pestanya Execució**: targeta «Actuacions d'execució
   (n)» amb tipus (badge), denominació, **supòsit habilitant**, dates, import,
-  adjudicatari, observacions i **documents de l'actuació** (icona per tipus
-  de fitxer, enllaç de descàrrega, grup traduït i «＋ projecte» cap al
-  generador); les pròrrogues i modificacions RPC es mantenen al costat.
-  El comptador de la pestanya suma les tres coses.
+  adjudicatari i observacions; les pròrrogues i modificacions RPC es mantenen
+  al costat. El comptador de la pestanya suma les tres coses.
+- **Els documents de les actuacions van a la pestanya Documents**, dins d'una
+  carpeta «Execució» al costat de les carpetes de fase (esmena de l'Esteve,
+  2026-08-18): icona per tipus de fitxer, enllaç de descàrrega, grup traduït
+  i «＋ projecte»; el comptador de la pestanya Documents els inclou. (Sense
+  còpia local, la revisió legal no hi aplica.)
 - **Sincronitzacions** (/admin/sync): tipus nou `execution` al desplegable de
   llançament manual.
 
