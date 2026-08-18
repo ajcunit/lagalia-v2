@@ -48,16 +48,20 @@ def _parse_first_json(content: str) -> Any:
     return value
 
 
-async def _run_tool(session: AsyncSession, action: Any) -> tuple[str, Any, Any]:
+async def _run_tool(
+    session: AsyncSession, action: Any, scope: Any = None
+) -> tuple[str, Any, Any]:
     tool_name = str(action.get("tool", "")) if isinstance(action, dict) else ""
     args = action.get("args") or {} if isinstance(action, dict) else {}
+    if isinstance(args, dict):
+        args = {**args, "_scope": scope}  # abast de qui pregunta, mai del model
     entry = analyst_tools.TOOLS.get(tool_name)
     if entry is None:
         valid = sorted(analyst_tools.TOOLS)
         observation: Any = {"error": f"eina desconeguda; vàlides: {valid}"}
     else:
         try:
-            observation = await entry[0](session, args if isinstance(args, dict) else {})
+            observation = await entry[0](session, args if isinstance(args, dict) else {"_scope": scope})
         except Exception as exc:  # eina mai tomba el bucle
             observation = {"error": f"{type(exc).__name__}: {exc}"}
     return tool_name, args, jsonable_encoder(observation)
@@ -79,6 +83,7 @@ async def answer_events(
     question: str,
     *,
     history: list[dict[str, str]] | None = None,
+    scope: Any = None,
     user_id: int | None = None,
     trace_id: str | None = None,
 ):
@@ -134,8 +139,11 @@ async def answer_events(
             yield {"type": "delta", "text": str(action["answer"])}
             yield {"type": "done"}
             return
-        tool_name, args, rows = await _run_tool(session, action)
-        yield {"type": "step", "tool": tool_name, "args": args, "rows": rows}
+        tool_name, args, rows = await _run_tool(session, action, scope)
+        visible_args = {k: v for k, v in args.items()} if isinstance(args, dict) else args
+        if isinstance(visible_args, dict):
+            visible_args.pop("_scope", None)
+        yield {"type": "step", "tool": tool_name, "args": visible_args, "rows": rows}
         messages.append({"role": "assistant", "content": buffer})
         messages.append(_tool_result_message(tool_name, rows))
     yield {
@@ -149,13 +157,16 @@ async def answer_question(
     session: AsyncSession,
     question: str,
     *,
+    scope: Any = None,
     user_id: int | None = None,
     trace_id: str | None = None,
 ) -> dict[str, Any]:
     """Variant síncrona (API no-streaming): recull els esdeveniments."""
     steps: list[dict[str, Any]] = []
     parts: list[str] = []
-    async for event in answer_events(session, question, user_id=user_id, trace_id=trace_id):
+    async for event in answer_events(
+        session, question, scope=scope, user_id=user_id, trace_id=trace_id
+    ):
         if event["type"] == "step":
             steps.append({k: event[k] for k in ("tool", "args", "rows")})
         elif event["type"] == "delta":

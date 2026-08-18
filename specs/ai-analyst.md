@@ -19,6 +19,31 @@
 
 - Pregunta → resposta en Markdown + desplegable «dades consultades» per pas (eina, parametres, taula de files). Exemples clicables per començar.
 
+### Accés obert de només lectura, vinculat a rol i abast (2026-08-18)
+
+L'analista i el xat general poden consultar qualsevol dada o metadada de
+CONTRACTES i ADJUDICATARIS, sempre dins de l'abast de qui pregunta:
+
+- `data_schema`: cataleg de taules i columnes consultables — whitelist
+  explicita de l'ambit contractes/adjudicataris (contracts, minor_contracts,
+  contractors i satelits, cpv_codes, departments); MAI usuaris, sessions,
+  credencials, parametres, xats, auditoria de seguretat ni metadades de
+  sincronitzacio.
+- `sql_select`: un unic SELECT lliure validat (sense comentaris ni `;`,
+  paraules clau d'escriptura prohibides, identificadors sensibles bloquejats,
+  totes les taules referenciades dins de la whitelist) executat en una
+  transaccio READ ONLY amb statement_timeout de 5s i maxim 200 files.
+  Doble tanca: validacio + transaccio de nomes lectura.
+- **Abast per rol** (esmena de l'Esteve): admins i responsables de
+  contractacio (abast global) ho poden consultar tot, SQL lliure inclos.
+  Caps de departament i empleats amb can_audit (abast departamental):
+  `sql_select`/`data_schema` DENEGATS (amb SQL lliure no es pot garantir el
+  filtre), i les eines tancades filtren automaticament — search_contracts i
+  aggregate nomes sobre contractes dels seus departaments
+  (contract_departments), totals amb nota d'abast, red flags denegades
+  (analisi de tot l'ens). L'abast l'injecta el bucle des de l'AuthzContext
+  del cridador (mai el decideix el model) i no surt als passos visibles.
+
 ## Fora d'abast
 
 - Conversa multi-torn; export a informe; consum extern via service accounts; scoping departamental de les eines.

@@ -233,7 +233,8 @@ async def create_analysis(
     """Agent analista (specs/ai-analyst.md): pregunta → resposta amb dades font."""
     try:
         return await analyst_agent.answer_question(
-            session, body.question, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+            session, body.question, scope=authz_ctx.scope,
+            user_id=authz_ctx.user.id, trace_id=ctx.trace_id
         )
     except providers.ProviderError as exc:
         raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
@@ -283,7 +284,8 @@ async def stream_analysis(
     async def generate():
         try:
             async for event in analyst_agent.answer_events(
-                session, body.question, user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+                session, body.question, scope=authz_ctx.scope,
+                user_id=authz_ctx.user.id, trace_id=ctx.trace_id
             ):
                 yield _ndjson(event)
         except providers.ProviderError as exc:

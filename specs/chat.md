@@ -28,8 +28,13 @@ multi-torn amb historial persistent:
 ### Agents
 
 - **General**: reutilitza el bucle de l'analista (`analyst_agent.answer_events`
-  amb paràmetre nou `history`) — eines tancades, tasca `analyst.chat`,
-  streaming step/thinking/delta.
+  amb paràmetre nou `history`) — tasca `analyst.chat`, streaming
+  step/thinking/delta. Ampliació 2026-08-18: a més de les eines tancades,
+  pot consultar qualsevol dada o metadada de contractes i adjudicataris amb
+  `data_schema` + `sql_select` (SELECT únic validat, transacció
+  només-lectura), **vinculat al rol i a l'abast**: global per a admin/gestor;
+  filtrat per departament per a la resta, amb SQL lliure denegat
+  (vegeu ai-analyst.md).
 - **Expedient** (`app/ai/chat_agent.py`, tasca nova `chat.contract`):
   1. Construeix `<expedient>` amb el resum del contracte (camps principals,
      pròrrogues, modificacions, criteris, mesa) — dades, no instruccions.

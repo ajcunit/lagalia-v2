@@ -45,7 +45,7 @@ async def test_chat_threads_and_stream(  # type: ignore[no-untyped-def]
     )
 
     # Stream general amb agent simulat: persisteix pregunta i resposta.
-    async def fake_answer(session, question, *, history=None, user_id=None, trace_id=None):  # type: ignore[no-untyped-def]
+    async def fake_answer(session, question, *, history=None, scope=None, user_id=None, trace_id=None):  # type: ignore[no-untyped-def]
         assert isinstance(history, list)
         yield {"type": "thinking", "text": "pensant"}
         yield {"type": "delta", "text": "Resposta de prova."}
@@ -72,7 +72,7 @@ async def test_chat_threads_and_stream(  # type: ignore[no-untyped-def]
     # Segon torn: l'historial arriba a l'agent.
     seen_history: list = []
 
-    async def fake_answer2(session, question, *, history=None, user_id=None, trace_id=None):  # type: ignore[no-untyped-def]
+    async def fake_answer2(session, question, *, history=None, scope=None, user_id=None, trace_id=None):  # type: ignore[no-untyped-def]
         seen_history.extend(history or [])
         yield {"type": "delta", "text": "Segona resposta."}
         yield {"type": "done"}

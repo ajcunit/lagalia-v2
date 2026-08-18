@@ -219,7 +219,8 @@ async def stream_message(
             else:
                 events = analyst_agent.answer_events(
                     session, body.content,
-                    history=history, user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
+                    history=history, scope=authz_ctx.scope,
+                    user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
                 )
             async for event in events:
                 if event["type"] == "delta":
