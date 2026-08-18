@@ -16,9 +16,9 @@ from app.core.config import settings
 from app.integrations.base import ConnectorError
 from app.integrations.ldap.connector import (
     LdapConnector,
-    build_upn,
     build_user_filter,
     parse_server_address,
+    upn_candidates,
 )
 from app.modules.users import ldap_auth
 from app.modules.users.models import LdapGroupMapping, UserRole
@@ -51,11 +51,18 @@ def test_parse_server_address() -> None:
         parse_server_address("", 636, False)
 
 
-def test_build_upn() -> None:
-    assert build_upn("usuari", "@ajuntament.local") == "usuari@ajuntament.local"
-    assert build_upn("usuari", "ajuntament.local") == "usuari@ajuntament.local"
-    assert build_upn("algu@cunit.cat", "@ajuntament.local") == "algu@cunit.cat"
-    assert build_upn("usuari", "") == "usuari"
+def test_upn_candidates() -> None:
+    # Login amb el correu però UPN d'AD amb un altre sufix: es proven tots dos.
+    assert upn_candidates("algu@cunit.cat", "@ajcunit.local") == [
+        "algu@cunit.cat",
+        "algu@ajcunit.local",
+    ]
+    assert upn_candidates("usuari", "ajuntament.local") == [
+        "usuari",
+        "usuari@ajuntament.local",
+    ]
+    assert upn_candidates("algu@cunit.cat", "@cunit.cat") == ["algu@cunit.cat"]
+    assert upn_candidates("usuari", "") == ["usuari"]
 
 
 async def test_insecure_transport_rejected() -> None:
@@ -302,6 +309,58 @@ async def test_local_user_with_password_never_touches_ldap(
         "/api/v1/auth/login", json={"email": local.email, "password": "Directori-AD-123"}
     )
     assert response.status_code == 401
+
+
+async def test_ldap_test_login_action(
+    api_client: TestClient,
+    make_user: MakeUser,
+    ldap_fixture: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Diagnòstic d'admin: passos, grups i regles casades, sense tocar usuaris."""
+    from app.integrations import hub
+
+    admin = await make_user("admin")
+    headers = login_headers(api_client, admin.email)
+    profile = _profile(ldap_fixture)
+
+    class FakeLdap(LdapConnector):
+        async def authenticate(
+            self, identifier: str, password: str, trace: list[dict[str, Any]] | None = None
+        ) -> dict[str, Any] | None:
+            if trace is not None:
+                trace.append({"step": "bind d'usuari", "ok": True, "detail": identifier})
+            return profile
+
+    async def fake_get_connector(session: Any, slug: str) -> Any:
+        assert slug == "ldap"
+        return FakeLdap({}, {})
+
+    monkeypatch.setattr(hub, "get_connector", fake_get_connector)
+
+    response = api_client.post(
+        "/api/v1/connectors/ldap/actions/test-login",
+        json={"username": "provaldap", "password": "Directori-AD-123"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ok"] is True
+    assert body["matched_role"] == "procurement_manager"
+    assert body["matched_department_names"] == ["Departament LDAP"]
+    assert body["groups"] == profile["groups"]
+    assert body["steps"][-1]["step"] == "regles de mapatge"
+    # El diagnòstic no provisiona: l'usuari del perfil no existeix.
+    engine = create_async_engine(settings.database_url, poolclass=NullPool)
+    async with engine.connect() as conn:
+        count = (
+            await conn.execute(
+                text("SELECT count(*) FROM users WHERE email = :e"),
+                {"e": ldap_fixture["email"]},
+            )
+        ).scalar_one()
+    await engine.dispose()
+    assert count == 0
 
 
 # ─────────────────────────── API de regles ───────────────────────────

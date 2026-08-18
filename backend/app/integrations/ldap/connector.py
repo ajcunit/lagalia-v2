@@ -44,6 +44,14 @@ MANIFEST = Manifest(
 _USER_ATTRIBUTES = ["displayName", "mail", "sAMAccountName", "memberOf"]
 
 
+def _step(
+    trace: list[dict[str, Any]] | None, name: str, ok: bool, detail: str | None = None
+) -> None:
+    """Anota un pas al diagnòstic; mai hi entra cap contrasenya."""
+    if trace is not None:
+        trace.append({"step": name, "ok": ok, "detail": detail})
+
+
 def build_user_filter(identifier: str) -> str:
     """Filtre de cerca amb el valor escapat: cap entrada d'usuari en cru."""
     needle = escape_filter_chars(identifier)
@@ -81,12 +89,22 @@ def parse_server_address(url: str, port: int, starttls: bool) -> tuple[str, int,
     return cleaned, port, use_ssl
 
 
-def build_upn(identifier: str, domain_suffix: str) -> str:
-    """usuari → usuari@domini (si cal) per al bind directe sense servei."""
-    if "@" in identifier or not domain_suffix.strip():
-        return identifier
+def upn_candidates(identifier: str, domain_suffix: str) -> list[str]:
+    """UPN a provar per al bind directe, en ordre.
+
+    Primer el que ha escrit l'usuari; si hi ha sufix de domini i canvia
+    alguna cosa, també la part local amb el sufix (cas típic: login amb
+    el correu @cunit.cat però UPN d'AD @ajcunit.local).
+    """
+    candidates = [identifier]
     suffix = domain_suffix.strip()
-    return identifier + (suffix if suffix.startswith("@") else f"@{suffix}")
+    if suffix:
+        if not suffix.startswith("@"):
+            suffix = f"@{suffix}"
+        alternate = identifier.split("@", 1)[0] + suffix
+        if alternate != identifier:
+            candidates.append(alternate)
+    return candidates
 
 
 class LdapConnector:
@@ -146,10 +164,13 @@ class LdapConnector:
             "groups": [str(g) for g in attrs.get("memberOf") or []],
         }
 
-    def _authenticate_sync(self, identifier: str, password: str) -> dict[str, Any] | None:
+    def _authenticate_sync(
+        self, identifier: str, password: str, trace: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any] | None:
         # Contrasenya buida = bind anònim a molts directoris: es rebutja
         # aquí, abans de tocar la xarxa.
         if not identifier.strip() or not password.strip():
+            _step(trace, "credencials", False, "usuari o contrasenya en blanc")
             return None
         base_dn = str(self.config.get("base_dn") or "").strip()
         if not base_dn:
@@ -157,80 +178,126 @@ class LdapConnector:
         server = self._server()
 
         if self._bind_dn and self._bind_password:
-            return self._auth_with_service_account(server, base_dn, identifier, password)
-        return self._auth_direct_bind(server, base_dn, identifier, password)
+            return self._auth_with_service_account(server, base_dn, identifier, password, trace)
+        return self._auth_direct_bind(server, base_dn, identifier, password, trace)
 
     def _auth_with_service_account(
-        self, server: Server, base_dn: str, identifier: str, password: str
+        self,
+        server: Server,
+        base_dn: str,
+        identifier: str,
+        password: str,
+        trace: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         """Bind de servei → cerca → bind de verificació amb el DN trobat."""
         try:
             service = self._open(server, self._bind_dn, self._bind_password)
         except LDAPException as exc:
+            _step(trace, "connexió", False, str(exc))
             raise ConnectorError(f"No es pot connectar amb el directori: {exc}") from exc
         try:
             if not service.bind():
+                _step(trace, "bind de servei", False, str(service.result.get("description")))
                 raise ConnectorError("El bind del compte de servei ha fallat")
+            _step(trace, "bind de servei", True)
             entries = self._search_user(service, base_dn, identifier)
         except ConnectorError:
             raise
         except LDAPException as exc:
+            _step(trace, "cerca", False, str(exc))
             raise ConnectorError(f"Error de cerca al directori: {exc}") from exc
         finally:
             service.unbind()
 
         if len(entries) != 1:
             # 0 = desconegut; >1 = ambigu (mai s'endevina): totes dues → refús.
+            _step(trace, "cerca", False, f"{len(entries)} entrades per a «{identifier}»")
             return None
         entry = entries[0]
+        _step(trace, "cerca", True, str(entry.entry_dn))
 
         try:
             verify = self._open(server, str(entry.entry_dn), password)
         except LDAPException as exc:
+            _step(trace, "connexió", False, str(exc))
             raise ConnectorError(f"No es pot connectar amb el directori: {exc}") from exc
         try:
             if not verify.bind():
+                _step(trace, "bind d'usuari", False, "contrasenya incorrecta")
                 return None
-        except LDAPException:
+        except LDAPException as exc:
+            _step(trace, "bind d'usuari", False, str(exc))
             return None
         finally:
             verify.unbind()
+        _step(trace, "bind d'usuari", True)
         return self._profile_from_entry(entry, identifier)
 
     def _auth_direct_bind(
-        self, server: Server, base_dn: str, identifier: str, password: str
+        self,
+        server: Server,
+        base_dn: str,
+        identifier: str,
+        password: str,
+        trace: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        """Sense compte de servei: bind com a usuari (UPN) i cerca pròpia."""
-        upn = build_upn(identifier, str(self.config.get("domain_suffix") or ""))
+        """Sense compte de servei: bind com a usuari (UPN) i cerca pròpia.
+
+        Es proven els candidats d'UPN en ordre (login tal qual, i part
+        local + sufix de domini) fins que un bind entra.
+        """
+        candidates = upn_candidates(identifier, str(self.config.get("domain_suffix") or ""))
+        conn: Connection | None = None
+        bound_upn: str | None = None
         try:
-            conn = self._open(server, upn, password)
-        except LDAPException as exc:
-            raise ConnectorError(f"No es pot connectar amb el directori: {exc}") from exc
-        try:
-            try:
-                if not conn.bind():
-                    return None  # credencials invàlides
-            except LDAPException:
-                return None
+            for upn in candidates:
+                try:
+                    attempt = self._open(server, upn, password)
+                except LDAPException as exc:
+                    _step(trace, "connexió", False, str(exc))
+                    raise ConnectorError(
+                        f"No es pot connectar amb el directori: {exc}"
+                    ) from exc
+                try:
+                    bound = attempt.bind()
+                except LDAPException:
+                    bound = False
+                if bound:
+                    conn, bound_upn = attempt, upn
+                    _step(trace, "bind d'usuari", True, upn)
+                    break
+                _step(trace, "bind d'usuari", False, f"refusat per a «{upn}»")
+                attempt.unbind()
+
+            if conn is None:
+                return None  # cap candidat: credencials invàlides
+
             try:
                 entries = self._search_user(conn, base_dn, identifier)
-                if not entries and upn != identifier:
-                    entries = self._search_user(conn, base_dn, upn)
+                if not entries and bound_upn != identifier:
+                    entries = self._search_user(conn, base_dn, str(bound_upn))
             except LDAPException as exc:
+                _step(trace, "cerca", False, str(exc))
                 raise ConnectorError(f"Error de cerca al directori: {exc}") from exc
         finally:
-            conn.unbind()
+            if conn is not None:
+                conn.unbind()
         if len(entries) != 1:
+            _step(trace, "cerca", False, f"{len(entries)} entrades sota «{base_dn}»")
             return None
+        _step(trace, "cerca", True, str(entries[0].entry_dn))
         return self._profile_from_entry(entries[0], identifier)
 
-    async def authenticate(self, identifier: str, password: str) -> dict[str, Any] | None:
+    async def authenticate(
+        self, identifier: str, password: str, trace: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any] | None:
         """Perfil de l'usuari si les credencials són vàlides; None si no ho són.
 
         ConnectorError només per problemes d'infraestructura (AD caigut,
-        timeout, TLS): el caller decideix el fallback.
+        timeout, TLS): el caller decideix el fallback. `trace` (opcional)
+        recull els passos per al diagnòstic de la pantalla.
         """
-        return await asyncio.to_thread(self._authenticate_sync, identifier, password)
+        return await asyncio.to_thread(self._authenticate_sync, identifier, password, trace)
 
     # ── salut ──────────────────────────────────────────────────────
 

@@ -25,8 +25,10 @@ obligatori, timeout curt i, si l'AD cau, **el login local continua**.
   - **Amb compte de servei**: bind de servei → cerca → bind de verificació
     amb el DN trobat i la contrasenya de l'usuari.
   - **Sense compte de servei** (paritat v1): bind directe com a usuari
-    (UPN = login + `domain_suffix` si no porta `@`) i cerca de la pròpia
-    entrada per obtenir els grups.
+    provant els candidats d'UPN en ordre — el login tal qual i, si canvia
+    res, la part local + `domain_suffix` (cas típic: correu `@cunit.cat`
+    però UPN d'AD `@ajcunit.local`) — i cerca de la pròpia entrada per
+    obtenir els grups.
 - Healthcheck: bind de servei + cerca base (sense compte de servei només
   valida transport: la connexió real es prova al primer login).
 - El «grup d'accés obligatori» de la v1 el substitueixen les regles de rol:
@@ -68,6 +70,12 @@ de rol** (és el que dona accés a la plataforma i fixa el rol) i, a banda,
 
 - `GET/POST /ldap/group-mappings` i `DELETE /ldap/group-mappings/{id}`
   (lectura `config:read`, escriptura `config:write`; tag `config`).
+- `POST /connectors/ldap/actions/test-login` (`config:write`): diagnòstic
+  pas a pas amb un usuari real (connexió, bind, cerca, regles casades i
+  llista de grups `memberOf` per copiar-los a les regles). No crea ni
+  modifica cap usuari; la contrasenya no es desa ni s'audita (només
+  l'usuari provat, `config.ldap_test_login`). Formulari «Prova un inici
+  de sessió» a la pestanya LDAP, com el correu de prova de smtp.
 - **Paràmetres i connectors** (/admin/config) passa a pestanyes:
   Paràmetres · Connectors · **LDAP**. La pestanya LDAP ho té tot en un
   lloc: la targeta del connector `ldap` (servidor, base DN, StartTLS,

@@ -1239,6 +1239,57 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /connectors/ldap/actions/test-login:
+    post:
+      tags: [config]
+      operationId: testLdapLogin
+      summary: Prova un inici de sessió LDAP pas a pas (diagnòstic d'admin; no toca cap usuari)
+      x-required-scopes: [config:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, minLength: 1, maxLength: 255 }
+                password: { type: string, minLength: 1, maxLength: 255 }
+      responses:
+        "200":
+          description: Resultat del diagnòstic
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, steps, groups, matched_role, matched_department_names, email, name]
+                properties:
+                  ok: { type: boolean }
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                      required: [step, ok]
+                      properties:
+                        step: { type: string }
+                        ok: { type: boolean }
+                        detail: { type: [string, "null"] }
+                  groups:
+                    type: array
+                    items: { type: string }
+                  matched_role:
+                    oneOf:
+                      - { $ref: "#/components/schemas/Role" }
+                      - { type: "null" }
+                  matched_department_names:
+                    type: array
+                    items: { type: string }
+                  email: { type: [string, "null"] }
+                  name: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /ldap/group-mappings:
     get:
       tags: [config]

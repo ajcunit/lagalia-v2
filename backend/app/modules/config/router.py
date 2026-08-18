@@ -356,6 +356,94 @@ async def delete_ldap_group_mapping(
     await session.commit()
 
 
+class LdapTestStep(BaseModel):
+    step: str
+    ok: bool
+    detail: str | None = None
+
+
+class LdapTestLoginBody(BaseModel):
+    username: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1, max_length=255)
+
+
+class LdapTestLoginResponse(BaseModel):
+    ok: bool
+    steps: list[LdapTestStep]
+    groups: list[str]
+    matched_role: UserRole | None
+    matched_department_names: list[str]
+    email: str | None
+    name: str | None
+
+
+@router.post("/connectors/ldap/actions/test-login", operation_id="testLdapLogin")
+async def test_ldap_login(
+    body: LdapTestLoginBody, session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> LdapTestLoginResponse:
+    """Prova un inici de sessió contra l'AD pas a pas, sense tocar cap
+    usuari: diagnòstic d'admin per configurar la connexió i les regles.
+    La contrasenya no es desa ni s'audita mai."""
+    from app.integrations.base import ConnectorError
+    from app.integrations.ldap.connector import LdapConnector
+    from app.modules.users.ldap_auth import resolve_mappings
+
+    connector = await hub.get_connector(session, "ldap")  # desactivat → 409
+    if not isinstance(connector, LdapConnector):  # defensa de registre
+        raise Problem(500, "El hub ha resolt un connector inesperat per a «ldap»", "internal")
+
+    trace: list[dict[str, Any]] = []
+    profile: dict[str, Any] | None = None
+    try:
+        profile = await connector.authenticate(body.username, body.password, trace)
+    except ConnectorError as exc:
+        trace.append({"step": "directori", "ok": False, "detail": str(exc)})
+
+    await _audit(session, authz_ctx.user.id, "config.ldap_test_login", body.username, ctx)
+    await session.commit()
+
+    if profile is None:
+        return LdapTestLoginResponse(
+            ok=False,
+            steps=[LdapTestStep(**s) for s in trace],
+            groups=[],
+            matched_role=None,
+            matched_department_names=[],
+            email=None,
+            name=None,
+        )
+
+    mappings = list((await session.execute(select(LdapGroupMapping))).scalars())
+    role, department_ids = resolve_mappings(mappings, profile["groups"])
+    names: list[str] = []
+    if department_ids:
+        names = list(
+            (
+                await session.execute(
+                    select(Department.name).where(Department.id.in_(department_ids))
+                )
+            ).scalars()
+        )
+    trace.append(
+        {
+            "step": "regles de mapatge",
+            "ok": role is not None,
+            "detail": (
+                f"rol: {role.value}" if role is not None else "cap grup de rol casat: accés denegat"
+            ),
+        }
+    )
+    return LdapTestLoginResponse(
+        ok=role is not None,
+        steps=[LdapTestStep(**s) for s in trace],
+        groups=profile["groups"],
+        matched_role=role,
+        matched_department_names=names,
+        email=profile.get("email"),
+        name=profile.get("name"),
+    )
+
+
 @router.post("/connectors/smtp/actions/send-test-email", operation_id="sendSmtpTestEmail")
 async def send_smtp_test_email(
     session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep

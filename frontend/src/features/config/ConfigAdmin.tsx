@@ -5,7 +5,7 @@ import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
-import { Network, Plug, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, Network, Plug, SlidersHorizontal, XCircle } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
 import { SheetTabs } from "../../components/contractSheet";
@@ -427,6 +427,8 @@ function LdapMappingsPanel(props: { canWrite: boolean }) {
         </div>
       </section>
 
+      {props.canWrite && <LdapTestLoginCard />}
+
       <h2 className="pt-2 text-lg font-semibold text-ink">{t("config.ldapRules")}</h2>
 
       {props.canWrite && (
@@ -543,6 +545,117 @@ function LdapMappingsPanel(props: { canWrite: boolean }) {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Diagnòstic pas a pas d'un login LDAP: mostra els grups reals de
+ *  l'usuari per poder copiar-los a les regles. Mai toca cap usuari. */
+function LdapTestLoginCard() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const test = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/connectors/ldap/actions/test-login", {
+        body: { username: username.trim(), password },
+      });
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+  const result = test.data;
+
+  return (
+    <div className="rounded-lg border border-line bg-surface-raised p-4 shadow-card">
+      <h2 className="text-lg font-semibold text-ink">{t("config.ldapTest")}</h2>
+      <p className="mt-1 text-sm text-muted">{t("config.ldapTestIntro")}</p>
+      <form
+        className="mt-3 flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (username.trim() && password) test.mutate();
+        }}
+      >
+        <label className="flex min-w-56 flex-col gap-1 text-sm">
+          <span className="text-xs text-muted">{t("config.ldapTestUser")}</span>
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="off"
+            placeholder="usuari o usuari@cunit.cat"
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="flex min-w-56 flex-col gap-1 text-sm">
+          <span className="text-xs text-muted">{t("config.ldapTestPassword")}</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+          />
+        </label>
+        <Button
+          tone="accent"
+          disabled={!username.trim() || !password || test.isPending}
+          onClick={() => test.mutate()}
+        >
+          {test.isPending ? t("config.ldapTesting") : t("config.ldapTestRun")}
+        </Button>
+      </form>
+
+      {test.isError && (
+        <p className="mt-3 text-sm text-danger">
+          {(test.error as { title?: string }).title ?? t("admin.loadError")}
+        </p>
+      )}
+
+      {result !== undefined && (
+        <div className="mt-4 space-y-3">
+          <ul className="space-y-1">
+            {result.steps.map((step, index) => (
+              <li key={index} className="flex items-start gap-2 text-sm">
+                {step.ok ? (
+                  <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                ) : (
+                  <XCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                )}
+                <span>
+                  <span className="font-medium text-ink">{step.step}</span>
+                  {step.detail !== null && step.detail !== undefined && (
+                    <span className="text-muted"> — {step.detail}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {result.ok && (
+            <p className="text-sm text-ink">
+              {t("config.ldapTestOk")}{" "}
+              <strong>{result.name ?? "—"}</strong> ({result.email ?? "—"}) ·{" "}
+              {result.matched_role !== null
+                ? t(`role.${result.matched_role}` as Parameters<typeof t>[0])
+                : "—"}
+              {result.matched_department_names.length > 0 &&
+                ` · ${result.matched_department_names.join(", ")}`}
+            </p>
+          )}
+          {result.groups.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted">{t("config.ldapTestGroups")}</p>
+              <ul className="mt-1 max-h-48 space-y-0.5 overflow-y-auto rounded-md border border-line bg-surface p-2">
+                {result.groups.map((group) => (
+                  <li key={group} className="font-mono text-xs text-ink">
+                    {group}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
