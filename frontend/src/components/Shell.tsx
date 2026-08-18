@@ -44,27 +44,26 @@ export function Shell() {
                 </NavLink>
               </li>
             ))}
-            {showAdmin && (
-              <li className="pt-2">
-                <div className="mx-3 mb-2 border-t border-line" />
-                <NavLink
-                  to={ADMIN_NAV_ITEM.to}
-                  end
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
-                      isActive
-                        ? "bg-accent-soft font-semibold text-accent"
-                        : "text-ink hover:bg-surface-sunken"
-                    }`
-                  }
-                >
-                  <ADMIN_NAV_ITEM.icon aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.8} />
-                  {t(ADMIN_NAV_ITEM.labelKey)}
-                </NavLink>
-              </li>
-            )}
           </ul>
         </nav>
+        {showAdmin && (
+          <div className="border-t border-line px-3 py-2">
+            <NavLink
+              to={ADMIN_NAV_ITEM.to}
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
+                  isActive
+                    ? "bg-accent-soft font-semibold text-accent"
+                    : "text-ink hover:bg-surface-sunken"
+                }`
+              }
+            >
+              <ADMIN_NAV_ITEM.icon aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+              {t(ADMIN_NAV_ITEM.labelKey)}
+            </NavLink>
+          </div>
+        )}
         {user && (
           <div className="border-t border-line px-4 py-3">
             <div className="flex items-center gap-3">
