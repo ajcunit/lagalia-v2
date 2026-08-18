@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
-import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
-import { CheckCircle2, Network, Plug, SlidersHorizontal, XCircle } from "lucide-react";
+import { Badge, Button, EmptyState, SectionCard, Skeleton, Switch } from "../../components/ui";
+import { CheckCircle2, Network, Plug, SlidersHorizontal, ToggleRight, XCircle } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
 import { SheetTabs } from "../../components/contractSheet";
@@ -320,6 +320,7 @@ export function ConfigAdmin() {
         <SheetTabs
           tabs={[
             { key: "settings", label: t("config.settings"), icon: SlidersHorizontal },
+            { key: "moduls", label: t("config.modulesTab"), icon: ToggleRight },
             { key: "connectors", label: t("config.connectors"), icon: Plug },
             { key: "ldap", label: t("config.ldapTab"), icon: Network },
           ]}
@@ -348,7 +349,103 @@ export function ConfigAdmin() {
         </div>
       )}
 
+      {tab === "moduls" && <ModulesPanel canWrite={canWrite} />}
+
       {tab === "ldap" && <LdapMappingsPanel canWrite={canWrite} />}
+    </div>
+  );
+}
+
+const MODULE_ITEMS: { key: string; labelKey: Parameters<typeof t>[0] }[] = [
+  { key: "minor_contracts", labelKey: "nav.minorContracts" },
+  { key: "contractors", labelKey: "nav.contractors" },
+  { key: "tasks", labelKey: "nav.tasks" },
+  { key: "favorites", labelKey: "nav.favorites" },
+  { key: "cpv", labelKey: "nav.cpv" },
+  { key: "super_search", labelKey: "nav.superSearch" },
+  { key: "docgen", labelKey: "nav.docgen" },
+  { key: "analyst", labelKey: "nav.analyst" },
+  { key: "chat", labelKey: "nav.chat" },
+  { key: "risk_audit", labelKey: "nav.riskAudit" },
+  { key: "compliance", labelKey: "config.moduleCompliance" },
+  { key: "plan", labelKey: "nav.plan" },
+  { key: "webhooks", labelKey: "nav.webhooks" },
+];
+
+/** Mòduls activables (specs/module-flags.md): el nucli (contractes,
+ *  usuaris, configuració, auditoria de seguretat) no es pot desactivar. */
+function ModulesPanel(props: { canWrite: boolean }) {
+  const queryClient = useQueryClient();
+  const settings = useSettings();
+  const raw = settings.data?.data.find((s) => s.key === "modules.disabled")?.value;
+  const disabled = new Set<string>(
+    (() => {
+      try {
+        const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      } catch {
+        return [];
+      }
+    })(),
+  );
+
+  const save = useMutation({
+    mutationFn: async (next: string[]) => {
+      const { error } = await api.PUT("/settings/{key}", {
+        params: { path: { key: "modules.disabled" } },
+        body: { value: next.sort() },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+      void queryClient.invalidateQueries({ queryKey: ["permissions"] });
+    },
+  });
+
+  function toggle(key: string) {
+    const next = new Set(disabled);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    save.mutate([...next]);
+  }
+
+  return (
+    <div className="mt-4">
+      <p className="text-sm text-muted">{t("config.modulesIntro")}</p>
+      <div className="mt-3 rounded-lg border border-line bg-surface-raised shadow-card">
+        {settings.isPending ? (
+          <div className="p-4"><Skeleton rows={6} /></div>
+        ) : settings.isError ? (
+          <EmptyState icon="⚠️" title={t("admin.loadError")} />
+        ) : (
+          <ul className="divide-y divide-line">
+            {MODULE_ITEMS.map((item) => {
+              const active = !disabled.has(item.key);
+              return (
+                <li key={item.key} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className={`text-sm ${active ? "text-ink" : "text-muted line-through"}`}>
+                    {t(item.labelKey)}
+                  </span>
+                  <span className="ml-1 font-mono text-xs text-muted">{item.key}</span>
+                  <label className="ml-auto flex items-center gap-2 text-sm">
+                    <Switch
+                      checked={active}
+                      disabled={!props.canWrite || save.isPending}
+                      onChange={() => toggle(item.key)}
+                      label={`${t(item.labelKey)} — ${t("config.moduleActive")}`}
+                    />
+                    <span className="text-xs text-muted">
+                      {active ? t("config.moduleActive") : t("config.moduleDisabled")}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      <p className="mt-3 text-xs text-muted">{t("config.modulesCore")}</p>
     </div>
   );
 }

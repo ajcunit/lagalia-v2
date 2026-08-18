@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
-import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Badge, Button, EmptyState, Skeleton, Switch } from "../../components/ui";
 import { CalendarClock, Inbox, RefreshCw } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
@@ -306,11 +306,10 @@ function NightlyScheduleCard() {
         <h2 className="text-lg font-semibold text-ink">{t("sync.nightlyTitle")}</h2>
         {canWrite && (
           <label className="ml-auto flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Switch
               checked={enabled}
-              onChange={(e) =>
-                put.mutate({ key: "sync.nightly_enabled", value: String(e.target.checked) })
+              onChange={(checked) =>
+                put.mutate({ key: "sync.nightly_enabled", value: String(checked) })
               }
             />
             {t("sync.nightlyEnabled")}

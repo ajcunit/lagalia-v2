@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
-import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { Badge, Button, EmptyState, SectionCard, Skeleton, Switch } from "../../components/ui";
 import { Activity, Bot, Library, ListChecks, Scale, Server } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
@@ -872,12 +872,10 @@ function PhasesPanel() {
             const checked = effective === null || effective.has(row.phase);
             return (
               <li key={row.phase} className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  id={`ragphase-${row.phase}`}
+                <Switch
                   checked={checked}
                   onChange={() => toggle(row.phase)}
-                  className="h-4 w-4"
+                  label={row.phase}
                 />
                 <label htmlFor={`ragphase-${row.phase}`} className="min-w-0 flex-1">
                   <span className="font-medium text-ink">{phaseLabel(row.phase)}</span>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../../auth/AuthProvider";
-import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Badge, Button, EmptyState, Skeleton, Switch } from "../../components/ui";
 import { Users } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
@@ -171,11 +171,7 @@ export function UsersAdmin() {
           ))}
         </select>
         <label className="flex items-center gap-1.5 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={onlyActive}
-            onChange={(e) => setOnlyActive(e.target.checked)}
-          />
+          <Switch checked={onlyActive} onChange={setOnlyActive} />
           {t("admin.users.onlyActive")}
         </label>
       </div>
@@ -264,27 +260,24 @@ export function UsersAdmin() {
             <div className="space-y-1.5 text-sm text-ink">
               {editing !== "new" && (
                 <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
+                  <Switch
                     checked={form.active}
-                    onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                    onChange={(active) => setForm({ ...form, active })}
                   />
                   {t("admin.users.active")}
                 </label>
               )}
               <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={form.can_audit}
-                  onChange={(e) => setForm({ ...form, can_audit: e.target.checked })}
+                  onChange={(can_audit) => setForm({ ...form, can_audit })}
                 />
                 {t("admin.users.canAudit")}
               </label>
               <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={form.can_plan}
-                  onChange={(e) => setForm({ ...form, can_plan: e.target.checked })}
+                  onChange={(can_plan) => setForm({ ...form, can_plan })}
                 />
                 {t("admin.users.canPlan")}
               </label>

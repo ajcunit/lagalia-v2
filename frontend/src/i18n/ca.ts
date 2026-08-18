@@ -326,6 +326,14 @@ export const ca = {
   "config.settings": "Paràmetres",
   "config.health": "Salut",
   "config.checkHealth": "Comprova la connexió",
+  "config.modulesTab": "Mòduls",
+  "config.modulesIntro":
+    "Activa o desactiva mòduls sencers de la plataforma. Un mòdul desactivat desapareix del menú de tothom i la seva API queda tallada a l'instant. Les dades no s'esborren: en reactivar-lo, tot torna a ser-hi.",
+  "config.modulesCore":
+    "El nucli no es pot desactivar: contractes, usuaris i departaments, configuració, sincronitzacions i auditoria de seguretat.",
+  "config.moduleActive": "Actiu",
+  "config.moduleDisabled": "Desactivat",
+  "config.moduleCompliance": "Revisió legal",
   "config.ldapTab": "LDAP / Directori",
   "config.ldapIntro":
     "Regles de mapatge del directori corporatiu: el grup de rol dona accés a la plataforma i fixa el rol; el grup de departament assigna l'abast. Els usuaris es creen i s'actualitzen automàticament al primer inici de sessió.",

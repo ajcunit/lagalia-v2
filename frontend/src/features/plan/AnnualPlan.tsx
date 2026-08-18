@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
-import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
+import { Badge, Button, EmptyState, SectionCard, Skeleton, Switch } from "../../components/ui";
 import { ClipboardList } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
@@ -86,7 +86,7 @@ function EntryForm(props: { year: number; entry?: Entry; onDone: () => void }) {
           className="mt-1 block w-32 rounded-md border border-line bg-surface px-2 py-1.5 text-sm" />
       </label>
       <label className="flex items-center gap-1 text-sm text-ink">
-        <input type="checkbox" checked={subsidized} onChange={(ev) => setSubsidized(ev.target.checked)} />
+        <Switch checked={subsidized} onChange={setSubsidized} />
         {t("plan.subsidized")}
       </label>
       <label className="min-w-48 flex-1 text-sm text-ink">

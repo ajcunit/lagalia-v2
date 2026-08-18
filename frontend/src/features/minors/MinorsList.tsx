@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../../auth/AuthProvider";
-import { Badge, EmptyState, Skeleton } from "../../components/ui";
+import { Badge, EmptyState, Skeleton, Switch } from "../../components/ui";
 import { useDepartmentOptions } from "../contracts/queries";
 import { Receipt } from "lucide-react";
 
@@ -147,10 +147,9 @@ export function MinorsList() {
           <option value="false">{t("minors.settledNo")}</option>
         </select>
         <label className="flex items-center gap-1.5 text-sm text-ink">
-          <input
-            type="checkbox"
+          <Switch
             checked={searchParams.get("unassigned") === "true"}
-            onChange={(e) => update({ unassigned: e.target.checked ? "true" : null })}
+            onChange={(checked) => update({ unassigned: checked ? "true" : null })}
           />
           {t("contracts.filterUnassigned")}
         </label>

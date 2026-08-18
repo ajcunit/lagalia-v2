@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "../../auth/AuthProvider";
-import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
+import { Badge, Button, EmptyState, Skeleton, Switch } from "../../components/ui";
 import { Network } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
@@ -144,10 +144,9 @@ export function DepartmentsAdmin() {
             </label>
             {editing !== "new" && (
               <label className="flex items-center gap-1.5 text-sm text-ink">
-                <input
-                  type="checkbox"
+                <Switch
                   checked={form.active}
-                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
+                  onChange={(active) => setForm({ ...form, active })}
                 />
                 {t("admin.departments.active")}
               </label>

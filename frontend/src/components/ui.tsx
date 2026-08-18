@@ -46,6 +46,36 @@ export function Button(props: {
   );
 }
 
+/** Interruptor accessible (role=switch): estats on/off i filtres booleans.
+ *  Les seleccions múltiples continuen sent checkboxes. */
+export function Switch(props: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={props.checked}
+      aria-label={props.label}
+      disabled={props.disabled}
+      onClick={() => props.onChange(!props.checked)}
+      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        props.checked ? "bg-accent" : "bg-line"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`inline-block h-4 w-4 rounded-full bg-surface-raised shadow transition-transform ${
+          props.checked ? "translate-x-[18px]" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
 export function EmptyState(props: { icon?: string; title: string; detail?: string }) {
   return (
     <div className="py-16 text-center">
