@@ -93,7 +93,7 @@ async def index_norm(
     return len(pieces)
 
 
-@job("sync.boe_norms")
+@job("sync.boe_norms", max_attempts=3, backoff_seconds=300)
 async def sync_boe_norms(ctx: JobContext) -> dict[str, Any]:
     """Vigilància de consolidació: reindexa les normes que hagin canviat."""
     payload = ctx.payload or {}

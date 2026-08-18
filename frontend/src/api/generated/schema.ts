@@ -2098,6 +2098,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Safata de jobs per estat (administració, B-009) */
+        get: operations["listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs/{id}": {
         parameters: {
             query?: never;
@@ -2115,6 +2132,23 @@ export interface paths {
         get: operations["getJob"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/jobs/{id}/actions/requeue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-encua un job mort, fallit o cancel·lat (B-009) */
+        post: operations["requeueJob"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3091,7 +3125,7 @@ export interface components {
              */
             type: string;
             /** @enum {string} */
-            status: "queued" | "running" | "success" | "failed" | "cancelled";
+            status: "queued" | "running" | "success" | "failed" | "cancelled" | "dead";
             progress: number;
             progress_message?: string | null;
             result?: Record<string, never> | null;
@@ -7586,6 +7620,33 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listJobs: {
+        parameters: {
+            query?: {
+                status?: "queued" | "running" | "success" | "failed" | "cancelled" | "dead";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Jobs, més recents primer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Job"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     getJob: {
         parameters: {
             query?: never;
@@ -7609,6 +7670,32 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    requeueJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceUuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Re-encuat */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     streamJobEvents: {

@@ -208,6 +208,105 @@ export function SyncAdmin() {
           </table>
         )}
       </div>
+
+      <JobsTray />
+    </div>
+  );
+}
+
+/** Safata de jobs (B-009): morts, fallits i encuats, amb re-encuament manual. */
+function JobsTray() {
+  const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<string>("dead");
+  const jobs = useQuery({
+    queryKey: ["jobs-tray", statusFilter],
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/jobs", {
+        params: {
+          query: { status: statusFilter as "dead", limit: 50 },
+        },
+      });
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+  const requeue = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.POST("/jobs/{id}/actions/requeue", {
+        params: { path: { id } },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["jobs-tray"] }),
+  });
+  const requeuable = statusFilter === "dead" || statusFilter === "failed" || statusFilter === "cancelled";
+
+  return (
+    <div className="mt-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-lg font-semibold text-ink">{t("sync.jobsTray")}</h2>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label={t("sync.jobsTrayFilter")}
+          className="ml-auto rounded-md border border-line bg-surface px-2 py-1 text-sm"
+        >
+          {(["dead", "failed", "queued", "running", "cancelled"] as const).map((option) => (
+            <option key={option} value={option}>
+              {t(`sync.jobStatus.${option}` as Parameters<typeof t>[0])}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="mt-1 text-sm text-muted">{t("sync.jobsTrayIntro")}</p>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-surface-raised shadow-card">
+        {jobs.isPending ? (
+          <div className="p-4"><Skeleton rows={2} /></div>
+        ) : jobs.isError ? (
+          <EmptyState icon="⚠️" title={t("admin.loadError")} />
+        ) : (jobs.data ?? []).length === 0 ? (
+          <p className="p-4 text-sm text-muted">{t("sync.jobsTrayEmpty")}</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted">
+                <th scope="col" className="px-3 py-2 font-medium">{t("sync.col.kind")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("audit.col.when")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("sync.jobAttempts")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t("sync.jobError")}</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">
+                  <span className="sr-only">{t("contract.documents.actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {(jobs.data ?? []).map((job) => (
+                <tr key={job.id} className="border-t border-line align-top">
+                  <td className="px-3 py-1.5 font-mono text-xs">{job.type}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-muted">
+                    {formatDateTime(job.created_at)}
+                  </td>
+                  <td className="px-3 py-1.5 tabular-nums">{job.attempts ?? 0}</td>
+                  <td className="max-w-md px-3 py-1.5 text-xs text-muted">
+                    {job.error ?? job.progress_message ?? "—"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right">
+                    {requeuable && (
+                      <Button
+                        disabled={requeue.isPending}
+                        onClick={() => requeue.mutate(job.id)}
+                      >
+                        {t("sync.requeue")}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

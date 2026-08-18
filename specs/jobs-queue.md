@@ -45,6 +45,28 @@ Cap (el component `JobProgress` arriba amb les primeres pantalles de sync de la 
 - `POST /sync-runs` i tipus de job de negoci.
 - `purpose=download` del token efímer (amb les exportacions).
 
+### Reintents amb backoff i safata de morts (B-009, 2026-08-18)
+
+- **Politica per tipus al registre**: `@job(tipus, max_attempts=N,
+  backoff_seconds=S)`; per defecte 1 intent (comportament classic). Els jobs
+  de sincronitzacio i enriquiment porten 2-3 intents amb backoff exponencial
+  (S * 2^(intent-1)).
+- **Fallada amb intents restants**: el job torna a `queued` amb l'error
+  registrat i `progress_message` «reintent n/m d'aqui a Xs», i es re-encua a
+  arq amb `_defer_by` (id d'arq per intent per no deduplicar contra
+  l'execucio anterior).
+- **Reintents esgotats**: estat nou **`dead`** (migracio 0031) — la safata de
+  morts. Els jobs d'un sol intent segueixen acabant en `failed`.
+- **Escombrat d'estancats** (`jobs.sweep`, programat cada 15 min): els jobs
+  `queued` mai arrencats en 30 minuts passen a `failed` amb error explicatiu
+  i alliberen el `dedup_key` (cas real: worker antic sense el handler
+  deixava el job zombi bloquejant tots els encuaments).
+- **Administracio**: `GET /jobs?status=&limit=` (sync:read) i
+  `POST /jobs/{id}/actions/requeue` (sync:execute; nomes dead/failed/
+  cancelled, 409 altrament; reinicia intents i re-encua; auditat
+  `jobs.requeued`). UI: «Safata de jobs» a /admin/sync amb filtre per estat
+  i boto Re-encua.
+
 ## Criteris d'acceptació
 
 - [x] El runner deixa la fila `jobs` amb les transicions i timestamps correctes en èxit, error i cancel·lació.

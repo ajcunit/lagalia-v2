@@ -31,3 +31,26 @@ from app.jobs.registry import JobContext, job
 async def heartbeat(ctx: JobContext) -> dict[str, Any]:
     await ctx.set_progress(50, "Comprovant la maquinària")
     return {"beat_at": datetime.now(UTC).isoformat()}
+
+
+@job("jobs.sweep")
+async def sweep_stale_jobs(ctx: JobContext) -> dict[str, Any]:
+    """Escombrat B-009: jobs `queued` estancats (mai arrencats en 30 min)
+    passen a `failed` i alliberen el seu dedup_key. Cas real: un worker antic
+    sense el handler deixava el job zombi i bloquejava tots els encuaments."""
+    from sqlalchemy import text
+
+    from app.core.db import session_factory
+
+    async with session_factory() as session:
+        result = await session.execute(
+            text(
+                "UPDATE jobs SET status = 'failed', finished_at = now(), "
+                "error = 'estancat: mai arrencat en 30 minuts (escombrat B-009)' "
+                "WHERE status = 'queued' AND started_at IS NULL "
+                "AND created_at < now() - interval '30 minutes' "
+                "AND type <> 'jobs.sweep'"
+            )
+        )
+        await session.commit()
+    return {"swept": result.rowcount or 0}

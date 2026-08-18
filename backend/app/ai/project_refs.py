@@ -28,7 +28,7 @@ def _vector_literal(vector: list[float]) -> str:
     return "[" + ",".join(f"{x:.6f}" for x in vector) + "]"
 
 
-@job("docgen.index_external")
+@job("docgen.index_external", max_attempts=3, backoff_seconds=60)
 async def index_external(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     ref_id = int(payload["project_document_id"])

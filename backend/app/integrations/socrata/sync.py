@@ -198,7 +198,7 @@ async def _upsert_record(
     return "new"
 
 
-@job("sync.contracts")
+@job("sync.contracts", max_attempts=3, backoff_seconds=120)
 async def sync_contracts(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))

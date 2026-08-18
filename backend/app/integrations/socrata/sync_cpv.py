@@ -49,7 +49,7 @@ def levels_from_row(record: dict[str, Any]) -> list[dict[str, Any]]:
     return levels
 
 
-@job("sync.cpv")
+@job("sync.cpv", max_attempts=3, backoff_seconds=120)
 async def sync_cpv(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))

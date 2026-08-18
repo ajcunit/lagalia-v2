@@ -33,6 +33,7 @@ class JobStatus(enum.StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    DEAD = "dead"  # reintents esgotats (DLQ, B-009); re-encuable a mà
 
     @property
     def is_terminal(self) -> bool:

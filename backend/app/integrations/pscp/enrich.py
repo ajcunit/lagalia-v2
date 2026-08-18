@@ -205,7 +205,7 @@ async def _enrich_one(
     }
 
 
-@job("enrich.contract")
+@job("enrich.contract", max_attempts=2, backoff_seconds=60)
 async def enrich_contract(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     contract_id = int(payload["contract_id"])
@@ -234,7 +234,7 @@ async def enrich_contract(ctx: JobContext) -> dict[str, Any]:
     return result
 
 
-@job("enrich.batch")
+@job("enrich.batch", max_attempts=2, backoff_seconds=300)
 async def enrich_batch(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     force = bool(payload.get("force", False))

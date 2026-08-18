@@ -159,3 +159,55 @@ async def stream_job_events(id: uuid.UUID, token: Annotated[str, Query()]) -> St
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
+
+
+@router.get("/jobs", tags=["jobs"], operation_id="listJobs")
+async def list_jobs(
+    current: CurrentDep,
+    session: SessionDep,
+    status: Annotated[
+        str | None, Query(pattern="^(queued|running|success|failed|cancelled|dead)$")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> dict[str, list[JobResponse]]:
+    """Safata de jobs (B-009): llistat per estat per a l'administració."""
+    from app.core import authz
+
+    if authz.evaluate(current.user, "sync:read") is None:
+        raise Problem(403, "Cal permís de sincronitzacions", "forbidden")
+    from sqlalchemy import select
+
+    stmt = select(Job).order_by(Job.created_at.desc()).limit(limit)
+    if status:
+        from app.jobs.models import JobStatus
+
+        stmt = stmt.where(Job.status == JobStatus(status))
+    jobs = (await session.execute(stmt)).scalars().all()
+    return {"data": [JobResponse.from_job(j) for j in jobs]}
+
+
+@router.post(
+    "/jobs/{id}/actions/requeue",
+    tags=["jobs"],
+    operation_id="requeueJob",
+    status_code=202,
+)
+async def requeue_job(
+    id: uuid.UUID, current: CurrentDep, session: SessionDep, ctx: ContextDep
+) -> JobResponse:
+    """Re-encuament manual d'un job mort/fallit/cancel·lat (safata B-009)."""
+    from app.core import authz
+
+    if authz.evaluate(current.user, "sync:execute") is None:
+        raise Problem(403, "Cal permís d'execució de sincronitzacions", "forbidden")
+    job = await session.get(Job, id)
+    if job is None:
+        raise Problem(404, "Treball desconegut", "not-found")
+    job = await service.requeue_job(session, job)
+    await record_audit(
+        session, actor_type=AuditActorType.USER, action="jobs.requeued", success=True,
+        actor_id=current.user.id, resource_type="job", resource_id=str(id),
+        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+    )
+    await session.commit()
+    return JobResponse.from_job(job)

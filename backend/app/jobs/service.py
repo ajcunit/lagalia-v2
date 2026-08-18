@@ -142,3 +142,49 @@ async def cancel_job(
     )
     await session.commit()
     return job
+
+
+async def enqueue_arq_retry(job_id: uuid.UUID, *, attempt: int, delay_seconds: int) -> None:
+    """Re-encua a arq amb retard (reintent B-009). L'id d'arq inclou l'intent
+    perquè arq no dedupliqui contra l'execució anterior."""
+    from datetime import timedelta
+
+    pool = await _arq_pool()
+    try:
+        await pool.enqueue_job(
+            "execute_job",
+            str(job_id),
+            _job_id=f"{job_id}:retry{attempt}",
+            _queue_name=settings.jobs_queue_name,
+            _defer_by=timedelta(seconds=delay_seconds),
+        )
+    finally:
+        await pool.aclose()
+
+
+async def requeue_job(session: AsyncSession, job: Job) -> Job:
+    """Re-encuament manual d'un job mort/fallit/cancel·lat (safata B-009)."""
+    if job.status not in (JobStatus.FAILED, JobStatus.DEAD, JobStatus.CANCELLED):
+        raise Problem(409, "Només es re-encuen jobs morts, fallits o cancel·lats", "conflict")
+    job.status = JobStatus.QUEUED
+    job.attempts = 0
+    job.error = None
+    job.result = None
+    job.progress = 0
+    job.progress_message = "re-encuat manualment"
+    job.started_at = None
+    job.finished_at = None
+    await session.flush()
+    import uuid as _uuid
+
+    pool = await _arq_pool()
+    try:
+        await pool.enqueue_job(
+            "execute_job",
+            str(job.id),
+            _job_id=f"{job.id}:requeue-{_uuid.uuid4().hex[:8]}",
+            _queue_name=settings.jobs_queue_name,
+        )
+    finally:
+        await pool.aclose()
+    return job

@@ -128,8 +128,8 @@ async def totals(session: AsyncSession, args: dict[str, Any]) -> dict[str, Any]:
         row = (
             await session.execute(
                 text(
-                    "SELECT count(*) AS contracts, sum(award_amount) AS total_awarded "
-                    f"FROM contracts WHERE {condition}"  # noqa: S608 — condició fixa
+                    "SELECT count(*) AS contracts, "  # noqa: S608 — literal fix
+                    f"sum(award_amount) AS total_awarded FROM contracts WHERE {condition}"
                 ),
                 params,
             )

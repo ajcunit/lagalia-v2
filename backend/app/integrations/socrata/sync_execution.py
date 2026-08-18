@@ -217,7 +217,7 @@ async def _upsert_execution(
     return "new" if contract_id is not None else "unmatched"
 
 
-@job("sync.execution")
+@job("sync.execution", max_attempts=3, backoff_seconds=120)
 async def sync_execution(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))

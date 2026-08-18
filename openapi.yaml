@@ -3788,6 +3788,35 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
 
   # ───────────────────────────── jobs ─────────────────────────────
+  /jobs:
+    get:
+      tags: [jobs]
+      operationId: listJobs
+      summary: Safata de jobs per estat (administració, B-009)
+      x-required-scopes: [sync:read]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            { type: string, enum: [queued, running, success, failed, cancelled, dead] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: Jobs, més recents primer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /jobs/{id}:
     parameters:
       - name: id
@@ -3810,6 +3839,25 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /jobs/{id}/actions/requeue:
+    post:
+      tags: [jobs]
+      operationId: requeueJob
+      summary: Re-encua un job mort, fallit o cancel·lat (B-009)
+      x-required-scopes: [sync:execute]
+      parameters:
+        - $ref: "#/components/parameters/ResourceUuid"
+      responses:
+        "202":
+          description: Re-encuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /jobs/{id}/events:
     get:
@@ -5149,7 +5197,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         type: { type: string, examples: ["system.heartbeat", "sync.contracts"] }
-        status: { type: string, enum: [queued, running, success, failed, cancelled] }
+        status: { type: string, enum: [queued, running, success, failed, cancelled, dead] }
         progress: { type: integer, minimum: 0, maximum: 100 }
         progress_message: { type: [string, "null"] }
         result: { type: [object, "null"] }

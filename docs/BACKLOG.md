@@ -55,7 +55,7 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Specs afectades:** [users-departments.md](../specs/users-departments.md), [06-seguretat.md](06-seguretat.md).
 
 ### B-009 · Reintents amb backoff i dead-letter queue per a jobs
-- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
+- **Prioritat:** P2 · **Estat:** Implementada (2026-08-18, specs/jobs-queue.md §B-009) · **Mida:** M
 - **Descripció:** [03-arquitectura.md](03-arquitectura.md) §2.4 preveu reintents amb backoff exponencial i DLQ. La infraestructura de la Fase 0 (spec [jobs-queue.md](../specs/jobs-queue.md)) executa amb un sol intent; cal la política de reintents per tipus de job i la safata de morts amb re-encuat manual.
 - **Com desenvolupar-la:** amb els primers jobs reals (sync Socrata, Fase 1): `max_tries` i backoff per tipus al registre de jobs, estat `dead` o taula/etiqueta DLQ, i endpoint d'administració per re-encuar.
 - **Specs afectades:** [jobs-queue.md](../specs/jobs-queue.md), [03-arquitectura.md](03-arquitectura.md).

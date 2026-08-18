@@ -225,7 +225,7 @@ async def _upsert_modification(
     return "new"
 
 
-@job("sync.extensions")
+@job("sync.extensions", max_attempts=3, backoff_seconds=120)
 async def sync_extensions(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))
@@ -378,7 +378,7 @@ async def _upsert_minor(session: AsyncSession, values: dict[str, Any]) -> str:
     return "new"
 
 
-@job("sync.minor_contracts")
+@job("sync.minor_contracts", max_attempts=3, backoff_seconds=120)
 async def sync_minor_contracts(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))

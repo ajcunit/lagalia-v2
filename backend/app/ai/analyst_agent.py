@@ -61,7 +61,8 @@ async def _run_tool(
         observation: Any = {"error": f"eina desconeguda; vàlides: {valid}"}
     else:
         try:
-            observation = await entry[0](session, args if isinstance(args, dict) else {"_scope": scope})
+            tool_args = args if isinstance(args, dict) else {"_scope": scope}
+            observation = await entry[0](session, tool_args)
         except Exception as exc:  # eina mai tomba el bucle
             observation = {"error": f"{type(exc).__name__}: {exc}"}
     return tool_name, args, jsonable_encoder(observation)

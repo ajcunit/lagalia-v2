@@ -13,7 +13,7 @@ import structlog
 from app.core.db import session_factory
 from app.jobs import events
 from app.jobs.models import Job, JobStatus
-from app.jobs.registry import JobContext, get_handler
+from app.jobs.registry import JobContext, get_handler, get_policy
 
 logger = structlog.get_logger()
 
@@ -62,8 +62,21 @@ async def execute_job(job_row_id: str) -> None:
         raise
     except Exception as exc:
         # Mai el payload a l'error: només el tipus i el missatge de l'excepció.
-        await _finish(job_id, JobStatus.FAILED, error=f"{type(exc).__name__}: {exc}")
-        log.error("job_failed", error=str(exc))
+        policy = get_policy(job_type)
+        async with session_factory() as session:
+            row = await session.get(Job, job_id)
+            attempts = row.attempts if row is not None else 1
+        if attempts < policy.max_attempts:
+            delay = policy.delay_for(attempts)
+            await _retry_later(job_id, attempts, policy.max_attempts, delay, exc)
+            log.warning(
+                "job_retry_scheduled", attempt=attempts,
+                max_attempts=policy.max_attempts, delay_seconds=delay, error=str(exc),
+            )
+            return
+        terminal = JobStatus.DEAD if policy.max_attempts > 1 else JobStatus.FAILED
+        await _finish(job_id, terminal, error=f"{type(exc).__name__}: {exc}")
+        log.error("job_failed", terminal=terminal.value, error=str(exc))
         return
 
     await _finish(job_id, JobStatus.SUCCESS, result=result)
@@ -92,3 +105,26 @@ async def _finish(
         await session.commit()
         payload = events.snapshot(job)
     await events.publish_event(job_id, payload)
+
+
+async def _retry_later(
+    job_id: uuid.UUID, attempt: int, max_attempts: int, delay: int, exc: Exception
+) -> None:
+    """Reintent amb backoff (B-009): torna el job a la cua amb retard."""
+    async with session_factory() as session:
+        job = await session.get(Job, job_id)
+        if job is None:
+            return
+        job.status = JobStatus.QUEUED
+        job.error = f"{type(exc).__name__}: {exc}"
+        job.progress = 0
+        job.progress_message = (
+            f"reintent {attempt + 1}/{max_attempts} d'aquí a {delay}s"
+        )
+        await session.commit()
+    from app.jobs.service import enqueue_arq_retry
+
+    await enqueue_arq_retry(job_id, attempt=attempt, delay_seconds=delay)
+    await events.publish_event(
+        job_id, {"status": "queued", "progress": 0, "attempt": attempt + 1}
+    )

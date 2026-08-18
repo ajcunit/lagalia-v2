@@ -16,6 +16,12 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=300,
         dedup_key="system.heartbeat",
     ),
+    # Escombrat de jobs estancats (B-009): allibera dedup_keys bloquejats.
+    ScheduledJob(
+        job_type="jobs.sweep",
+        interval_seconds=900,
+        dedup_key="jobs.sweep",
+    ),
     # Recordatoris de tasques: horari, idempotent (sent_at + dedupe diari).
     ScheduledJob(
         job_type="tasks.reminders",
