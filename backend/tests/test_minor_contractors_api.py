@@ -256,13 +256,14 @@ async def test_duplicate_merge_full_flow(api_client: TestClient, world: dict[str
     assert profile["total_amount"] == "1500.00"
     assert f"RANQUING {tag}, S.L." in profile["aliases"]
 
-    # Segona resolució del mateix parell: ja no hi és (esborrat en cascada).
+    # Segona resolució del mateix parell: sobreviu com a històric (snapshot,
+    # FK SET NULL) i per això ja no és re-resoluble → 409.
     again = api_client.post(
         f"/api/v1/contractors/duplicates/{world['pair']}/actions/resolve",
         json={"action": action},
         headers=headers,
     )
-    assert again.status_code == 404
+    assert again.status_code == 409
 
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     async with engine.connect() as conn:

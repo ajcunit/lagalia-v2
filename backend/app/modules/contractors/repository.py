@@ -161,6 +161,13 @@ async def duplicates_page(
     cursor: str | None,
 ) -> tuple[list[ContractorDuplicate], int, str | None]:
     base = select(ContractorDuplicate).where(ContractorDuplicate.status == status)
+    if status == ContractorDuplicateStatus.PENDING:
+        # Un pendent sense els dos costats vius és un residu (el contractista
+        # va desaparèixer per una fusió externa): no es pot resoldre.
+        base = base.where(
+            ContractorDuplicate.contractor_id_1.is_not(None),
+            ContractorDuplicate.contractor_id_2.is_not(None),
+        )
     total = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
     # Els detectats més recentment, primer.
     stmt = base.order_by(ContractorDuplicate.id.desc())

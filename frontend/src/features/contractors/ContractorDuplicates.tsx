@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
-import { Copy } from "lucide-react";
+import { Copy, GitMerge, Hourglass, XCircle } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
+import { SheetTabs } from "../../components/contractSheet";
 import { t } from "../../i18n";
-import { formatCurrency } from "../../lib/format";
+import { formatCurrency, formatDateTime } from "../../lib/format";
 import {
   useContractorDuplicates,
   useDuplicateGroups,
@@ -135,22 +136,16 @@ export function ContractorDuplicates() {
           backTo="/admin"
           icon={Copy} title={t("duplicates.title")} subtitle={t("duplicates.intro")} />
 
-      <div role="tablist" className="mt-4 flex gap-1 border-b border-line">
-        {TABS.map((candidate) => (
-          <button
-            key={candidate}
-            role="tab"
-            aria-selected={tab === candidate}
-            onClick={() => setTab(candidate)}
-            className={`border-b-2 px-3 py-2 text-sm ${
-              tab === candidate
-                ? "border-accent font-medium text-accent"
-                : "border-transparent text-muted hover:text-ink"
-            }`}
-          >
-            {tabLabel(candidate)}
-          </button>
-        ))}
+      <div className="mt-4">
+        <SheetTabs
+          tabs={[
+            { key: "pending", label: tabLabel("pending"), icon: Hourglass },
+            { key: "merged", label: tabLabel("merged"), icon: GitMerge },
+            { key: "rejected", label: tabLabel("rejected"), icon: XCircle },
+          ]}
+          active={tab}
+          onSelect={(key) => setTab(key as (typeof TABS)[number])}
+        />
       </div>
 
       {tab === "pending" ? (
@@ -191,8 +186,13 @@ export function ContractorDuplicates() {
                   </span>
                   <Candidate contractor={pair.contractor_2} />
                 </div>
-                <p className="mt-3 text-sm text-muted">
+                <p className="mt-3 flex items-center gap-2 text-sm text-muted">
                   <Badge tone={tab === "merged" ? "accent" : "neutral"}>{tabLabel(tab)}</Badge>
+                  {pair.resolved_at && (
+                    <span>
+                      {t("duplicates.resolvedAt")} {formatDateTime(pair.resolved_at)}
+                    </span>
+                  )}
                 </p>
               </div>
             ))

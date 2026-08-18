@@ -30,9 +30,23 @@ Resol B-011. El primer sync real va confirmar la brutícia de la font: un mateix
 
 - `GET /contractors/duplicates/groups` (permís `duplicates:manage`): grups de contractors amb el mateix NIF i parells pendents, ordenats per mida del grup; cada membre amb id, nom, comptadors i volum. Paginació per cursor (offset).
 - `POST /contractors/duplicates/groups/resolve` — cos `{tax_id, action: merge|reject, canonical_id?}`:
-  - `merge`: tots els membres del NIF es fusionen al `canonical_id` triat (obligatori); els parells pendents del grup desapareixen amb la fusió. Auditoria `contractors.merge_group`.
-  - `reject`: tots els parells pendents del grup es marquen `rejected` (noms diferents legítims sota el mateix NIF).
-- **UI** `/contractors/duplicates`: la pestanya «Pendents» mostra **grups** (NIF, membres amb volum, radi per triar el canònic, botons *Fusiona-ho tot* i *Rebutja el grup*, amb confirmació); les pestanyes de resolts continuen mostrant parells. La resolució de parells individuals es manté a l'API (compatibilitat).
+  - `merge`: tots els membres del NIF es fusionen al `canonical_id` triat (obligatori); els parells pendents del grup passen a `merged` **amb instantània** abans de la fusió. Auditoria `contractors.merge_group`.
+  - `reject`: tots els parells pendents del grup es marquen `rejected` amb instantània (noms diferents legítims sota el mateix NIF).
+- **UI** `/contractors/duplicates`: la pestanya «Pendents» mostra **grups** (NIF, membres amb volum, radi per triar el canònic, botons *Fusiona-ho tot* i *Rebutja el grup*, amb confirmació); les pestanyes «Fusionats» i «Rebutjats» mostren els parells resolts amb la data de resolució. Pestanyes amb icones (SheetTabs). La resolució de parells individuals es manté a l'API (compatibilitat).
+
+### Històric que sobreviu (correcció 2026-08-18)
+
+L'històric de resolts desapareixia: la fusió esborra el contractista
+perdedor i el `ON DELETE CASCADE` s'enduia el parell (86 fusions i 45
+rebutjos auditats, 0 files). Ara:
+
+- `contractor_duplicates.contractor_id_1/2` són **nullable amb SET NULL**
+  i el parell guarda `snapshot_1/2` (forma `ContractorRanking`, imports
+  com a text) presos **en el moment de resoldre** (parell individual i
+  grup, fusió i rebuig).
+- La resposta usa la fila viva si el contractista existeix i la
+  instantània si no; els pendents sense els dos costats vius (fusions
+  externes) es filtren del llistat.
 
 ## Canvis d'API
 
@@ -40,7 +54,9 @@ Resol B-011. El primer sync real va confirmar la brutícia de la font: un mateix
 
 ## Canvis de dades
 
-Cap migració. La consolidació modifica dades (fusions) amb rastre d'auditoria.
+Migració 0033 (2026-08-18): `snapshot_1/2 JSONB` + FK `SET NULL` a
+`contractor_duplicates` (abans, cap migració). La consolidació modifica
+dades (fusions) amb rastre d'auditoria.
 
 ## Seguretat i permisos
 

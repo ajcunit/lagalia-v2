@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -66,12 +67,18 @@ class ContractorDuplicate(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
-    contractor_id_1: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("contractors.id", ondelete="CASCADE")
+    # SET NULL: quan el perdedor d'una fusió s'esborra, el parell resolt
+    # sobreviu amb la instantània (l'històric no desapareix mai).
+    contractor_id_1: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("contractors.id", ondelete="SET NULL"), nullable=True
     )
-    contractor_id_2: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("contractors.id", ondelete="CASCADE")
+    contractor_id_2: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("contractors.id", ondelete="SET NULL"), nullable=True
     )
+    # Instantània de cada costat en el moment de resoldre (forma
+    # ContractorRanking serialitzada; imports com a text).
+    snapshot_1: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    snapshot_2: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[ContractorDuplicateStatus] = mapped_column(
         Enum(
             ContractorDuplicateStatus,

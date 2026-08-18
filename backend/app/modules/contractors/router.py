@@ -71,8 +71,18 @@ async def list_contractors(
 async def _duplicate_response(
     session: AsyncSession, duplicate: ContractorDuplicate
 ) -> ContractorDuplicateResponse:
-    first = await repository.ranking_by_id(session, duplicate.contractor_id_1)
-    second = await repository.ranking_by_id(session, duplicate.contractor_id_2)
+    # Viu si el contractista encara existeix; instantània si la fusió se
+    # l'ha endut (l'històric de resolts no desapareix mai).
+    first = (
+        await repository.ranking_by_id(session, duplicate.contractor_id_1)
+        if duplicate.contractor_id_1 is not None
+        else None
+    ) or duplicate.snapshot_1
+    second = (
+        await repository.ranking_by_id(session, duplicate.contractor_id_2)
+        if duplicate.contractor_id_2 is not None
+        else None
+    ) or duplicate.snapshot_2
     if first is None or second is None:
         raise Problem(404, "Parell de duplicats no trobat", "not-found")
     return ContractorDuplicateResponse(
@@ -129,7 +139,11 @@ async def resolve_contractor_duplicate_group(
 ) -> GroupResolveResult:
     try:
         result = await service.resolve_duplicate_group(
-            session, tax_id=body.tax_id, action=body.action, canonical_id=body.canonical_id
+            session,
+            tax_id=body.tax_id,
+            action=body.action,
+            canonical_id=body.canonical_id,
+            resolved_by=authz_ctx.user.id,
         )
     except ValueError as exc:
         raise Problem(422, str(exc), "validation") from None
@@ -170,6 +184,18 @@ async def resolve_contractor_duplicate(
     now = datetime.now(UTC)
     duplicate.resolved_by = authz_ctx.user.id
     duplicate.resolved_at = now
+    # Instantània de cada costat: si després es fusiona el grup, el parell
+    # resolt conserva les dades del moment.
+    duplicate.snapshot_1 = service.ranking_snapshot(
+        await repository.ranking_by_id(session, duplicate.contractor_id_1)
+        if duplicate.contractor_id_1 is not None
+        else None
+    )
+    duplicate.snapshot_2 = service.ranking_snapshot(
+        await repository.ranking_by_id(session, duplicate.contractor_id_2)
+        if duplicate.contractor_id_2 is not None
+        else None
+    )
 
     if body.action == "reject":
         duplicate.status = ContractorDuplicateStatus.REJECTED
@@ -192,8 +218,11 @@ async def resolve_contractor_duplicate(
 
     winner_id = duplicate.contractor_id_1 if body.action == "merge_1" else duplicate.contractor_id_2
     loser_id = duplicate.contractor_id_2 if body.action == "merge_1" else duplicate.contractor_id_1
+    if winner_id is None or loser_id is None:
+        raise Problem(409, "El parell ja no té els dos contractistes", "conflict")
     duplicate.status = ContractorDuplicateStatus.MERGED
-    # Instantània ABANS de la fusió: el CASCADE s'endurà la fila del parell.
+    # Resposta abans de la fusió (que esborra el perdedor); el parell
+    # sobreviu amb la instantània presa més amunt (FK SET NULL).
     response = await _duplicate_response(session, duplicate)
 
     await service.merge_contractors(session, winner_id=winner_id, loser_id=loser_id)

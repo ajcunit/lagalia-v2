@@ -206,3 +206,33 @@ async def test_group_listing_and_bulk_merge(  # type: ignore[no-untyped-def]
         headers=headers,
     )
     assert invalid.status_code in (200, 422)  # grup d'un sol membre: no-op vàlid
+
+    # L'històric sobreviu a la fusió: parells «merged» amb instantània
+    # encara que els perdedors ja no existeixin (FK SET NULL + snapshot).
+    async with session_factory() as session:
+        survivors = (
+            await session.execute(
+                text(
+                    "SELECT status, snapshot_1 IS NOT NULL AS s1, "
+                    "snapshot_2 IS NOT NULL AS s2 FROM contractor_duplicates "
+                    "WHERE snapshot_1->>'tax_id' = :t OR snapshot_2->>'tax_id' = :t"
+                ),
+                {"t": nif},
+            )
+        ).all()
+    assert len(survivors) >= 1
+    assert all(row.status == "merged" and row.s1 and row.s2 for row in survivors)
+
+    # I la pestanya «Fusionats» els mostra, reconstruïts de la instantània.
+    merged_list = api_client.get(
+        "/api/v1/contractors/duplicates",
+        params={"status": "merged", "page[size]": 100},
+        headers=headers,
+    )
+    assert merged_list.status_code == 200, merged_list.text
+    names = {
+        c["name"]
+        for pair in merged_list.json()["data"]
+        for c in (pair["contractor_1"], pair["contractor_2"])
+    }
+    assert any(tag in name for name in names)

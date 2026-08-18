@@ -5,6 +5,7 @@ conserva a raw_contractor_name (traçabilitat, millora v2).
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -219,8 +220,61 @@ async def consolidate_same_identity(session: AsyncSession) -> dict[str, int]:
     return {"clusters": clusters_touched, "merged": merged, "pairs_after": regenerated}
 
 
+def ranking_snapshot(ranking: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Instantània JSON-serialitzable d'un ranking (els Decimal, com a text)."""
+    if ranking is None:
+        return None
+    import json
+
+    return json.loads(json.dumps(ranking, default=str))
+
+
+async def _snapshot_group_pairs(
+    session: AsyncSession,
+    members: list[int],
+    *,
+    status: ContractorDuplicateStatus,
+    resolved_by: int | None,
+) -> int:
+    """Resol tots els parells pendents del grup deixant instantània de cada
+    costat: així l'històric sobreviu encara que el CASCADE... ja no hi és,
+    però els contractistes perdedors s'esborren igualment."""
+    from datetime import UTC, datetime
+
+    from app.modules.contractors import repository
+
+    pairs = list(
+        (
+            await session.execute(
+                select(ContractorDuplicate).where(
+                    ContractorDuplicate.status == ContractorDuplicateStatus.PENDING,
+                    ContractorDuplicate.contractor_id_1.in_(members),
+                    ContractorDuplicate.contractor_id_2.in_(members),
+                )
+            )
+        ).scalars()
+    )
+    rankings: dict[int, dict[str, Any] | None] = {}
+    for member in members:
+        rankings[member] = await repository.ranking_by_id(session, member)
+    now = datetime.now(UTC)
+    for pair in pairs:
+        pair.status = status
+        pair.resolved_at = now
+        pair.resolved_by = resolved_by
+        pair.snapshot_1 = ranking_snapshot(rankings.get(pair.contractor_id_1 or -1))
+        pair.snapshot_2 = ranking_snapshot(rankings.get(pair.contractor_id_2 or -1))
+    await session.flush()
+    return len(pairs)
+
+
 async def resolve_duplicate_group(
-    session: AsyncSession, *, tax_id: str, action: str, canonical_id: int | None
+    session: AsyncSession,
+    *,
+    tax_id: str,
+    action: str,
+    canonical_id: int | None,
+    resolved_by: int | None = None,
 ) -> dict[str, int]:
     """Fusió en bloc de tot el grup d'un NIF, o rebuig de tots els parells."""
     members = list(
@@ -236,6 +290,10 @@ async def resolve_duplicate_group(
     if action == "merge":
         if canonical_id is None or canonical_id not in members:
             raise ValueError("canonical_id ha de ser un membre del grup")
+        # Instantànies ABANS de fusionar: la fusió esborra els perdedors.
+        await _snapshot_group_pairs(
+            session, members, status=ContractorDuplicateStatus.MERGED, resolved_by=resolved_by
+        )
         merged = 0
         for loser_id in members:
             if loser_id != canonical_id:
@@ -243,20 +301,10 @@ async def resolve_duplicate_group(
                 merged += 1
         return {"merged": merged, "rejected": 0}
 
-    # reject: tots els parells pendents entre membres del grup.
-    from sqlalchemy import update
-
-    result = await session.execute(
-        update(ContractorDuplicate)
-        .where(
-            ContractorDuplicate.status == ContractorDuplicateStatus.PENDING,
-            ContractorDuplicate.contractor_id_1.in_(members),
-            ContractorDuplicate.contractor_id_2.in_(members),
-        )
-        .values(status=ContractorDuplicateStatus.REJECTED, resolved_at=func.now())
+    rejected = await _snapshot_group_pairs(
+        session, members, status=ContractorDuplicateStatus.REJECTED, resolved_by=resolved_by
     )
-    await session.flush()
-    return {"merged": 0, "rejected": int(getattr(result, "rowcount", 0) or 0)}
+    return {"merged": 0, "rejected": rejected}
 
 
 async def detect_tax_id_duplicates(session: AsyncSession) -> int:
