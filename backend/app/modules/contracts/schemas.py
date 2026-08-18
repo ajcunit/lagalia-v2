@@ -258,12 +258,26 @@ class BulkAssignResult(BaseModel):
 
 
 class ContractUpdate(BaseModel):
+    """Edició manual: esmenes de dades mal informades a la PSCP + avís propi.
+
+    Cada camp esmenat queda protegit de la sincronització (el manual mana).
+    """
+
     subject: str | None = Field(default=None, min_length=3)
     contract_type: str | None = None
     procedure: str | None = None
     processing_type: str | None = None
     internal_status: InternalStatus | None = None
     warning_months_override: int | None = Field(default=None, ge=0)
+    start_date: date | None = None
+    end_date: date | None = None
+    calculated_end_date: date | None = None
+    duration_months: int | None = Field(default=None, ge=0)
+    tender_amount: Decimal | None = Field(default=None, ge=0)
+    award_amount: Decimal | None = Field(default=None, ge=0)
+    award_amount_vat: Decimal | None = Field(default=None, ge=0)
+    estimated_value: Decimal | None = Field(default=None, ge=0)
+    received_offers: int | None = Field(default=None, ge=0)
 
 
 class HistoryEntryResponse(BaseModel):

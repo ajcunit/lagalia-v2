@@ -399,3 +399,68 @@ async def test_phase_change_updates_row_by_id_intern(make_user) -> None:  # type
     assert len(rows) == 1  # cap duplicat
     assert rows[0].status == "Formalització"
     assert history == 1  # el canvi de fase queda historiat
+
+
+async def test_manual_edits_survive_sync(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    """El manual mana (specs/contracts-api.md): un camp esmenat via PATCH
+    queda protegit i la sincronització no el trepitja mai més."""
+    from uuid import uuid4
+
+    from sqlalchemy import text
+
+    from app.core.db import session_factory
+    from app.integrations.socrata.sync import _upsert_record
+    from tests.conftest import login_headers
+
+    tag = uuid4().hex[:8]
+    record = {
+        "codi_expedient": f"EDIT/{tag}",
+        "id_intern": f"uuid-edit-{tag}",
+        "objecte_contracte": "Servei amb data mal informada",
+        "fase_publicacio": "Formalització",
+        "resultat": "Formalització",
+        "data_inici_execucio": "2026-01-01T00:00:00.000",
+        "import_adjudicacio_sense": "1000",
+    }
+    async with session_factory() as session:
+        assert await _upsert_record(session, dict(record), []) == "new"
+        contract_id = (
+            await session.execute(
+                text("SELECT id FROM contracts WHERE file_code = :f"), {"f": f"EDIT/{tag}"}
+            )
+        ).scalar_one()
+        await session.commit()
+
+    # Esmena manual: la data d'inici bona és el 15, no l'1.
+    admin = await make_user("admin")
+    headers = login_headers(api_client, admin.email)
+    patched = api_client.patch(
+        f"/api/v1/contracts/{contract_id}",
+        json={"start_date": "2026-01-15", "award_amount": "1234.56"},
+        headers=headers,
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["start_date"] == "2026-01-15"
+
+    # La font continua amb la dada dolenta i a més canvia una altra cosa.
+    changed = {**record, "objecte_contracte": "Servei amb data mal informada (v2)"}
+    async with session_factory() as session:
+        assert await _upsert_record(session, dict(changed), []) == "updated"
+        await session.commit()
+
+    async with session_factory() as session:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT start_date, award_amount, subject FROM contracts WHERE id = :id"
+                ),
+                {"id": contract_id},
+            )
+        ).one()
+        await session.execute(
+            text("DELETE FROM contracts WHERE id = :id"), {"id": contract_id}
+        )
+        await session.commit()
+    assert str(row.start_date) == "2026-01-15"  # l'esmena sobreviu
+    assert str(row.award_amount) == "1234.56"  # també l'import esmenat
+    assert row.subject.endswith("(v2)")  # la resta segueix la font

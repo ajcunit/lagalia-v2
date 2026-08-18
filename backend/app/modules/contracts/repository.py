@@ -180,6 +180,24 @@ async def counters(session: AsyncSession, contract_id: int) -> dict[str, int]:
     }
 
 
+async def manually_edited_fields(session: AsyncSession, contract_id: int) -> set[str]:
+    """Camps amb alguna esmena manual: la sincronització no els toca mai
+    (specs/contracts-api.md — el manual mana sobre la font)."""
+    from app.modules.contracts.models import ChangeType
+
+    rows = (
+        await session.execute(
+            select(ContractHistoryEntry.field)
+            .distinct()
+            .where(
+                ContractHistoryEntry.contract_id == contract_id,
+                ContractHistoryEntry.change_type == ChangeType.MANUAL,
+            )
+        )
+    ).scalars()
+    return set(rows)
+
+
 async def history_page(
     session: AsyncSession, contract_id: int, *, page_size: int, cursor: str | None
 ) -> tuple[list[ContractHistoryEntry], int, str | None]:

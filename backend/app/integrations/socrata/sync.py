@@ -32,6 +32,7 @@ from app.modules.contracts.models import (
     ContractHistoryEntry,
     contract_departments,
 )
+from app.modules.contracts.repository import manually_edited_fields
 from app.modules.contracts.rules import first_matching_department, load_active_rules
 
 logger = structlog.get_logger()
@@ -164,8 +165,13 @@ async def _upsert_record(
         values["raw_contractor_name"] = contractor.raw_name
 
     if existing is not None:
+        # Els camps esmenats a mà queden protegits: el manual mana sobre
+        # la font (specs/contracts-api.md, esmenes de dades PSCP).
+        pinned = await manually_edited_fields(session, existing.id)
         # Actualització camp a camp amb historial `sync` (A1 §7).
         for field in _TRACKED_FIELDS:
+            if field in pinned:
+                continue
             old, new = getattr(existing, field), values.get(field)
             if old != new:
                 session.add(
@@ -178,6 +184,8 @@ async def _upsert_record(
                     )
                 )
         for field, value in values.items():
+            if field in pinned:
+                continue
             setattr(existing, field, value)
         existing.last_synced_at = now
         await session.flush()

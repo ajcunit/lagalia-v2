@@ -2945,6 +2945,10 @@ export interface components {
             cpv_code?: string;
             department_ids?: number[];
         };
+        /**
+         * @description Edició manual (esmenes de dades mal informades a la PSCP + avís propi
+         *     de venciment). Cada camp esmenat queda protegit de la sincronització.
+         */
         ContractUpdate: {
             subject?: string;
             contract_type?: string | null;
@@ -2953,6 +2957,18 @@ export interface components {
             /** @enum {string} */
             internal_status?: "normal" | "pending_review" | "approved" | "rejected";
             warning_months_override?: number | null;
+            /** Format: date */
+            start_date?: string | null;
+            /** Format: date */
+            end_date?: string | null;
+            /** Format: date */
+            calculated_end_date?: string | null;
+            duration_months?: number | null;
+            tender_amount?: number | string | null;
+            award_amount?: number | string | null;
+            award_amount_vat?: number | string | null;
+            estimated_value?: number | string | null;
+            received_offers?: number | null;
         };
         ContractHistoryEntry: {
             /** Format: int64 */

@@ -5024,6 +5024,9 @@ components:
 
     ContractUpdate:
       type: object
+      description: |
+        Edició manual (esmenes de dades mal informades a la PSCP + avís propi
+        de venciment). Cada camp esmenat queda protegit de la sincronització.
       properties:
         subject: { type: string, minLength: 3 }
         contract_type: { type: [string, "null"] }
@@ -5031,6 +5034,15 @@ components:
         processing_type: { type: [string, "null"] }
         internal_status: { type: string, enum: [normal, pending_review, approved, rejected] }
         warning_months_override: { type: [integer, "null"], minimum: 0 }
+        start_date: { type: [string, "null"], format: date }
+        end_date: { type: [string, "null"], format: date }
+        calculated_end_date: { type: [string, "null"], format: date }
+        duration_months: { type: [integer, "null"], minimum: 0 }
+        tender_amount: { type: [number, string, "null"] }
+        award_amount: { type: [number, string, "null"] }
+        award_amount_vat: { type: [number, string, "null"] }
+        estimated_value: { type: [number, string, "null"] }
+        received_offers: { type: [integer, "null"], minimum: 0 }
 
     ContractHistoryEntry:
       type: object

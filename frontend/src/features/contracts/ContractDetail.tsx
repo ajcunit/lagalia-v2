@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { useAuth } from "../../auth/AuthProvider";
 import { Badge, Button, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
@@ -61,6 +62,7 @@ function phaseLabel(phase: string): string {
 }
 
 type PhaseDoc = components["schemas"]["PhaseDocument"];
+type ContractData = components["schemas"]["Contract"];
 
 /** Documents del repositori amb revisió legal en streaming (specs/legal-corpus.md)
  * i enviament directe a un projecte del generador (specs/docgen-external-refs.md). */
@@ -254,6 +256,9 @@ export function ContractDetail() {
   const { permissions } = useAuth();
   const actions = permissions?.actions ?? [];
   const [tab, setTab] = useState("resum");
+  const canEdit = actions.includes("contracts:update");
+  const canEditWarning = canEdit || actions.includes("contracts:update_warning");
+  const [editing, setEditing] = useState(false);
 
   // Seguiment del job d'enriquiment fins a estat terminal (B-012, v. sondeig).
   const [enrichJobId, setEnrichJobId] = useState<string | null>(null);
@@ -396,6 +401,24 @@ export function ContractDetail() {
 
       {tab === "resum" && (
       <>
+      {canEditWarning && (
+        <div className="mt-4">
+          {editing ? (
+            <EditContractPanel
+              contractId={id}
+              contract={data}
+              full={canEdit}
+              onClose={() => setEditing(false)}
+            />
+          ) : (
+            <div className="flex justify-end">
+              <Button onClick={() => setEditing(true)}>
+                {canEdit ? t("contract.edit.open") : t("contract.edit.openWarning")}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="mt-5 grid gap-4 lg:grid-cols-[290px_1fr]">
         <div className="space-y-4">
           <SectionCard title={t("sheet.timeline")}>
@@ -869,6 +892,151 @@ function ContractorPanel(props: { contractorId: number; rawName: string | null }
           ]}
         />
       </SectionCard>
+    </div>
+  );
+}
+
+/** Edició manual de l'expedient (specs/contracts-api.md): esmenes de dades
+ *  mal informades a la PSCP + avís de venciment propi. Els camps esmenats
+ *  queden protegits de la sincronització (el manual mana). */
+function EditContractPanel(props: {
+  contractId: number;
+  contract: ContractData;
+  full: boolean;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const c = props.contract;
+  const [form, setForm] = useState({
+    subject: c.subject ?? "",
+    start_date: c.start_date ?? "",
+    end_date: c.end_date ?? "",
+    calculated_end_date: c.calculated_end_date ?? "",
+    duration_months: c.duration_months === null ? "" : String(c.duration_months),
+    tender_amount: c.tender_amount ?? "",
+    award_amount: c.award_amount ?? "",
+    award_amount_vat: c.award_amount_vat ?? "",
+    estimated_value: c.estimated_value ?? "",
+    received_offers: c.received_offers === null ? "" : String(c.received_offers),
+    warning_months_override:
+      c.warning_months_override === null ? "" : String(c.warning_months_override),
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const body: Record<string, unknown> = {};
+      const asNull = (v: string) => (v.trim() === "" ? null : v.trim());
+      const asInt = (v: string) => (v.trim() === "" ? null : Number(v));
+      const changes: Record<string, unknown> = {
+        subject: form.subject.trim() || null,
+        start_date: asNull(form.start_date),
+        end_date: asNull(form.end_date),
+        calculated_end_date: asNull(form.calculated_end_date),
+        duration_months: asInt(form.duration_months),
+        tender_amount: asNull(form.tender_amount),
+        award_amount: asNull(form.award_amount),
+        award_amount_vat: asNull(form.award_amount_vat),
+        estimated_value: asNull(form.estimated_value),
+        received_offers: asInt(form.received_offers),
+        warning_months_override: asInt(form.warning_months_override),
+      };
+      const original: Record<string, unknown> = {
+        subject: c.subject ?? null,
+        start_date: c.start_date ?? null,
+        end_date: c.end_date ?? null,
+        calculated_end_date: c.calculated_end_date ?? null,
+        duration_months: c.duration_months ?? null,
+        tender_amount: c.tender_amount ?? null,
+        award_amount: c.award_amount ?? null,
+        award_amount_vat: c.award_amount_vat ?? null,
+        estimated_value: c.estimated_value ?? null,
+        received_offers: c.received_offers ?? null,
+        warning_months_override: c.warning_months_override ?? null,
+      };
+      for (const [key, value] of Object.entries(changes)) {
+        // Només s'envien els camps realment canviats: cada camp enviat
+        // queda fixat com a esmena manual.
+        if (String(value ?? "") !== String(original[key] ?? "")) body[key] = value;
+      }
+      if (Object.keys(body).length === 0) return false;
+      const { error: err } = await api.PATCH("/contracts/{id}", {
+        params: { path: { id: props.contractId } },
+        body,
+      });
+      if (err !== undefined) throw err;
+      return true;
+    },
+    onSuccess: (didSave) => {
+      if (didSave) {
+        void queryClient.invalidateQueries({ queryKey: ["contract", props.contractId] });
+        void queryClient.invalidateQueries({ queryKey: ["contract-history", props.contractId] });
+      }
+      props.onClose();
+    },
+    onError: (err) => setError((err as { title?: string }).title ?? t("admin.loadError")),
+  });
+
+  function field(
+    key: keyof typeof form,
+    label: string,
+    type: "text" | "date" | "number" = "text",
+    hint?: string,
+  ) {
+    return (
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-xs text-muted">{label}</span>
+        <input
+          type={type}
+          value={form[key]}
+          step={type === "number" ? "any" : undefined}
+          onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+          className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+        />
+        {hint !== undefined && <span className="text-xs text-muted">{hint}</span>}
+      </label>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-accent/40 bg-surface-raised p-4 shadow-card">
+      <h3 className="text-base font-semibold text-ink">
+        {props.full ? t("contract.edit.title") : t("contract.edit.titleWarning")}
+      </h3>
+      <p className="mt-1 text-sm text-muted">{t("contract.edit.intro")}</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {props.full && (
+          <>
+            <div className="sm:col-span-2 lg:col-span-3">
+              {field("subject", t("sheet.object"))}
+            </div>
+            {field("start_date", t("contract.field.start"), "date")}
+            {field("end_date", t("contract.field.end"), "date")}
+            {field("calculated_end_date", t("contract.field.calculatedEnd"), "date")}
+            {field("duration_months", t("contract.field.duration"), "number")}
+            {field("tender_amount", t("contract.field.tender"), "number")}
+            {field("award_amount", t("contract.field.award"), "number")}
+            {field("award_amount_vat", t("contract.field.awardVat"), "number")}
+            {field("estimated_value", t("sheet.estimatedValue"), "number")}
+            {field("received_offers", t("contract.field.receivedOffers"), "number")}
+          </>
+        )}
+        {field(
+          "warning_months_override",
+          t("contract.field.warningOverride"),
+          "number",
+          t("contract.edit.warningHint"),
+        )}
+      </div>
+      {error !== null && <p className="mt-2 text-sm text-danger">{error}</p>}
+      <div className="mt-4 flex gap-2">
+        <Button tone="accent" disabled={save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? t("contract.edit.saving") : t("contract.edit.save")}
+        </Button>
+        <Button disabled={save.isPending} onClick={props.onClose}>
+          {t("favorites.cancel")}
+        </Button>
+      </div>
     </div>
   );
 }

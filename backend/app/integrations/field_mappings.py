@@ -84,8 +84,14 @@ async def remap_contracts(ctx: JobContext) -> dict[str, Any]:
                     or extension_end > values["calculated_end_date"]
                 ):
                     values["calculated_end_date"] = extension_end
+                # El manual mana: els camps esmenats a mà no es remapegen.
+                from app.modules.contracts.repository import manually_edited_fields
+
+                pinned = await manually_edited_fields(session, contract.id)
                 changed = False
                 for field in REMAP_FIELDS:
+                    if field in pinned:
+                        continue
                     old, new = getattr(contract, field), values.get(field)
                     if old != new:
                         changed = True

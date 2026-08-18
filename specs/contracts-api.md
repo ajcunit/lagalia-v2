@@ -17,9 +17,15 @@ Regles verificables:
 - **`GET /contracts/{id}`**: detall complet + **lots germans** (altres files del mateix `file_code`) + comptadors (pròrrogues, modificacions, historial).
 - **Subrecursos**: `/history` (paginat simple, descendent), `/extensions`, `/modifications` — mateix abast que el detall.
 - **`PATCH /contracts/{id}`** segons matriu:
-  - `contracts:update` (admin/pm): `subject`, `contract_type`, `procedure`, `processing_type`, `internal_status`, `warning_months_override`;
-  - només `contracts:update_warning` (dept_manager, dins d'abast): únicament `warning_months_override`; qualsevol altre camp → `403`;
+  - `contracts:update` (admin/pm): `subject`, `contract_type`, `procedure`, `processing_type`, `internal_status`, `warning_months_override` i, des del 2026-08-18 (esmenes de dades mal informades a la PSCP): `start_date`, `end_date`, `calculated_end_date`, `duration_months`, `tender_amount`, `award_amount`, `award_amount_vat`, `estimated_value`, `received_offers`;
+  - només `contracts:update_warning` (dept_manager, dins d'abast): únicament `warning_months_override` (avís de venciment propi de l'expedient; buit = global); qualsevol altre camp → `403`;
   - cada camp canviat → entrada d'historial `manual` amb l'usuari; auditoria `contracts.update` amb noms de camps.
+  - **El manual mana**: un camp amb alguna entrada d'historial `manual` queda
+    protegit — ni la sincronització (`sync.contracts`) ni el remap del
+    mapejador no el tornen a tocar. Per «desprotegir-lo» caldria esborrar
+    l'esmena (fora d'abast; l'historial és el registre).
+  - **UI**: botó «Edita les dades» a la pestanya Resum de la fitxa (formulari
+    inline; només l'avís per als qui tenen només `update_warning`).
 - **`POST /contracts`** (alta manual, `contracts:create`): camps bàsics + departaments; `source='local'`; historial no (neix); auditat.
 - Contractes `source='external'` (importats pel SuperBuscador en el futur) **mai** apareixen als llistats operatius… *matís*: els sincronitzats també són `external`; el que exclou el llistat és `internal_status='rejected'`? — **Decisió v2**: el llistat mostra `source` extern i local; l'exclusió del 02 §2.11 es refereix als importats amb `origen='extern'` *del SuperBuscador*, que a la v2 es modelaran amb un flag propi quan arribi la feature (anotat aquí per no perdre-ho).
 
