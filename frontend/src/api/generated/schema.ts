@@ -3725,6 +3725,8 @@ export interface operations {
                         };
                         /** @description Si l'usuari pot demanar abast complet (Vista Admin). */
                         can_switch_view?: boolean;
+                        /** @description Mòduls desactivats des de la configuració (specs/module-flags.md). */
+                        disabled_modules?: string[];
                     };
                 };
             };

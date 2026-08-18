@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authz
+from app.core import modules as module_flags
 from app.core.db import get_session
 from app.core.problems import Problem
 from app.integrations import hub
@@ -121,12 +122,18 @@ async def put_setting(
     if setting is None:
         setting = Setting(key=key, is_secret=body.is_secret)
         session.add(setting)
-    setting.value = body.value
+    if key == module_flags.SETTING_KEY:
+        # Només mòduls coneguts; el nucli no és desactivable mai.
+        setting.value = sorted(module_flags.parse_disabled(body.value))
+    else:
+        setting.value = body.value
     if body.description is not None:
         setting.description = body.description
     setting.is_secret = body.is_secret or setting.is_secret
     setting.updated_by = authz_ctx.user.id
     await session.flush()
+    if key == module_flags.SETTING_KEY:
+        module_flags.invalidate_cache()
     await _audit(session, authz_ctx.user.id, "config.setting_updated", key, ctx)
     await session.commit()
     return _setting_response(setting)

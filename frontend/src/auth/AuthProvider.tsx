@@ -21,6 +21,8 @@ export interface Permissions {
   role: components["schemas"]["Role"];
   actions: string[];
   can_switch_view?: boolean;
+  /** Mòduls desactivats des de la configuració (specs/module-flags.md). */
+  disabled_modules?: string[];
 }
 
 interface AuthContextValue {

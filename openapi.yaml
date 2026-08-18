@@ -367,6 +367,10 @@ paths:
                   can_switch_view:
                     type: boolean
                     description: Si l'usuari pot demanar abast complet (Vista Admin).
+                  disabled_modules:
+                    type: array
+                    description: Mòduls desactivats des de la configuració (specs/module-flags.md).
+                    items: { type: string, examples: ["chat", "plan"] }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   # ─────────────────────────── contracts ───────────────────────────

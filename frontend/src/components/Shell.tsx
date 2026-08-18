@@ -9,8 +9,9 @@ import { ThemeToggle } from "./ThemeToggle";
 export function Shell() {
   const { user, permissions, logout } = useAuth();
   const actions = permissions?.actions ?? [];
-  const items = visibleItems(MAIN_NAV, actions);
-  const showAdmin = canSeeAdminHub(actions);
+  const disabledModules = permissions?.disabled_modules ?? [];
+  const items = visibleItems(MAIN_NAV, actions, disabledModules);
+  const showAdmin = canSeeAdminHub(actions, disabledModules);
 
   return (
     <div className="flex min-h-screen">

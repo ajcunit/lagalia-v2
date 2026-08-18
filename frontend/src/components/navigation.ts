@@ -34,6 +34,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Acció de la matriu A2 necessària; sense acció = visible per a tothom. */
   action?: string;
+  /** Mòdul activable que la governa (specs/module-flags.md). */
+  module?: string;
 }
 
 /** Navegació principal plana (B-015 fase 1): icona + espai per respirar. */
@@ -45,17 +47,18 @@ export const MAIN_NAV: NavItem[] = [
     labelKey: "nav.minorContracts",
     icon: Receipt,
     action: "minor_contracts:read",
+    module: "minor_contracts",
   },
-  { to: "/contractors", labelKey: "nav.contractors", icon: Building2, action: "contracts:read" },
-  { to: "/tasks", labelKey: "nav.tasks", icon: CalendarCheck, action: "tasks:read" },
-  { to: "/favorites", labelKey: "nav.favorites", icon: Star, action: "tools:use" },
-  { to: "/cpv", labelKey: "nav.cpv", icon: Search, action: "tools:use" },
-  { to: "/search", labelKey: "nav.superSearch", icon: Globe, action: "tools:use" },
-  { to: "/generator", labelKey: "nav.docgen", icon: Layers, action: "tools:use" },
-  { to: "/analyst", labelKey: "nav.analyst", icon: BarChart3, action: "audit:run" },
-  { to: "/chat", labelKey: "nav.chat", icon: MessagesSquare, action: "audit:run" },
-  { to: "/audit", labelKey: "nav.riskAudit", icon: ShieldAlert, action: "audit:run" },
-  { to: "/plan", labelKey: "nav.plan", icon: ClipboardList, action: "plan:read" },
+  { to: "/contractors", labelKey: "nav.contractors", icon: Building2, action: "contracts:read", module: "contractors" },
+  { to: "/tasks", labelKey: "nav.tasks", icon: CalendarCheck, action: "tasks:read", module: "tasks" },
+  { to: "/favorites", labelKey: "nav.favorites", icon: Star, action: "tools:use", module: "favorites" },
+  { to: "/cpv", labelKey: "nav.cpv", icon: Search, action: "tools:use", module: "cpv" },
+  { to: "/search", labelKey: "nav.superSearch", icon: Globe, action: "tools:use", module: "super_search" },
+  { to: "/generator", labelKey: "nav.docgen", icon: Layers, action: "tools:use", module: "docgen" },
+  { to: "/analyst", labelKey: "nav.analyst", icon: BarChart3, action: "audit:run", module: "analyst" },
+  { to: "/chat", labelKey: "nav.chat", icon: MessagesSquare, action: "audit:run", module: "chat" },
+  { to: "/audit", labelKey: "nav.riskAudit", icon: ShieldAlert, action: "audit:run", module: "risk_audit" },
+  { to: "/plan", labelKey: "nav.plan", icon: ClipboardList, action: "plan:read", module: "plan" },
 ];
 
 /** Entrada única de configuració: hub amb totes les pantalles d'administració. */
@@ -71,6 +74,7 @@ export interface AdminTile {
   descriptionKey: TranslationKey;
   icon: LucideIcon;
   action: string;
+  module?: string;
 }
 
 /** Targetes del hub de configuració (/admin). */
@@ -95,6 +99,7 @@ export const ADMIN_TILES: AdminTile[] = [
     descriptionKey: "adminHub.duplicates",
     icon: Copy,
     action: "duplicates:manage",
+    module: "contractors",
   },
   {
     to: "/admin/sync",
@@ -116,6 +121,7 @@ export const ADMIN_TILES: AdminTile[] = [
     descriptionKey: "adminHub.webhooks",
     icon: Webhook,
     action: "webhooks:manage",
+    module: "webhooks",
   },
   {
     to: "/admin/service-accounts",
@@ -147,12 +153,20 @@ export const ADMIN_TILES: AdminTile[] = [
   },
 ];
 
-/** Filtra elements segons les accions de GET /me/permissions. */
-export function visibleItems<T extends { action?: string }>(items: T[], actions: string[]): T[] {
-  return items.filter((item) => item.action === undefined || actions.includes(item.action));
+/** Filtra per accions de GET /me/permissions i per mòduls desactivats. */
+export function visibleItems<T extends { action?: string; module?: string }>(
+  items: T[],
+  actions: string[],
+  disabledModules: string[] = [],
+): T[] {
+  return items.filter(
+    (item) =>
+      (item.action === undefined || actions.includes(item.action)) &&
+      (item.module === undefined || !disabledModules.includes(item.module)),
+  );
 }
 
 /** El hub de configuració es mostra si l'usuari pot veure alguna targeta. */
-export function canSeeAdminHub(actions: string[]): boolean {
-  return visibleItems(ADMIN_TILES, actions).length > 0;
+export function canSeeAdminHub(actions: string[], disabledModules: string[] = []): boolean {
+  return visibleItems(ADMIN_TILES, actions, disabledModules).length > 0;
 }

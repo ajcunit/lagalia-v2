@@ -67,6 +67,22 @@ async def trace_requests(
     return response
 
 
+@app.middleware("http")
+async def enforce_module_flags(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Mòduls activables (specs/module-flags.md): un sol punt de tall."""
+    from app.core import modules as module_flags
+    from app.core.problems import _problem_response
+
+    module = module_flags.module_for_path(request.url.path)
+    if module is not None and module in await module_flags.disabled_modules():
+        return _problem_response(
+            403,
+            f"El mòdul «{module_flags.MODULES[module]}» està desactivat",
+            "module-disabled",
+        )
+    return await call_next(request)
+
+
 api = APIRouter(prefix="/api/v1")
 
 

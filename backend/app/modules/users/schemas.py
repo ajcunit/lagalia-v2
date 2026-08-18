@@ -47,6 +47,9 @@ class MyPermissionsResponse(BaseModel):
     actions: list[str]
     scope: PermissionScope
     can_switch_view: bool
+    # Mòduls desactivats des de la configuració: el frontend n'amaga les
+    # entrades de menú (specs/module-flags.md).
+    disabled_modules: list[str] = []
 
 
 class UserResponse(BaseModel):

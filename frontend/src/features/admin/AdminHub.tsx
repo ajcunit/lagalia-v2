@@ -11,7 +11,11 @@ import { t } from "../../i18n";
 /** Hub de configuració (B-015): totes les pantalles d'administració en un lloc. */
 export function AdminHub() {
   const { permissions } = useAuth();
-  const tiles = visibleItems(ADMIN_TILES, permissions?.actions ?? []);
+  const tiles = visibleItems(
+    ADMIN_TILES,
+    permissions?.actions ?? [],
+    permissions?.disabled_modules ?? [],
+  );
 
   return (
     <div>

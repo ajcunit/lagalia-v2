@@ -31,6 +31,11 @@ KNOWN_SETTINGS: list[KnownSetting] = [
         "intervencio@cunit.cat, secretaria@cunit.cat",
     ),
     KnownSetting(
+        "modules.disabled",
+        "Mòduls desactivats (llista JSON; gestiona-ho des de la pestanya Mòduls)",
+        "[]",
+    ),
+    KnownSetting(
         "sync.nightly_enabled",
         "Sincronització nocturna de contractes activada (true/false; no definit = activada)",
         "true",

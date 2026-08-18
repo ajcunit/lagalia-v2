@@ -78,12 +78,15 @@ async def get_me(
 async def get_my_permissions(
     current: Annotated[CurrentSession, Depends(get_current_session)],
 ) -> MyPermissionsResponse:
+    from app.core import modules as module_flags
+
     scope = authz.scope_for(current.user)
     return MyPermissionsResponse(
         role=current.user.role,
         actions=authz.allowed_actions(current.user),
         scope=PermissionScope(type=scope.type, department_ids=scope.department_ids),
         can_switch_view=authz.can_switch_view(current.user),
+        disabled_modules=sorted(await module_flags.disabled_modules()),
     )
 
 
