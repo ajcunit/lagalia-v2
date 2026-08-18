@@ -689,7 +689,7 @@ export function AiAdmin() {
       <>
       <div className="mt-4"><NewProviderForm /></div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 space-y-4">
         {providers.isPending ? (
           <Skeleton rows={6} />
         ) : providers.isError ? (
