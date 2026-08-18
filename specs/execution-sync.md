@@ -52,9 +52,11 @@ que les fases) i se n'extreu (migració 0029):
 
 - **`suposit_habilitant`**: catàleg multiidioma ca→es→en (p. ex. «No prevista
   en plecs. Modificacions no substancials (art. 205.2.c LCSP)»).
-- **`documents`** (JSONB): els cinc grups observats al portal —
-  `informeJustificatiu`, `resolucioModificacio`, `formalitzacioModificacio`,
-  `alegacions`, `altraDocumentacio` — amb títol, mida i URL de descàrrega
+- **`documents`** (JSONB): els grups observats al portal — per a
+  modificacions (`informeJustificatiu`, `resolucioModificacio`,
+  `formalitzacioModificacio`, `alegacions`, `altraDocumentacio`), pròrrogues
+  (`resolucioProrroga`, `formalitzacioProrroga`), extincions
+  (`resolucioExtincio`) i genèrics (`resolucio`) — amb títol, mida i URL de descàrrega
   (mateixa forma {id, titol, hash} que els documents de fase); l'idioma no
   canvia el grup i fora dels grups coneguts no s'arreplega res.
 
@@ -89,9 +91,9 @@ Els errors per fila (detalls caducats) es registren i no aturen el job.
 
 ## Fora d'abast
 
-- Enriquiment del `url_json` de detall via connector pscp (com les fases);
-  reconciliació automàtica amb les pròrrogues RPC duplicades; alertes per
-  actuacions noves (webhooks).
+- Reconciliació automàtica amb les pròrrogues RPC duplicades; alertes per
+  actuacions noves (webhooks); descàrrega de còpia local dels documents
+  d'actuació (permetria revisió legal i RAG).
 
 ## Criteris d'acceptació
 
