@@ -28,6 +28,13 @@ El text a revisar es en catala i la norma en castella: nomes amb cosinus els art
 ### API i pantalla
 
 - `GET /legal/norms` (estat de les normes: versio, articles, ultima comprovacio) i `POST /legal/norms/actions/sync` (`config:write`).
+- **Alta/baixa de normes des de la pantalla** (ampliacio 2026-08-18):
+  `POST /legal/norms {boe_id}` (valida `^BOE-A-\d{4}-\d+$`; afegeix a la
+  config del connector boe i encua la indexacio; duplicat → 409) i
+  `DELETE /legal/norms/{boe_id}` (desubscriu i esborra articles i fragments
+  indexats; confirmacio a la UI). Pestanya «Corpus normatiu» amb input
+  d'identificador BOE i boto de baixa per norma; tot auditat
+  (`legal.norm_subscribed`/`legal.norm_unsubscribed`).
 - `POST /compliance/review-text` `{text, subject_type?, subject_id?}` (`compliance:run`, **streaming NDJSON**): recupera els articles rellevants del corpus normatiu (cerca hibrida sobre legal_chunks) i executa la checklist de conformitat amb el LLM (tasca `legal.review`), **citant sempre norma i article**; persisteix a `compliance_reviews` amb `ai_run_id`.
 - `POST /compliance/documents/{document_id}/review/stream` (`compliance:run`, **streaming NDJSON**; ampliacio 2026-08-17): revisio legal de **qualsevol document del repositori** (phase_documents amb copia local). L'abast departamental s'aplica al subrecurs: el contracte pare es resol amb `get_scoped_contract` (404 si no es visible). El text s'extreu de la copia de l'object storage (PyMuPDF, en thread); sense copia local → 409 amb indicacio d'indexar primer; PDF sense text extraible → error estructurat dins de l'stream. Persisteix a `compliance_reviews` amb `subject_type='document'` i audita `compliance.review_document`.
 - Pantalla: seccio «Corpus normatiu» a /admin/ai (normes, versio, boto sincronitza), «Revisió legal amb IA» al generador documental (revisa el document redactat), a /plan, i **boto «Revisió legal» a la taula de documents de la fitxa del contracte** (nomes documents amb copia local), amb panell d'streaming markdown + articles citats + disclaimer.

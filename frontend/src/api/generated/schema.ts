@@ -1050,8 +1050,26 @@ export interface paths {
         /** Normes del corpus normatiu (BOE) i estat d'indexació */
         get: operations["listLegalNorms"];
         put?: never;
-        post?: never;
+        /** Subscriu una norma nova del BOE al corpus i encua la indexació */
+        post: operations["subscribeLegalNorm"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/legal/norms/{boe_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Desubscriu la norma i n'esborra l'índex */
+        delete: operations["unsubscribeLegalNorm"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5263,6 +5281,64 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    subscribeLegalNorm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @example BOE-A-2017-12902 */
+                    boe_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Subscrita; indexació encuada */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        boe_id: string;
+                        /** Format: uuid */
+                        job_id: string;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    unsubscribeLegalNorm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boe_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Desubscrita */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     syncLegalNorms: {

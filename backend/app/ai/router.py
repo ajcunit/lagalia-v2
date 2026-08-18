@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
+from fastapi import Path as FastapiPath
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, HttpUrl
 from sqlalchemy import func, select
@@ -330,6 +331,80 @@ async def list_legal_norms(session: SessionDep, _authz: WriteDep) -> dict[str, A
             for r in rows
         ]
     }
+
+
+class NormBody(BaseModel):
+    boe_id: str = Field(min_length=10, max_length=30, pattern=r"^BOE-A-\d{4}-\d+$")
+
+
+@router.post("/legal/norms", operation_id="subscribeLegalNorm", status_code=202)
+async def subscribe_legal_norm(
+    body: NormBody, session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> dict[str, Any]:
+    """Subscriu una norma nova del BOE al corpus (specs/legal-corpus.md):
+    s'afegeix a la config del connector i s'encua la indexació."""
+    from app.integrations import hub
+    from app.jobs.service import enqueue_job
+
+    record = await hub.ensure_registered(session, "boe")
+    manifest, _ = hub._require_known("boe")
+    config = {**manifest.config_defaults, **(record.config or {})}
+    norm_ids = [str(n) for n in (config.get("norm_ids") or [])]
+    if body.boe_id in norm_ids:
+        raise Problem(409, "Aquesta norma ja està subscrita", "conflict")
+    record.config = {**(record.config or {}), "norm_ids": [*norm_ids, body.boe_id]}
+    await session.flush()
+    job = await enqueue_job(
+        session,
+        job_type="sync.boe_norms",
+        payload={"trigger": "manual"},
+        created_by=authz_ctx.user.id,
+        dedup_key="trigger:sync.boe_norms",
+    )
+    await record_audit(
+        session, actor_type=AuditActorType.USER, action="legal.norm_subscribed",
+        success=True, actor_id=authz_ctx.user.id, resource_type="legal",
+        resource_id=body.boe_id, ip=ctx.ip, user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+    )
+    await session.commit()
+    return {"boe_id": body.boe_id, "job_id": str(job.id)}
+
+
+@router.delete(
+    "/legal/norms/{boe_id}", operation_id="unsubscribeLegalNorm", status_code=204
+)
+async def unsubscribe_legal_norm(
+    boe_id: Annotated[str, FastapiPath(min_length=10, max_length=30, pattern=r"^BOE-A-\d{4}-\d+$")],
+    session: SessionDep,
+    authz_ctx: WriteDep,
+    ctx: ContextDep,
+) -> None:
+    """Desubscriu la norma i n'esborra l'índex (articles i fragments)."""
+    from sqlalchemy import text as sql_text
+
+    from app.integrations import hub
+
+    record = await hub.ensure_registered(session, "boe")
+    manifest, _ = hub._require_known("boe")
+    config = {**manifest.config_defaults, **(record.config or {})}
+    norm_ids = [str(n) for n in (config.get("norm_ids") or [])]
+    if boe_id not in norm_ids:
+        raise Problem(404, "Norma no subscrita", "not-found")
+    record.config = {
+        **(record.config or {}),
+        "norm_ids": [n for n in norm_ids if n != boe_id],
+    }
+    await session.execute(
+        sql_text("DELETE FROM legal_norms WHERE boe_id = :b"), {"b": boe_id}
+    )
+    await record_audit(
+        session, actor_type=AuditActorType.USER, action="legal.norm_unsubscribed",
+        success=True, actor_id=authz_ctx.user.id, resource_type="legal",
+        resource_id=boe_id, ip=ctx.ip, user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+    )
+    await session.commit()
 
 
 @router.post("/legal/norms/actions/sync", operation_id="syncLegalNorms", status_code=202)

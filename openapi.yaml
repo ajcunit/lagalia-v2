@@ -1774,6 +1774,38 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
 
   /legal/norms:
+    post:
+      tags: [ai]
+      operationId: subscribeLegalNorm
+      summary: Subscriu una norma nova del BOE al corpus i encua la indexació
+      x-required-scopes: [config:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [boe_id]
+              properties:
+                boe_id:
+                  type: string
+                  pattern: "^BOE-A-[0-9]{4}-[0-9]+$"
+                  examples: ["BOE-A-2017-12902"]
+      responses:
+        "202":
+          description: Subscrita; indexació encuada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [boe_id, job_id]
+                properties:
+                  boe_id: { type: string }
+                  job_id: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
     get:
       tags: [ai]
       operationId: listLegalNorms
@@ -1793,6 +1825,23 @@ paths:
                     items: { type: object, additionalProperties: true }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  /legal/norms/{boe_id}:
+    delete:
+      tags: [ai]
+      operationId: unsubscribeLegalNorm
+      summary: Desubscriu la norma i n'esborra l'índex
+      x-required-scopes: [config:write]
+      parameters:
+        - name: boe_id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^BOE-A-[0-9]{4}-[0-9]+$" }
+      responses:
+        "204": { description: Desubscrita }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /legal/norms/actions/sync:
     post:

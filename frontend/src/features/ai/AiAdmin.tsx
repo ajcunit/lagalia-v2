@@ -503,19 +503,84 @@ function LegalCorpusPanel() {
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["legal-norms"] }),
   });
+  const [newNorm, setNewNorm] = useState("");
+  const [normMessage, setNormMessage] = useState<string | null>(null);
+  const subscribe = useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.POST("/legal/norms", {
+        body: { boe_id: newNorm.trim().toUpperCase() },
+      });
+      if (error !== undefined)
+        throw Object.assign(new Error(), { status: response.status });
+    },
+    onSuccess: () => {
+      setNewNorm("");
+      setNormMessage(t("legal.subscribed"));
+      void queryClient.invalidateQueries({ queryKey: ["legal-norms"] });
+    },
+    onError: (error: Error & { status?: number }) => {
+      setNormMessage(
+        error.status === 409
+          ? t("legal.alreadySubscribed")
+          : error.status === 422
+            ? t("legal.badId")
+            : t("admin.loadError"),
+      );
+    },
+  });
+  const unsubscribe = useMutation({
+    mutationFn: async (boeId: string) => {
+      const { error } = await api.DELETE("/legal/norms/{boe_id}", {
+        params: { path: { boe_id: boeId } },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      setNormMessage(t("legal.unsubscribed"));
+      void queryClient.invalidateQueries({ queryKey: ["legal-norms"] });
+    },
+  });
 
   return (
-    <div className="mt-8">
+    <div className="mt-4">
       <h2 className="text-lg font-semibold text-ink">{t("legal.title")}</h2>
       <p className="mt-1 text-sm text-muted">{t("legal.intro")}</p>
       <div className="mt-2 rounded-lg border border-line bg-surface-raised p-4 shadow-card">
-        <div className="flex flex-wrap items-center gap-2">
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (newNorm.trim()) subscribe.mutate();
+          }}
+        >
+          <label className="text-sm text-ink">
+            {t("legal.addNorm")}
+            <input
+              value={newNorm}
+              onChange={(e) => setNewNorm(e.target.value)}
+              placeholder="BOE-A-2017-12902"
+              className="mt-1 block w-56 rounded-md border border-line bg-surface px-2 py-1.5 font-mono text-sm"
+            />
+          </label>
+          <Button
+            tone="accent"
+            disabled={subscribe.isPending || !newNorm.trim()}
+            onClick={() => subscribe.mutate()}
+          >
+            {subscribe.isPending ? t("legal.subscribing") : t("legal.subscribe")}
+          </Button>
           <span className="ml-auto">
             <Button disabled={sync.isPending} onClick={() => sync.mutate()}>
               {t("legal.sync")}
             </Button>
           </span>
-        </div>
+        </form>
+        {normMessage && (
+          <p aria-live="polite" className="mt-2 text-sm text-muted">
+            {normMessage}
+          </p>
+        )}
+        <p className="mt-1 text-xs text-muted">{t("legal.addNormHint")}</p>
         {norms.isPending ? (
           <Skeleton rows={2} />
         ) : (norms.data ?? []).length === 0 ? (
@@ -528,6 +593,9 @@ function LegalCorpusPanel() {
                 <th scope="col" className="py-1 pr-3 font-medium">{t("legal.version")}</th>
                 <th scope="col" className="py-1 pr-3 font-medium">{t("legal.articles")}</th>
                 <th scope="col" className="py-1 font-medium">{t("legal.lastCheck")}</th>
+                <th scope="col" className="py-1 text-right font-medium">
+                  <span className="sr-only">{t("contract.documents.actions")}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -545,6 +613,18 @@ function LegalCorpusPanel() {
                   </td>
                   <td className="py-1.5 text-xs text-muted">
                     {n.last_checked_at ? formatDateTime(String(n.last_checked_at)) : "—"}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <button
+                      type="button"
+                      className="text-xs text-danger underline"
+                      onClick={() => {
+                        if (window.confirm(t("legal.unsubscribeConfirm")))
+                          unsubscribe.mutate(String(n.boe_id));
+                      }}
+                    >
+                      {t("favorites.remove")}
+                    </button>
                   </td>
                 </tr>
               ))}

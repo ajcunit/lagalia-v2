@@ -76,3 +76,102 @@ async def test_legal_norms_api(api_client, make_user) -> None:  # type: ignore[n
     async with session_factory() as session:
         await session.execute(text("DELETE FROM legal_norms WHERE boe_id = 'BOE-A-TEST-2'"))
         await session.commit()
+
+
+async def test_subscribe_and_unsubscribe_norm(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    """Alta i baixa de normes des de la pantalla (specs/legal-corpus.md)."""
+    from sqlalchemy import text as sql_text
+
+    from app.core.db import session_factory
+    from tests.conftest import login_headers
+
+    admin_user = await make_user("admin")
+    employee = await make_user("employee")
+    admin = login_headers(api_client, admin_user.email)
+
+    # Permisos i validació.
+    assert (
+        api_client.post(
+            "/api/v1/legal/norms",
+            json={"boe_id": "BOE-A-2011-17887"},
+            headers=login_headers(api_client, employee.email),
+        ).status_code
+        == 403
+    )
+    assert (
+        api_client.post(
+            "/api/v1/legal/norms", json={"boe_id": "no-es-un-id"}, headers=admin
+        ).status_code
+        == 422
+    )
+
+    # Alta: entra a la config del connector i s'encua la indexació.
+    created = api_client.post(
+        "/api/v1/legal/norms", json={"boe_id": "BOE-A-2011-17887"}, headers=admin
+    )
+    assert created.status_code == 202, created.text
+    assert created.json()["job_id"]
+
+    # Duplicat → 409.
+    assert (
+        api_client.post(
+            "/api/v1/legal/norms", json={"boe_id": "BOE-A-2011-17887"}, headers=admin
+        ).status_code
+        == 409
+    )
+
+    async with session_factory() as session:
+        config = (
+            await session.execute(
+                sql_text("SELECT config FROM connectors WHERE slug = 'boe'")
+            )
+        ).scalar_one()
+    assert "BOE-A-2011-17887" in (config or {}).get("norm_ids", [])
+
+    # Simula que la norma s'ha indexat per comprovar l'esborrat en la baixa.
+    async with session_factory() as session:
+        norm_id = (
+            await session.execute(
+                sql_text(
+                    "INSERT INTO legal_norms (boe_id, title) "
+                    "VALUES ('BOE-A-2011-17887', 'TRLCSP (prova)') RETURNING id"
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            sql_text(
+                "INSERT INTO legal_chunks (norm_id, article_label, chunk_index, content) "
+                "VALUES (:n, 'Artículo 1', 0, 'text de prova')"
+            ),
+            {"n": norm_id},
+        )
+        await session.commit()
+
+    # Baixa: fora de la config i índex esborrat (chunks per CASCADE).
+    assert (
+        api_client.delete("/api/v1/legal/norms/BOE-A-2011-17887", headers=admin).status_code
+        == 204
+    )
+    async with session_factory() as session:
+        config = (
+            await session.execute(
+                sql_text("SELECT config FROM connectors WHERE slug = 'boe'")
+            )
+        ).scalar_one()
+        remaining = (
+            await session.execute(
+                sql_text("SELECT count(*) FROM legal_norms WHERE boe_id = 'BOE-A-2011-17887'")
+            )
+        ).scalar_one()
+        await session.execute(
+            sql_text("DELETE FROM jobs WHERE type = 'sync.boe_norms'")
+        )
+        await session.commit()
+    assert "BOE-A-2011-17887" not in (config or {}).get("norm_ids", [])
+    assert remaining == 0
+
+    # Norma no subscrita → 404.
+    assert (
+        api_client.delete("/api/v1/legal/norms/BOE-A-1999-99999", headers=admin).status_code
+        == 404
+    )
