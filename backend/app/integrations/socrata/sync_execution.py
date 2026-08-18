@@ -299,7 +299,7 @@ async def _enrich_details(force: bool = False) -> dict[str, int]:
         rows = (
             await session.execute(
                 text(
-                    "SELECT id, url_json FROM contract_executions "  # noqa: S608 — condició fixa
+                    "SELECT id, url_json, contract_id FROM contract_executions "  # noqa: S608
                     f"WHERE url_json IS NOT NULL {condition} ORDER BY id"
                 )
             )
@@ -335,6 +335,13 @@ async def _enrich_details(force: bool = False) -> dict[str, int]:
                             "i": row.id,
                         },
                     )
+                    # Els documents d'execució són documents de fase de ple
+                    # dret (fase «execucio»): entren a la tria del RAG, la
+                    # revisió legal i el xat per document.
+                    if row.contract_id is not None:
+                        await _upsert_phase_documents(
+                            session, client, row.contract_id, extracted["documents"]
+                        )
                     await session.commit()
                 fetched += 1
             except Exception as exc:  # una fila amb detall caducat no atura res
@@ -344,6 +351,78 @@ async def _enrich_details(force: bool = False) -> dict[str, int]:
                 )
     logger.info("execution_details_enriched", fetched=fetched, failed=failed)
     return {"fetched": fetched, "failed": failed}
+
+
+async def _upsert_phase_documents(
+    session: AsyncSession, client: Any, contract_id: int, documents: list[dict[str, Any]]
+) -> None:
+    """Upsert dels documents d'una actuació com a phase_documents (execucio).
+
+    Si la fase «execucio» és a `rag.indexable_phases` (o no hi ha restricció),
+    se'n descarrega còpia local perquè el RAG els pugui indexar.
+    """
+    from app.core.storage import safe_name
+    from app.integrations.pscp.enrich import _indexable_phases
+
+    indexable = await _indexable_phases(session)
+    download = indexable is None or "execucio" in indexable
+    for document in documents:
+        existing = (
+            await session.execute(
+                text(
+                    "SELECT id, storage_key FROM phase_documents "
+                    "WHERE contract_id = :c AND source_doc_id = :s"
+                ),
+                {"c": contract_id, "s": document["source_doc_id"]},
+            )
+        ).first()
+        if existing is None:
+            document_id = (
+                await session.execute(
+                    text(
+                        "INSERT INTO phase_documents (contract_id, phase, source_doc_id, "
+                        "title, doc_type, size, download_url) "
+                        "VALUES (:c, 'execucio', :s, :t, :dt, :sz, :u) RETURNING id"
+                    ),
+                    {
+                        "c": contract_id,
+                        "s": document["source_doc_id"],
+                        "t": document["title"],
+                        "dt": str(document.get("group") or "")[:100] or None,
+                        "sz": document.get("size"),
+                        "u": document["download_url"],
+                    },
+                )
+            ).scalar_one()
+            storage_key = None
+        else:
+            document_id, storage_key = existing.id, existing.storage_key
+        if download and not storage_key:
+            try:
+                content, content_type = await client.download_document(
+                    document["download_url"]
+                )
+                from app.core.storage import get_storage
+
+                key = (
+                    f"contracts/{contract_id}/execucio/"
+                    f"{document['source_doc_id']}-{safe_name(document['title'])}"
+                )
+                await get_storage().put(key, content, content_type)
+                await session.execute(
+                    text(
+                        "UPDATE phase_documents SET storage_key = :k, size = :sz "
+                        "WHERE id = :i"
+                    ),
+                    {"k": key, "sz": len(content), "i": document_id},
+                )
+            except Exception as exc:  # un document caducat no atura res
+                logger.warning(
+                    "execution_document_skipped",
+                    contract_id=contract_id,
+                    doc=document["source_doc_id"],
+                    error=str(exc),
+                )
 
 
 @job("sync.remap_execution")

@@ -35,6 +35,35 @@ _PROMOTED = (
 )
 
 
+async def _indexable_phases(session: AsyncSession) -> set[str] | None:
+    """Fases dels documents que es descarreguen/indexen (specs/rag-service.md).
+
+    None = sense restricció (comportament de sempre); un conjunt = només els
+    documents d'aquestes fases tenen còpia local, la resta queden com a
+    enllaç al portal.
+    """
+    from app.modules.config.models import Setting
+
+    setting = (
+        await session.execute(
+            select(Setting).where(Setting.key == "rag.indexable_phases")
+        )
+    ).scalar_one_or_none()
+    if setting is None or not setting.value:
+        return None
+    value = setting.value
+    if isinstance(value, str):
+        import json as _json
+
+        try:
+            value = _json.loads(value)
+        except ValueError:
+            return None
+    if not isinstance(value, list) or not value:
+        return None
+    return {str(v) for v in value}
+
+
 async def _pscp_connector() -> PscpConnector:
     async with session_factory() as session:
         connector = await hub.get_connector(session, "pscp")
@@ -113,6 +142,7 @@ async def _enrich_one(
         session.add(CommitteeMember(contract_id=contract.id, **member))
 
     storage = get_storage() if download_documents else None
+    indexable = await _indexable_phases(session)
     stored = 0
     for document in documents:
         existing = (
@@ -133,7 +163,8 @@ async def _enrich_one(
         row.download_url = document["download_url"]
         if row.size is None:
             row.size = document.get("size")
-        if storage is not None and not row.storage_key:
+        wanted = indexable is None or document["phase"] in indexable
+        if storage is not None and not row.storage_key and wanted:
             try:
                 content, content_type = await client.download_document(document["download_url"])
                 key = (
@@ -223,6 +254,9 @@ async def enrich_batch(ctx: JobContext) -> dict[str, Any]:
                     contract = await session.get(Contract, contract_id)
                     if contract is None:
                         continue
+                    # Capturat ABANS d'un possible rollback: després, l'objecte
+                    # ORM expira i llegir-lo peta amb MissingGreenlet.
+                    file_code = contract.file_code
                     try:
                         already = contract.enriched_at is not None
                         await _enrich_one(
@@ -235,7 +269,7 @@ async def enrich_batch(ctx: JobContext) -> dict[str, Any]:
                         await session.rollback()
                         counters["failed"] += 1
                         await sc.log_item(
-                            run_id, contract.file_code, "error", f"{type(exc).__name__}: {exc}"
+                            run_id, file_code, "error", f"{type(exc).__name__}: {exc}"
                         )
                 if index % 5 == 0 or index == len(contract_ids):
                     await ctx.set_progress(

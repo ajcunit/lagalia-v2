@@ -383,6 +383,34 @@ async def rag_status(session: SessionDep, _authz: WriteDep) -> dict[str, Any]:
     }
 
 
+@router.get("/rag/phases", operation_id="listRagPhases")
+async def list_rag_phases(session: SessionDep, _authz: WriteDep) -> dict[str, Any]:
+    """Fases del repositori amb comptadors (specs/rag-service.md): per triar
+    de quines fases es descarreguen i s'indexen els documents."""
+    from sqlalchemy import text as sql_text
+
+    rows = (
+        await session.execute(
+            sql_text(
+                "SELECT phase, count(*) AS total, "
+                "count(storage_key) AS with_copy, count(indexed_at) AS indexed "
+                "FROM phase_documents GROUP BY 1 ORDER BY 2 DESC"
+            )
+        )
+    ).all()
+    return {
+        "data": [
+            {
+                "phase": row.phase,
+                "total": row.total,
+                "with_copy": row.with_copy,
+                "indexed": row.indexed,
+            }
+            for row in rows
+        ]
+    }
+
+
 @router.post("/rag/actions/index", operation_id="triggerRagIndex", status_code=202)
 async def trigger_rag_index(
     session: SessionDep, authz_ctx: SyncExecDep, ctx: ContextDep

@@ -53,17 +53,8 @@ type PhaseDoc = components["schemas"]["PhaseDocument"];
 
 /** Documents del repositori amb revisió legal en streaming (specs/legal-corpus.md)
  * i enviament directe a un projecte del generador (specs/docgen-external-refs.md). */
-type ExecutionDoc = {
-  source_doc_id: string;
-  group?: string | null;
-  title: string;
-  size?: number | null;
-  download_url: string;
-};
-
 function DocumentsSection(props: {
   documents: PhaseDoc[];
-  executionDocs: ExecutionDoc[];
   canReview: boolean;
   fileCode: string;
 }) {
@@ -102,10 +93,9 @@ function DocumentsSection(props: {
     groups.set(doc.phase, list);
   }
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
-  const [execOpen, setExecOpen] = useState(false);
 
   return (
-    <SectionCard title={`${t("contract.section.documents")} (${props.documents.length + props.executionDocs.length})`}>
+    <SectionCard title={`${t("contract.section.documents")} (${props.documents.length})`}>
       <ul className="space-y-2">
         {[...groups.entries()].map(([phase, docs]) => {
           const open = openFolders[phase] ?? groups.size === 1;
@@ -193,68 +183,6 @@ function DocumentsSection(props: {
             </li>
           );
         })}
-        {props.executionDocs.length > 0 && (
-          <li className="rounded-md border border-line bg-surface">
-            <button
-              type="button"
-              aria-expanded={execOpen}
-              onClick={() => setExecOpen(!execOpen)}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-ink hover:bg-accent-soft"
-            >
-              <span aria-hidden>
-                {execOpen ? (
-                  <FolderOpen className="h-4 w-4 text-accent" />
-                ) : (
-                  <Folder className="h-4 w-4 text-muted" />
-                )}
-              </span>
-              {t("sheet.tabExecution")}
-              <span className="text-xs font-normal text-muted">
-                ({props.executionDocs.length})
-              </span>
-            </button>
-            {execOpen && (
-              <table className="w-full border-t border-line text-sm">
-                <tbody>
-                  {props.executionDocs.map((doc) => (
-                    <tr key={doc.source_doc_id} className="border-t border-line first:border-t-0">
-                      <td className="py-1.5 pl-3 pr-2">
-                        <FileTypeIcon
-                          name={doc.title}
-                          className="mr-1.5 inline h-4 w-4 -translate-y-px"
-                        />
-                        <a
-                          href={doc.download_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-accent underline-offset-2 hover:underline"
-                        >
-                          {doc.title} ↗
-                        </a>
-                        {doc.group && (
-                          <span className="ml-1.5 text-xs text-muted">
-                            ({t(`contract.execution.group.${doc.group}` as Parameters<typeof t>[0])})
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 pr-2 text-right tabular-nums text-muted">
-                        {formatBytes(doc.size)}
-                      </td>
-                      <td className="w-28 py-1.5 pl-2 text-right">
-                        <AddToProject
-                          title={doc.title}
-                          downloadUrl={doc.download_url}
-                          fileCode={props.fileCode}
-                        />
-                      </td>
-                      {props.canReview && <td className="w-32" />}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </li>
-        )}
       </ul>
 
       {reviewing && (
@@ -304,9 +232,6 @@ export function ContractDetail() {
   const contract = useContract(id);
   const extensions = useContractExtensions(id);
   const executions = useContractExecutions(id);
-  const executionDocuments = (executions.data?.data ?? []).flatMap(
-    (row) => (row.documents ?? []) as ExecutionDoc[],
-  );
   const modifications = useContractModifications(id);
   const history = useContractHistory(id);
   const criteria = useContractCriteria(id);
@@ -436,11 +361,7 @@ export function ContractDetail() {
         <SheetTabs
           tabs={[
             { key: "resum", label: t("sheet.tabSummary") },
-            {
-              key: "documents",
-              label: t("contract.section.documents"),
-              count: (documents.data?.data.length ?? 0) + executionDocuments.length,
-            },
+            { key: "documents", label: t("contract.section.documents"), count: documents.data?.data.length ?? 0 },
             {
               key: "execucio",
               label: t("sheet.tabExecution"),
@@ -707,12 +628,10 @@ export function ContractDetail() {
         </div>
       )}
 
-      {tab === "documents" &&
-        ((documents.data?.data.length ?? 0) > 0 || executionDocuments.length > 0) && (
+      {tab === "documents" && (documents.data?.data.length ?? 0) > 0 && (
         <div className="mt-4">
           <DocumentsSection
             documents={documents.data?.data ?? []}
-            executionDocs={executionDocuments}
             canReview={actions.includes("compliance:run")}
             fileCode={data.file_code}
           />

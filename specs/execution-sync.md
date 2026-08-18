@@ -71,11 +71,15 @@ Els errors per fila (detalls caducats) es registren i no aturen el job.
   (n)» amb tipus (badge), denominació, **supòsit habilitant**, dates, import,
   adjudicatari i observacions; les pròrrogues i modificacions RPC es mantenen
   al costat. El comptador de la pestanya suma les tres coses.
-- **Els documents de les actuacions van a la pestanya Documents**, dins d'una
-  carpeta «Execució» al costat de les carpetes de fase (esmena de l'Esteve,
-  2026-08-18): icona per tipus de fitxer, enllaç de descàrrega, grup traduït
-  i «＋ projecte»; el comptador de la pestanya Documents els inclou. (Sense
-  còpia local, la revisió legal no hi aplica.)
+- **Els documents de les actuacions són documents de fase de ple dret**
+  (esmena de l'Esteve, 2026-08-18): l'enriquiment del detall els upserta a
+  `phase_documents` amb la fase nova `execucio` (migració 0030, valor nou de
+  l'enum; doc_type = grup) quan l'actuació està vinculada a un contracte.
+  Surten a la pestanya Documents com una carpeta «Execució» més, i si la fase
+  `execucio` és a `rag.indexable_phases` (o no hi ha restricció) se'n
+  descarrega còpia local — amb això entren al RAG, a la revisió legal i al
+  xat per document com qualsevol altre. El JSONB `documents` de
+  `contract_executions` es manté com a font del detall per actuació.
 - **Sincronitzacions** (/admin/sync): tipus nou `execution` al desplegable de
   llançament manual.
 

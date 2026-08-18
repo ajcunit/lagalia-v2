@@ -1837,6 +1837,34 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /rag/phases:
+    get:
+      tags: [ai]
+      operationId: listRagPhases
+      summary: Fases del repositori amb comptadors (tria de descàrrega i indexació)
+      x-required-scopes: [config:write]
+      responses:
+        "200":
+          description: Fases amb comptadors
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [phase, total, with_copy, indexed]
+                      properties:
+                        phase: { type: string }
+                        total: { type: integer }
+                        with_copy: { type: integer }
+                        indexed: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /rag/actions/index:
     post:
       tags: [ai]

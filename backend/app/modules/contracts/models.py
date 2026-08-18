@@ -62,6 +62,7 @@ class ContractPhase(enum.StrEnum):
     ADJUDICACIO = "adjudicacio"
     FORMALITZACIO = "formalitzacio"
     ANULACIO = "anulacio"
+    EXECUCIO = "execucio"  # documents de les actuacions d'execució (B-017)
 
 
 class ChangeType(enum.StrEnum):

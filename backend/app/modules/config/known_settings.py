@@ -30,4 +30,10 @@ KNOWN_SETTINGS: list[KnownSetting] = [
         "Destinataris de l'informe mensual d'auditoria (correus separats per comes)",
         "intervencio@cunit.cat, secretaria@cunit.cat",
     ),
+    KnownSetting(
+        "rag.indexable_phases",
+        "Fases dels documents que es descarreguen i s'indexen al RAG (llista JSON; "
+        "buit o no definit = totes). La resta es mostren només amb enllaç al portal.",
+        '["licitacio", "adjudicacio", "formalitzacio"]',
+    ),
 ]

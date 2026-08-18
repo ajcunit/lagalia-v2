@@ -74,6 +74,8 @@ PSCP_FIELDS: dict[str, PscpField] = {
     ),
 }
 
+_LANG_KEYS = {"ca", "es", "en", "oc"}
+
 _PATH_TOKEN = re.compile(r"([a-zA-Z0-9_]+)|\[(\d+)\]")
 
 
@@ -179,7 +181,12 @@ def collect_documents(data: Any, base_url: str) -> list[dict[str, Any]]:
                     )
                 return
             for key, value in node.items():
-                visit(value, key if isinstance(value, (dict, list)) else doc_type)
+                # Les claus d'idioma (ca/es/en/oc) agrupen variants del mateix
+                # document: no canvien el tipus (abans tot quedava com a «ca»).
+                next_type = doc_type
+                if isinstance(value, (dict, list)) and key not in _LANG_KEYS:
+                    next_type = key
+                visit(value, next_type)
         elif isinstance(node, list):
             for value in node:
                 visit(value, doc_type)

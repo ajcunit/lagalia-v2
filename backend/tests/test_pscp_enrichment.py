@@ -253,3 +253,61 @@ async def test_document_host_outside_domain_is_rejected() -> None:
     with pytest.raises(ConnectorError, match="fora del domini"):
         await client.download_document("https://malici.os/doc/1/x")
     await client.__aexit__(None, None, None)
+
+
+def test_doc_type_not_polluted_by_language_keys() -> None:
+    """El doc_type és el grup real, no la clau d'idioma (fix 2026-08-18)."""
+    from app.integrations.pscp import extract
+
+    payload = {
+        "publicacio": {
+            "plecAdministratiu": {
+                "ca": [{"id": 1, "titol": "PCA.pdf", "hash": "A", "mida": "10"}]
+            },
+            "plecTecnic": {
+                "ca": [{"id": 2, "titol": "PPT.pdf", "hash": "B", "mida": "20"}]
+            },
+        }
+    }
+    documents = extract.collect_documents(payload, "https://x")
+    by_id = {d["source_doc_id"]: d["doc_type"] for d in documents}
+    assert by_id == {"1": "plecAdministratiu", "2": "plecTecnic"}
+
+
+async def test_indexable_phases_filter(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    """L'allowlist de fases limita quins documents es descarreguen; la resta
+    queden com a enllaç (specs/rag-service.md)."""
+    import json as _json
+
+    from sqlalchemy import text as sql_text
+
+    from app.core.db import session_factory
+    from app.integrations.pscp.enrich import _indexable_phases
+    from tests.conftest import login_headers
+
+    async with session_factory() as session:
+        assert await _indexable_phases(session) is None  # sense setting → totes
+        await session.execute(
+            sql_text(
+                "INSERT INTO settings (key, value, is_secret) "
+                "VALUES ('rag.indexable_phases', CAST(:v AS jsonb), false) "
+                "ON CONFLICT (key) DO UPDATE SET value = CAST(:v AS jsonb)"
+            ),
+            {"v": _json.dumps(["licitacio", "adjudicacio"])},
+        )
+        await session.commit()
+    async with session_factory() as session:
+        allowed = await _indexable_phases(session)
+    assert allowed == {"licitacio", "adjudicacio"}
+
+    # L'endpoint de fases respon amb comptadors (admin).
+    admin_user = await make_user("admin")
+    admin = login_headers(api_client, admin_user.email)
+    response = api_client.get("/api/v1/rag/phases", headers=admin)
+    assert response.status_code == 200, response.text
+
+    async with session_factory() as session:
+        await session.execute(
+            sql_text("DELETE FROM settings WHERE key = 'rag.indexable_phases'")
+        )
+        await session.commit()

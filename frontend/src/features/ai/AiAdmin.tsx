@@ -7,7 +7,9 @@ import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../componen
 import { Bot } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
+import { SheetTabs } from "../../components/contractSheet";
 import { t } from "../../i18n";
+import { ca } from "../../i18n/ca";
 import { formatDateTime } from "../../lib/format";
 import { Markdown } from "../../components/Markdown";
 
@@ -555,6 +557,7 @@ function LegalCorpusPanel() {
 }
 
 export function AiAdmin() {
+  const [tab, setTab] = useState("proveidors");
   const providers = useQuery({
     queryKey: ["ai-providers"],
     queryFn: async () => {
@@ -588,6 +591,22 @@ export function AiAdmin() {
           backTo="/admin"
           icon={Bot} title={t("ai.title")} subtitle={t("ai.intro")} />
 
+      <div className="mt-4">
+        <SheetTabs
+          tabs={[
+            { key: "proveidors", label: t("ai.tabProviders") },
+            { key: "tasques", label: t("ai.tabTasks") },
+            { key: "rag", label: "RAG" },
+            { key: "boe", label: t("ai.tabBoe") },
+            { key: "execucions", label: t("ai.runs") },
+          ]}
+          active={tab}
+          onSelect={setTab}
+        />
+      </div>
+
+      {tab === "proveidors" && (
+      <>
       <div className="mt-4"><NewProviderForm /></div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -604,7 +623,12 @@ export function AiAdmin() {
         )}
       </div>
 
-      <h2 className="mt-8 text-lg font-semibold text-ink">{t("ai.tasksTitle")}</h2>
+      </>
+      )}
+
+      {tab === "tasques" && (
+      <>
+      <h2 className="mt-4 text-lg font-semibold text-ink">{t("ai.tasksTitle")}</h2>
       <p className="mt-1 text-sm text-muted">{t("ai.tasksIntro")}</p>
       <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-surface-raised shadow-card">
         {tasks.isPending ? (
@@ -631,10 +655,21 @@ export function AiAdmin() {
         )}
       </div>
 
-      <RagPanel />
-      <LegalCorpusPanel />
+      </>
+      )}
 
-      <h2 className="mt-8 text-lg font-semibold text-ink">{t("ai.runs")}</h2>
+      {tab === "rag" && (
+      <div className="space-y-6">
+        <RagPanel />
+        <PhasesPanel />
+      </div>
+      )}
+
+      {tab === "boe" && <LegalCorpusPanel />}
+
+      {tab === "execucions" && (
+      <>
+      <h2 className="mt-4 text-lg font-semibold text-ink">{t("ai.runs")}</h2>
       <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-surface-raised shadow-card">
         {runs.isPending ? (
           <div className="p-4"><Skeleton rows={3} /></div>
@@ -679,6 +714,130 @@ export function AiAdmin() {
           </table>
         )}
       </div>
+      </>
+      )}
     </div>
+  );
+}
+
+/** Tria de fases per al RAG (specs/rag-service.md): els documents de les
+ * fases marcades es descarreguen i s'indexen; la resta es mostren a la fitxa
+ * només amb l'enllaç al portal. */
+function PhasesPanel() {
+  const queryClient = useQueryClient();
+  const [selection, setSelection] = useState<Set<string> | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const phases = useQuery({
+    queryKey: ["rag-phases"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/rag/phases");
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/settings");
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+  const saved = settings.data?.find((s) => s.key === "rag.indexable_phases");
+  const savedList: string[] | null = Array.isArray(saved?.value)
+    ? (saved?.value as string[])
+    : null;
+  const effective = selection ?? (savedList !== null ? new Set(savedList) : null);
+
+  const save = useMutation({
+    mutationFn: async (value: string[] | null) => {
+      const { error } = await api.PUT("/settings/{key}", {
+        params: { path: { key: "rag.indexable_phases" } },
+        body: { value, is_secret: false },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => {
+      setMessage(t("ai.phasesSaved"));
+      setSelection(null);
+      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+    onError: () => setMessage(t("favorites.saveError")),
+  });
+
+  function phaseLabel(phase: string): string {
+    const key = `search.phase.${phase}`;
+    return key in ca ? ca[key as keyof typeof ca] : phase;
+  }
+
+  function toggle(phase: string) {
+    const base = effective ?? new Set((phases.data ?? []).map((row) => row.phase));
+    const next = new Set(base);
+    if (next.has(phase)) next.delete(phase);
+    else next.add(phase);
+    setSelection(next);
+  }
+
+  return (
+    <SectionCard title={t("ai.phasesTitle")}>
+      <p className="text-sm text-muted">{t("ai.phasesIntro")}</p>
+      {phases.isPending ? (
+        <Skeleton rows={4} />
+      ) : phases.isError ? (
+        <EmptyState icon="⚠️" title={t("admin.loadError")} />
+      ) : (
+        <ul className="mt-4 space-y-2.5">
+          {(phases.data ?? []).map((row) => {
+            const checked = effective === null || effective.has(row.phase);
+            return (
+              <li key={row.phase} className="flex items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  id={`ragphase-${row.phase}`}
+                  checked={checked}
+                  onChange={() => toggle(row.phase)}
+                  className="h-4 w-4"
+                />
+                <label htmlFor={`ragphase-${row.phase}`} className="min-w-0 flex-1">
+                  <span className="font-medium text-ink">{phaseLabel(row.phase)}</span>
+                  <span className="ml-2 text-xs text-muted">
+                    {t("ai.phasesCounts", {
+                      total: String(row.total),
+                      copies: String(row.with_copy),
+                      indexed: String(row.indexed),
+                    })}
+                  </span>
+                </label>
+                {!checked && (
+                  <span className="text-xs text-muted">{t("ai.phasesLinkOnly")}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mt-4 flex items-center gap-3">
+        <Button
+          tone="accent"
+          disabled={save.isPending || selection === null}
+          onClick={() => save.mutate(selection === null ? null : [...selection])}
+        >
+          {t("admin.save")}
+        </Button>
+        <button
+          type="button"
+          className="text-xs text-accent underline"
+          onClick={() => {
+            setSelection(null);
+            save.mutate(null);
+          }}
+        >
+          {t("ai.phasesAll")}
+        </button>
+        {message && <span className="text-sm text-muted">{message}</span>}
+      </div>
+      <p className="mt-2 text-xs text-muted">{t("ai.phasesNote")}</p>
+    </SectionCard>
   );
 }

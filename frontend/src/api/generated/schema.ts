@@ -1091,6 +1091,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rag/phases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fases del repositori amb comptadors (tria de descàrrega i indexació) */
+        get: operations["listRagPhases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rag/actions/index": {
         parameters: {
             query?: never;
@@ -5278,6 +5295,35 @@ export interface operations {
                         last_job?: {
                             [key: string]: unknown;
                         } | null;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listRagPhases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fases amb comptadors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            phase: string;
+                            total: number;
+                            with_copy: number;
+                            indexed: number;
+                        }[];
                     };
                 };
             };
