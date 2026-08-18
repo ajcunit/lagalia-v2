@@ -72,7 +72,10 @@ de rol** (és el que dona accés a la plataforma i fixa el rol) i, a banda,
   (lectura `config:read`, escriptura `config:write`; tag `config`).
 - `POST /connectors/ldap/actions/test-login` (`config:write`): diagnòstic
   pas a pas amb un usuari real (connexió, bind, cerca, regles casades i
-  llista de grups `memberOf` per copiar-los a les regles). No crea ni
+  llista de grups `memberOf` per copiar-los a les regles). Inclou el pas
+  «compte a LAGALia»: si el correu resolt pertany a un compte local amb
+  contrasenya pròpia, avisa que el login LDAP no s'hi aplicarà (evita el
+  desconcert «test verd però login vermell»). No crea ni
   modifica cap usuari; la contrasenya no es desa ni s'audita (només
   l'usuari provat, `config.ldap_test_login`). Formulari «Prova un inici
   de sessió» a la pestanya LDAP, com el correu de prova de smtp.

@@ -362,6 +362,20 @@ async def test_ldap_test_login_action(
     await engine.dispose()
     assert count == 0
 
+    # Perfil que resol al correu d'un compte local amb contrasenya: el
+    # diagnòstic ho ha d'avisar (el login LDAP no s'hi aplicarà mai).
+    profile["email"] = admin.email
+    warned = api_client.post(
+        "/api/v1/connectors/ldap/actions/test-login",
+        json={"username": "provaldap", "password": "Directori-AD-123"},
+        headers=headers,
+    )
+    assert warned.status_code == 200
+    body = warned.json()
+    assert body["ok"] is False
+    assert body["steps"][-1]["step"] == "compte a LAGALia"
+    assert body["matched_role"] is None
+
 
 # ─────────────────────────── API de regles ───────────────────────────
 

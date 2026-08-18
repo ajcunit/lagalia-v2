@@ -415,6 +415,48 @@ async def test_ldap_login(
 
     mappings = list((await session.execute(select(LdapGroupMapping))).scalars())
     role, department_ids = resolve_mappings(mappings, profile["groups"])
+
+    # El pas que estalvia el desconcert «test verd però login vermell»:
+    # un compte local amb contrasenya pròpia mai entra per l'AD.
+    from app.modules.users.models import User
+
+    profile_email = profile.get("email")
+    local_account = None
+    if profile_email:
+        local_account = (
+            await session.execute(select(User).where(User.email == profile_email))
+        ).scalar_one_or_none()
+    if local_account is not None and local_account.password_hash is not None:
+        trace.append(
+            {
+                "step": "compte a LAGALia",
+                "ok": False,
+                "detail": (
+                    f"«{profile_email}» és un compte local amb contrasenya pròpia: "
+                    "el login LDAP no s'hi aplica (protecció dels comptes locals)"
+                ),
+            }
+        )
+        return LdapTestLoginResponse(
+            ok=False,
+            steps=[LdapTestStep(**s) for s in trace],
+            groups=profile["groups"],
+            matched_role=None,
+            matched_department_names=[],
+            email=profile_email,
+            name=profile.get("name"),
+        )
+    trace.append(
+        {
+            "step": "compte a LAGALia",
+            "ok": True,
+            "detail": (
+                "usuari de directori existent: s'actualitzarà al login"
+                if local_account is not None
+                else "nou: es crearà automàticament al primer login"
+            ),
+        }
+    )
     names: list[str] = []
     if department_ids:
         names = list(
