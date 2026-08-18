@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Contact, Info, TrendingUp } from "lucide-react";
 
 import { api } from "../../api/client";
 
@@ -55,10 +56,10 @@ export function ContractorDetail() {
       <div className="mt-4">
         <SheetTabs
           tabs={[
-            { key: "resum", label: t("sheet.tabSummary") },
-            { key: "contacte", label: t("contractors.tabContact") },
+            { key: "resum", label: t("sheet.tabSummary"), icon: Info },
+            { key: "contacte", label: t("contractors.tabContact"), icon: Contact },
             ...(data.tax_id
-              ? [{ key: "analisi", label: t("contractors.tabAnalysis") }]
+              ? [{ key: "analisi", label: t("contractors.tabAnalysis"), icon: TrendingUp }]
               : []),
           ]}
           active={tab}

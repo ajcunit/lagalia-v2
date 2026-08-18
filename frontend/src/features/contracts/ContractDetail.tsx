@@ -20,7 +20,17 @@ import {
   formatDateTime,
   formatDuration,
 } from "../../lib/format";
-import { Folder, FolderOpen, Scale } from "lucide-react";
+import {
+  Activity,
+  Building2,
+  Folder,
+  FolderOpen,
+  History,
+  Info,
+  ListChecks,
+  MessageSquare,
+  Scale,
+} from "lucide-react";
 
 import { ChatView } from "../chat/ChatView";
 import { useContractor } from "../contractors/queries";
@@ -361,20 +371,23 @@ export function ContractDetail() {
       <div className="mt-5">
         <SheetTabs
           tabs={[
-            { key: "resum", label: t("sheet.tabSummary") },
-            { key: "documents", label: t("contract.section.documents"), count: documents.data?.data.length ?? 0 },
+            { key: "resum", label: t("sheet.tabSummary"), icon: Info },
+            { key: "documents", label: t("contract.section.documents"), count: documents.data?.data.length ?? 0, icon: FolderOpen },
             {
               key: "execucio",
               label: t("sheet.tabExecution"),
+              icon: Activity,
               count:
                 data.counters.extensions +
                 data.counters.modifications +
                 (executions.data?.data.length ?? 0),
             },
-            ...(data.contractor ? [{ key: "adjudicatari", label: t("sheet.tabContractor") }] : []),
-            { key: "historial", label: t("sheet.tabHistory"), count: data.counters.history },
-            { key: "tasques", label: t("sheet.tabTasks") },
-            { key: "xat", label: t("sheet.tabChat") },
+            ...(data.contractor
+              ? [{ key: "adjudicatari", label: t("sheet.tabContractor"), icon: Building2 }]
+              : []),
+            { key: "historial", label: t("sheet.tabHistory"), count: data.counters.history, icon: History },
+            { key: "tasques", label: t("sheet.tabTasks"), icon: ListChecks },
+            { key: "xat", label: t("sheet.tabChat"), icon: MessageSquare },
           ]}
           active={tab}
           onSelect={setTab}

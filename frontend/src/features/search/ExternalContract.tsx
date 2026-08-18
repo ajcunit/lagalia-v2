@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { api } from "../../api/client";
 import { Badge, EmptyState, SectionCard, Skeleton } from "../../components/ui";
-import { Globe } from "lucide-react";
+import { FolderOpen, Globe, Info, Package } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
 import { PhaseFolders, SaveToFolder } from "../../components/PhaseExplorer";
@@ -98,10 +98,12 @@ export function ExternalContract() {
       <div className="mt-4">
         <SheetTabs
           tabs={[
-            { key: "resum", label: t("sheet.tabSummary") },
-            ...(phases.length > 0 ? [{ key: "documents", label: t("search.documents") }] : []),
+            { key: "resum", label: t("sheet.tabSummary"), icon: Info },
+            ...(phases.length > 0
+              ? [{ key: "documents", label: t("search.documents"), icon: FolderOpen }]
+              : []),
             ...(rows.length > 1
-              ? [{ key: "lots", label: t("sheet.lotRows"), count: rows.length }]
+              ? [{ key: "lots", label: t("sheet.lotRows"), count: rows.length, icon: Package }]
               : []),
           ]}
           active={tab}

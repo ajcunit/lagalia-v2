@@ -146,10 +146,13 @@ export function CpvChips(props: { code: string | null | undefined; description?:
   );
 }
 
+import type { LucideIcon } from "lucide-react";
+
 export interface SheetTab {
   key: string;
   label: string;
   count?: number | null;
+  icon?: LucideIcon;
 }
 
 /** Barra de pestanyes de la fitxa (estil «Resum · Documents (n) · …»). */
@@ -169,12 +172,15 @@ export function SheetTabs(props: {
             role="tab"
             aria-selected={active}
             onClick={() => props.onSelect(tab.key)}
-            className={`-mb-px rounded-t-md border-b-2 px-3 py-2 text-sm ${
+            className={`-mb-px inline-flex items-center gap-1.5 rounded-t-md border-b-2 px-3 py-2 text-sm ${
               active
                 ? "border-accent font-semibold text-ink"
                 : "border-transparent text-muted hover:text-ink"
             }`}
           >
+            {tab.icon !== undefined && (
+              <tab.icon aria-hidden className={`h-4 w-4 ${active ? "text-accent" : ""}`} />
+            )}
             {tab.label}
             {tab.count !== undefined && tab.count !== null && (
               <span className="ml-1 text-xs text-muted">({tab.count})</span>

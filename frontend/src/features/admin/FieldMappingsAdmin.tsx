@@ -5,18 +5,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, Skeleton } from "../../components/ui";
-import { ArrowLeftRight } from "lucide-react";
+import { Activity, ArrowLeftRight, Database, Globe, Landmark } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
+import { SheetTabs } from "../../components/contractSheet";
 import { t } from "../../i18n";
 
 type Mapping = components["schemas"]["FieldMapping"];
 
 const SOURCES = [
-  { key: "socrata", labelKey: "mapping.sourceSocrata" },
-  { key: "rpc", labelKey: "mapping.sourceRpc" },
-  { key: "execution", labelKey: "mapping.sourceExecution" },
-  { key: "pscp", labelKey: "mapping.sourcePscp" },
+  { key: "socrata", labelKey: "mapping.sourceSocrata", icon: Database },
+  { key: "rpc", labelKey: "mapping.sourceRpc", icon: Landmark },
+  { key: "execution", labelKey: "mapping.sourceExecution", icon: Activity },
+  { key: "pscp", labelKey: "mapping.sourcePscp", icon: Globe },
 ] as const;
 
 const PSCP_PHASES = ["licitacio", "avaluacio", "adjudicacio", "formalitzacio", "previ"] as const;
@@ -150,23 +151,16 @@ export function FieldMappingsAdmin() {
         }
       />
 
-      <div className="mt-4 flex flex-wrap items-center gap-1.5" role="tablist">
-        {SOURCES.map((entry) => (
-          <button
-            key={entry.key}
-            type="button"
-            role="tab"
-            aria-selected={source === entry.key}
-            onClick={() => switchSource(entry.key)}
-            className={`rounded-full border px-3 py-1 text-sm ${
-              source === entry.key
-                ? "border-accent bg-accent-soft text-ink"
-                : "border-line text-muted hover:text-ink"
-            }`}
-          >
-            {t(entry.labelKey as Parameters<typeof t>[0])}
-          </button>
-        ))}
+      <div className="mt-4">
+        <SheetTabs
+          tabs={SOURCES.map((entry) => ({
+            key: entry.key,
+            label: t(entry.labelKey as Parameters<typeof t>[0]),
+            icon: entry.icon,
+          }))}
+          active={source}
+          onSelect={switchSource}
+        />
       </div>
 
       <form

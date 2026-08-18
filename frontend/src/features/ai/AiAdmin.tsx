@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
 import { Badge, Button, EmptyState, SectionCard, Skeleton } from "../../components/ui";
-import { Bot } from "lucide-react";
+import { Activity, Bot, Library, ListChecks, Scale, Server } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
 import { SheetTabs } from "../../components/contractSheet";
@@ -674,11 +674,11 @@ export function AiAdmin() {
       <div className="mt-4">
         <SheetTabs
           tabs={[
-            { key: "proveidors", label: t("ai.tabProviders") },
-            { key: "tasques", label: t("ai.tabTasks") },
-            { key: "rag", label: "RAG" },
-            { key: "boe", label: t("ai.tabBoe") },
-            { key: "execucions", label: t("ai.runs") },
+            { key: "proveidors", label: t("ai.tabProviders"), icon: Server },
+            { key: "tasques", label: t("ai.tabTasks"), icon: ListChecks },
+            { key: "rag", label: "RAG", icon: Library },
+            { key: "boe", label: t("ai.tabBoe"), icon: Scale },
+            { key: "execucions", label: t("ai.runs"), icon: Activity },
           ]}
           active={tab}
           onSelect={setTab}
