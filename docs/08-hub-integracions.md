@@ -65,6 +65,12 @@ Dues potes, com a la v1 però endurides:
 2. **Creació d'expedients via n8n**: `POST` signat al webhook n8n amb el payload de contracte (codi, objecte, tipus, adjudicatari, imports, departaments amb els seus grups Gestiona, responsables); processa la resposta (`codi_expedient` definitiu + `id_gestiona`) i renombra l'expedient local amb historial `gestiona_webhook`. 🔁 El token personal de Gestiona **no s'inclou al cos** (debilitat v1): n8n s'autentica a Gestiona amb credencial pròpia, o el hub emet un token efímer d'abast mínim.
 - Configuració JSON d'endpoints extensible (com `gestiona_endpoints_config` v1) per adaptar-se a canvis de l'API sense desplegar.
 
+Abast funcional de la integració (a més de la creació d'expedients):
+- **Obrir expedient** a Gestiona des de la fitxa del contracte (acció existent a la UI, 02 §expedient).
+- **Importar i exportar documents** de l'expedient i **dades del contracte** entre LAGALia i Gestiona (bidireccional, sempre via jobs i amb rastre a `audit_log`).
+- **Sincronitzar expedients de factura** vinculats al contracte.
+- **Assignació automàtica dels expedients a LAGALia en funció de la unitat gestora de Gestiona**: mapeig configurable **departament LAGALia ↔ unitat gestora de Gestiona** (pantalla de configuració, com el mapeig departament↔grup existent).
+
 ### 2.4 `ldap` — Active Directory
 - Autenticació bind + cerca `sAMAccountName`, provisió automàtica, mapeig grup→rol/departament (ara a taula `ldap_group_mappings`).
 - 🔁 Millores: LDAPS/StartTLS obligatori per defecte, timeout i circuit breaker (si l'AD cau, el login local continua), sincronització opcional programada d'altes/baixes (desactivar usuaris que ja no són al grup).

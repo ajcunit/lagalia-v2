@@ -132,6 +132,7 @@ Inventari complet de funcionalitats de l'aplicació actual (LAGALia Contractaci�
 ### 2.16 Departaments i empleats
 - CRUD de departaments (codi únic, nom, descripció, actiu/inactiu — soft delete) amb vista dels seus empleats i contractes.
 - **Mapeig departament ↔ grup de Gestiona** (cercador de grups via API de Gestiona, mapeig ràpid massiu).
+- **Mapeig departament ↔ unitat gestora de Gestiona**: base de l'assignació automàtica d'expedients entrants (import/factures) al departament de LAGALia corresponent.
 - CRUD d'empleats (admin): nom, email, departaments múltiples, rol, contrasenya, actiu, permisos especials; soft delete i reactivació.
 - Pestanya de configuració LDAP/AD: servidor, port, base DN, sufix de domini, activació i **regles de mapeig grup AD → rol + departament**.
 
