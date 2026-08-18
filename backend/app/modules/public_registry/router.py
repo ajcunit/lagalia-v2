@@ -109,6 +109,9 @@ async def search_public_registry(
     _authz: UseDep,
     q: Annotated[str | None, Query(max_length=200)] = None,
     organisme: Annotated[str | None, Query(alias="filter[organisme]", max_length=200)] = None,
+    contractor_nif: Annotated[
+        str | None, Query(alias="filter[contractor_nif]", max_length=50)
+    ] = None,
     contract_type: Annotated[
         str | None, Query(alias="filter[contract_type]", max_length=100)
     ] = None,
@@ -127,6 +130,8 @@ async def search_public_registry(
             query = query.full_text(q)
         if organisme:
             query = query.where_contains("nom_organ", organisme)
+        if contractor_nif:
+            query = query.where_eq("identificacio_adjudicatari", contractor_nif.strip())
         if contract_type:
             query = query.where_eq("tipus_contracte", contract_type)
         if phase:
@@ -196,6 +201,118 @@ async def get_public_contract(
         mapped["contractor"] = contractor_fields(record, overrides)
         rows.append(mapped)
     return {"data": rows}
+
+
+@router.get("/public-registry/contractor-analysis", operation_id="analyzePublicContractor")
+async def analyze_public_contractor(
+    tax_id: Annotated[str, Query(min_length=5, max_length=50)],
+    session: SessionDep,
+    _authz: UseDep,
+) -> dict[str, Any]:
+    """Anàlisi d'un adjudicatari sobre TOT el dataset obert (sense filtre
+    d'ens): amb quines administracions treballa, rànquing i mitjanes.
+
+    Només lectura i agregada via query builder; res no s'escriu a les taules
+    municipals (specs/contractors-ui.md). Els imports agregats es calculen
+    sobre les files de Formalització (les més fiables); el total d'expedients
+    compta totes les fases.
+    """
+    connector = await _socrata(session)
+    dataset = connector.config["dataset_contracts"]
+
+    def base() -> SoqlQuery:
+        return SoqlQuery(dataset).where_eq("identificacio_adjudicatari", tax_id.strip())
+
+    overall = (
+        base()
+        .select_count_distinct("codi_expedient", "expedients")
+        .select_count_distinct("nom_organ", "organs")
+        .select_aggregate("min", "data_publicacio_anunci", "primera")
+        .select_aggregate("max", "data_publicacio_anunci", "darrera")
+    )
+    amounts = (
+        base()
+        .where_eq("fase_publicacio", "Formalització")
+        .select_count_distinct("codi_expedient", "expedients_formalitzats")
+        .select_aggregate("sum", "import_adjudicacio_sense", "import_total", numeric=True)
+        .select_aggregate("avg", "import_adjudicacio_sense", "import_mitja", numeric=True)
+    )
+    # Coherència de xifres: per organisme/tipus es donen SEMPRE els
+    # expedients publicats (totes les fases) i, a banda, els formalitzats
+    # amb els seus imports — així els totals dels KPI quadren amb la taula.
+    by_organ_all = (
+        base()
+        .select("nom_organ")
+        .select_count_distinct("codi_expedient", "expedients")
+        .group_by("nom_organ")
+        .order_by("expedients", descending=True)
+        .limit(50)
+    )
+    by_organ_form = (
+        base()
+        .where_eq("fase_publicacio", "Formalització")
+        .select("nom_organ")
+        .select_count_distinct("codi_expedient", "expedients_formalitzats")
+        .select_aggregate("sum", "import_adjudicacio_sense", "import_total", numeric=True)
+        .select_aggregate("avg", "import_adjudicacio_sense", "import_mitja", numeric=True)
+        .group_by("nom_organ")
+        .limit(50)
+    )
+    by_type_all = (
+        base()
+        .select("tipus_contracte")
+        .select_count_distinct("codi_expedient", "expedients")
+        .group_by("tipus_contracte")
+        .limit(10)
+    )
+    by_type_form = (
+        base()
+        .where_eq("fase_publicacio", "Formalització")
+        .select("tipus_contracte")
+        .select_count_distinct("codi_expedient", "expedients_formalitzats")
+        .select_aggregate("sum", "import_adjudicacio_sense", "import_total", numeric=True)
+        .group_by("tipus_contracte")
+        .limit(10)
+    )
+
+    try:
+        async with connector.client() as client:
+            overall_rows = await client.fetch_page(overall)
+            amount_rows = await client.fetch_page(amounts)
+            organ_all = await client.fetch_page(by_organ_all)
+            organ_form = await client.fetch_page(by_organ_form)
+            type_all = await client.fetch_page(by_type_all)
+            type_form = await client.fetch_page(by_type_form)
+    except ConnectorError as exc:
+        raise Problem(502, "El registre públic no respon", "upstream", detail=str(exc)) from None
+
+    def merge(
+        all_rows: list[dict[str, Any]], form_rows: list[dict[str, Any]], key: str
+    ) -> list[dict[str, Any]]:
+        formalized = {row.get(key): row for row in form_rows}
+        merged = []
+        for row in all_rows:
+            extra = formalized.get(row.get(key), {})
+            merged.append({**row, **{k: v for k, v in extra.items() if k != key}})
+        merged.sort(
+            key=lambda r: (
+                float(r.get("import_total") or 0),
+                int(r.get("expedients") or 0),
+            ),
+            reverse=True,
+        )
+        return merged
+
+    totals = {
+        **(overall_rows[0] if overall_rows else {}),
+        **(amount_rows[0] if amount_rows else {}),
+    }
+    return {
+        "tax_id": tax_id.strip(),
+        "totals": totals,
+        "by_organ": merge(organ_all, organ_form, "nom_organ")[:20],
+        "by_type": merge(type_all, type_form, "tipus_contracte"),
+    }
 
 
 @router.get("/public-registry/phase", operation_id="getPublicPhase")

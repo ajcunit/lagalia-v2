@@ -294,3 +294,40 @@ async def detect_tax_id_duplicates(session: AsyncSession) -> int:
                 created += int(getattr(result, "rowcount", 0) or 0)
     await session.flush()
     return created
+
+
+async def fill_contact_details(
+    session: AsyncSession, contacts: list[dict[str, str | None]]
+) -> int:
+    """Omple telèfon/correu/tipus d'empresa des dels JSON del portal
+    (specs/contractors-ui.md). NOMÉS camps buits: mai trepitja dades
+    existents (poden ser correccions manuals)."""
+    from sqlalchemy import text as sql_text
+
+    updated = 0
+    for contact in contacts:
+        tax_id = (contact.get("tax_id") or "").strip()
+        if not tax_id:
+            continue
+        result = await session.execute(
+            sql_text(
+                # asyncpg: el mateix paràmetre en dues posicions necessita
+                # cast explícit (AmbiguousParameterError).
+                "UPDATE contractors SET "
+                "phone = COALESCE(phone, CAST(:phone AS varchar)), "
+                "email = COALESCE(email, CAST(:email AS varchar)), "
+                "company_type = COALESCE(company_type, CAST(:company_type AS varchar)) "
+                "WHERE tax_id = :tax_id AND ("
+                "(phone IS NULL AND CAST(:phone AS varchar) IS NOT NULL) OR "
+                "(email IS NULL AND CAST(:email AS varchar) IS NOT NULL) OR "
+                "(company_type IS NULL AND CAST(:company_type AS varchar) IS NOT NULL))"
+            ),
+            {
+                "phone": contact.get("phone"),
+                "email": contact.get("email"),
+                "company_type": contact.get("company_type"),
+                "tax_id": tax_id,
+            },
+        )
+        updated += result.rowcount or 0
+    return updated

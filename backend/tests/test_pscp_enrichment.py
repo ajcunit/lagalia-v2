@@ -311,3 +311,74 @@ async def test_indexable_phases_filter(api_client, make_user) -> None:  # type: 
             sql_text("DELETE FROM settings WHERE key = 'rag.indexable_phases'")
         )
         await session.commit()
+
+
+async def test_contractor_contacts_filled_from_portal(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    """Els JSON del portal porten contacte de l'adjudicatari: s'omplen NOMÉS
+    els camps buits del registre (specs/contractors-ui.md)."""
+    from uuid import uuid4
+
+    from sqlalchemy import text as sql_text
+
+    from app.core.db import session_factory
+    from app.integrations.pscp import extract
+    from app.modules.contractors.service import fill_contact_details
+
+    payload = {
+        "publicacio": {
+            "dadesPublicacioLot": [
+                {
+                    "empresaContractista": [
+                        {
+                            "denominacioEmpresaContractista": "Constru-Eco Park, SL",
+                            "identificador": "B62433578",
+                            "telefon": "654196066",
+                            "email": "hola@construecopark.com",
+                            "tipusEmpresaUnificat": [{"id": 748, "ca": "PIME"}],
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    contacts = extract.collect_contractor_contacts(payload)
+    assert contacts == [
+        {
+            "tax_id": "B62433578",
+            "name": "Constru-Eco Park, SL",
+            "phone": "654196066",
+            "email": "hola@construecopark.com",
+            "company_type": "PIME",
+        }
+    ]
+
+    tag = uuid4().hex[:8]
+    async with session_factory() as session:
+        contractor_id = (
+            await session.execute(
+                sql_text(
+                    "INSERT INTO contractors (canonical_name, tax_id, email) "
+                    "VALUES ('Constru-Eco', :t, 'manual@exemple.cat') RETURNING id"
+                ),
+                {"t": f"B{tag[:8].upper()}"},
+            )
+        ).scalar_one()
+        contacts[0]["tax_id"] = f"B{tag[:8].upper()}"
+        updated = await fill_contact_details(session, contacts)
+        await session.commit()
+    assert updated == 1
+
+    async with session_factory() as session:
+        row = (
+            await session.execute(
+                sql_text("SELECT phone, email, company_type FROM contractors WHERE id = :i"),
+                {"i": contractor_id},
+            )
+        ).first()
+        await session.execute(
+            sql_text("DELETE FROM contractors WHERE id = :i"), {"i": contractor_id}
+        )
+        await session.commit()
+    assert row.phone == "654196066"
+    assert row.email == "manual@exemple.cat"  # el valor existent NO es trepitja
+    assert row.company_type == "PIME"

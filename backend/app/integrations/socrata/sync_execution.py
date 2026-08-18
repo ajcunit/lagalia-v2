@@ -342,6 +342,12 @@ async def _enrich_details(force: bool = False) -> dict[str, int]:
                         await _upsert_phase_documents(
                             session, client, row.contract_id, extracted["documents"]
                         )
+                    from app.integrations.pscp.extract import collect_contractor_contacts
+                    from app.modules.contractors.service import fill_contact_details
+
+                    await fill_contact_details(
+                        session, collect_contractor_contacts(detail)
+                    )
                     await session.commit()
                 fetched += 1
             except Exception as exc:  # una fila amb detall caducat no atura res

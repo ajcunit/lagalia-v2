@@ -51,6 +51,17 @@ Cap (pantalla de sincronitzacions: Fase 2 de la UI; el progrés ja és consumibl
 - `alerts.recompute` complet i `enrich.contract` (PR F1-7); el sync deixa `calculated_end_date` a punt.
 - `POST /sync-runs` (API) i programació cron configurable.
 
+### Identitat de fila per id_intern (fix 2026-08-18, cas 4732/2026)
+
+El portal SUBSTITUEIX la fila del dataset quan la fase avança (Adjudicació →
+Formalització) mantenint `id_intern` estable per lot. La cerca de la fila
+local es fa primer per (file_code, lot, raw id_intern) i només si no hi ha
+coincidència per la clau natural (file_code, status, lot): així un canvi de
+fase ACTUALITZA la fila (amb el canvi d'estat historiat) en lloc de crear-ne
+una de nova i deixar l'anterior òrfena. El duplicat existent (4732/2026) es
+va fusionar a mà: fills moguts a la fila original, valors vigents aplicats i
+fila sobrera esborrada.
+
 ## Criteris d'acceptació
 
 - [x] Mapper: parse_duration (número, text amb anys/mesos/dies, dies>15, zero→null), status fallback, url-o-objecte, dates calculades condicionals, hash estable.

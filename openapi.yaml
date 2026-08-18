@@ -2673,6 +2673,10 @@ paths:
         - name: filter[organisme]
           in: query
           schema: { type: string, maxLength: 200 }
+        - name: filter[contractor_nif]
+          in: query
+          description: NIF exacte de l'adjudicatari (per a l'anàlisi de mercat).
+          schema: { type: string, maxLength: 50 }
         - name: filter[contract_type]
           in: query
           schema: { type: string, maxLength: 100 }
@@ -2751,6 +2755,42 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "502":
+          description: El registre públic no respon
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+
+  /public-registry/contractor-analysis:
+    get:
+      tags: [public-registry]
+      operationId: analyzePublicContractor
+      summary: Anàlisi d'un adjudicatari sobre tot el dataset obert (agregacions)
+      x-required-scopes: [tools:use]
+      parameters:
+        - name: tax_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 5, maxLength: 50 }
+      responses:
+        "200":
+          description: Totals, rànquing per organisme i desglossament per tipus
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tax_id, totals, by_organ, by_type]
+                properties:
+                  tax_id: { type: string }
+                  totals: { type: object, additionalProperties: true }
+                  by_organ:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+                  by_type:
+                    type: array
+                    items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "502":
           description: El registre públic no respon
           content:

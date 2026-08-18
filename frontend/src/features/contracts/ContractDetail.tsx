@@ -23,6 +23,7 @@ import {
 import { Folder, FolderOpen, Scale } from "lucide-react";
 
 import { ChatView } from "../chat/ChatView";
+import { useContractor } from "../contractors/queries";
 import { ContractTasks } from "../tasks/ContractTasks";
 import {
   useContract,
@@ -370,6 +371,7 @@ export function ContractDetail() {
                 data.counters.modifications +
                 (executions.data?.data.length ?? 0),
             },
+            ...(data.contractor ? [{ key: "adjudicatari", label: t("sheet.tabContractor") }] : []),
             { key: "historial", label: t("sheet.tabHistory"), count: data.counters.history },
             { key: "tasques", label: t("sheet.tabTasks") },
             { key: "xat", label: t("sheet.tabChat") },
@@ -754,6 +756,15 @@ export function ContractDetail() {
       </>
       )}
 
+      {tab === "adjudicatari" && data.contractor && (
+        <div className="mt-4">
+          <ContractorPanel
+            contractorId={data.contractor.id}
+            rawName={data.raw_contractor_name ?? null}
+          />
+        </div>
+      )}
+
       {tab === "historial" && (
       <div className="mt-4">
         <SectionCard title={`${t("contract.section.history")} (${data.counters.history})`}>
@@ -794,6 +805,57 @@ export function ContractDetail() {
         </SectionCard>
       </div>
       )}
+    </div>
+  );
+}
+
+/** Dades completes de l'adjudicatari dins de la fitxa del contracte
+ * (specs/contractors-ui.md): empresa, contacte, volum i enllaç a la fitxa. */
+function ContractorPanel(props: { contractorId: number; rawName: string | null }) {
+  const contractor = useContractor(props.contractorId);
+  if (contractor.isPending) return <Skeleton rows={6} />;
+  if (contractor.isError || !contractor.data) {
+    return <EmptyState icon="🔍" title={t("contractors.notFound")} />;
+  }
+  const c = contractor.data;
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <SectionCard title={t("contractors.section.company")}>
+        <DefinitionList
+          items={[
+            { label: t("contracts.col.contractor"), value: c.name },
+            { label: t("contractors.col.taxId"), value: c.tax_id },
+            { label: t("contractors.nationality"), value: c.nationality },
+            { label: t("contractors.companyType"), value: c.company_type },
+            { label: t("contractors.phone"), value: c.phone },
+            { label: t("contractors.email"), value: c.email },
+            { label: t("contract.field.rawName"), value: props.rawName ?? "—" },
+          ]}
+        />
+        <p className="mt-3 text-sm">
+          <Link
+            to={`/contractors/${props.contractorId}`}
+            className="text-accent underline-offset-2 hover:underline"
+          >
+            {t("contract.contractorFullSheet")} →
+          </Link>
+        </p>
+      </SectionCard>
+      <SectionCard title={t("contractors.section.volume")}>
+        <DefinitionList
+          items={[
+            {
+              label: t("contractors.col.contracts"),
+              value: `${c.contracts_count} · ${formatCurrency(c.contracts_amount)}`,
+            },
+            {
+              label: t("contractors.col.minors"),
+              value: `${c.minor_count} · ${formatCurrency(c.minor_amount)}`,
+            },
+            { label: t("contractors.col.total"), value: formatCurrency(c.total_amount) },
+          ]}
+        />
+      </SectionCard>
     </div>
   );
 }

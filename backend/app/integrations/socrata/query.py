@@ -15,6 +15,9 @@ _DATASET_RE = re.compile(r"^[a-z0-9]{4}-[a-z0-9]{4}$")
 _INE10_RE = re.compile(r"^\d{10}$")
 
 
+_AGG_FUNCS = {"count", "sum", "avg", "min", "max"}
+
+
 class SoqlValidationError(ValueError):
     pass
 
@@ -64,6 +67,7 @@ class SoqlQuery:
     def __init__(self, dataset_id: str) -> None:
         self.dataset_id = validate_dataset_id(dataset_id)
         self._select: list[str] = []
+        self._group: list[str] = []
         self._where: list[str] = []
         self._order: str | None = None
         self._limit: int | None = None
@@ -72,6 +76,31 @@ class SoqlQuery:
 
     def select(self, *fields: str) -> Self:
         self._select.extend(_field(f) for f in fields)
+        return self
+
+    def select_aggregate(
+        self, func: str, field: str | None, alias: str, *, numeric: bool = False
+    ) -> Self:
+        """Agregació validada: funció de la whitelist, camp i àlies com a
+        identificadors (mai text lliure dins del $select). `numeric` afegeix
+        el cast ::number (les columnes d'import del dataset són text)."""
+        if func not in _AGG_FUNCS:
+            raise SoqlValidationError(f"funció d'agregació desconeguda: {func}")
+        if field is None:
+            if func != "count":
+                raise SoqlValidationError("només count() admet '*'")
+            inner = "*"
+        else:
+            inner = _field(field) + ("::number" if numeric else "")
+        self._select.append(f"{func}({inner}) AS {_field(alias)}")
+        return self
+
+    def select_count_distinct(self, field: str, alias: str) -> Self:
+        self._select.append(f"count(distinct {_field(field)}) AS {_field(alias)}")
+        return self
+
+    def group_by(self, *fields: str) -> Self:
+        self._group.extend(_field(f) for f in fields)
         return self
 
     def where_eq(self, field: str, value: str) -> Self:
@@ -133,6 +162,8 @@ class SoqlQuery:
         params: dict[str, str] = {}
         if self._select:
             params["$select"] = ", ".join(self._select)
+        if self._group:
+            params["$group"] = ", ".join(self._group)
         if self._where:
             params["$where"] = " AND ".join(self._where)
         if self._order:

@@ -343,3 +343,59 @@ async def test_disabled_connector_fails_with_clear_error(
     async with session_factory() as session:
         await session.execute(text("UPDATE connectors SET enabled = true WHERE slug = 'socrata'"))
         await session.commit()
+
+
+async def test_phase_change_updates_row_by_id_intern(make_user) -> None:  # type: ignore[no-untyped-def]
+    """El portal SUBSTITUEIX la fila quan la fase avança: amb id_intern
+    estable, el canvi de fase actualitza la fila en lloc de duplicar-la
+    (cas real 4732/2026)."""
+    from uuid import uuid4
+
+    from sqlalchemy import text
+
+    from app.core.db import session_factory
+    from app.integrations.socrata.sync import _upsert_record
+
+    tag = uuid4().hex[:8]
+    base = {
+        "codi_expedient": f"DUP/{tag}",
+        "id_intern": f"uuid-{tag}",
+        "objecte_contracte": "Servei amb canvi de fase",
+        "fase_publicacio": "Adjudicació",
+        "resultat": "Adjudicació",
+        "import_adjudicacio_sense": "1000",
+    }
+    async with session_factory() as session:
+        assert await _upsert_record(session, dict(base), []) == "new"
+        await session.commit()
+
+    # La fase avança: mateixa fila a la font (mateix id_intern), estat nou.
+    advanced = {**base, "fase_publicacio": "Formalització", "resultat": "Formalització",
+                "data_formalitzacio_contracte": "2026-06-11T00:00:00.000"}
+    async with session_factory() as session:
+        assert await _upsert_record(session, dict(advanced), []) == "updated"
+        await session.commit()
+
+    async with session_factory() as session:
+        rows = (
+            await session.execute(
+                text("SELECT id, status FROM contracts WHERE file_code = :f"),
+                {"f": f"DUP/{tag}"},
+            )
+        ).all()
+        history = (
+            await session.execute(
+                text(
+                    "SELECT count(*) FROM contract_history ch JOIN contracts c "
+                    "ON c.id = ch.contract_id WHERE c.file_code = :f AND ch.field = 'status'"
+                ),
+                {"f": f"DUP/{tag}"},
+            )
+        ).scalar_one()
+        await session.execute(
+            text("DELETE FROM contracts WHERE file_code = :f"), {"f": f"DUP/{tag}"}
+        )
+        await session.commit()
+    assert len(rows) == 1  # cap duplicat
+    assert rows[0].status == "Formalització"
+    assert history == 1  # el canvi de fase queda historiat

@@ -296,3 +296,44 @@ def extract_scalars(
         if value is not None:
             scalars[target] = value
     return scalars
+
+
+def collect_contractor_contacts(data: Any) -> list[dict[str, str | None]]:
+    """Contactes d'adjudicatari dels JSON del portal (empresaContractista):
+    NIF, nom, telèfon, correu i tipus d'empresa — dades que els datasets
+    oberts no porten (specs/contractors-ui.md)."""
+    contacts: list[dict[str, str | None]] = []
+    seen: set[str] = set()
+
+    def visit(node: Any) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "empresaContractista" and isinstance(value, list):
+                    for entry in value:
+                        if not isinstance(entry, dict):
+                            continue
+                        tax_id = str(entry.get("identificador") or "").strip()
+                        if not tax_id or tax_id in seen:
+                            continue
+                        seen.add(tax_id)
+                        company_types = entry.get("tipusEmpresaUnificat")
+                        company_type = None
+                        if isinstance(company_types, list) and company_types:
+                            company_type = ml(company_types[0])
+                        contacts.append(
+                            {
+                                "tax_id": tax_id,
+                                "name": ml(entry.get("denominacioEmpresaContractista")),
+                                "phone": str(entry.get("telefon") or "").strip() or None,
+                                "email": str(entry.get("email") or "").strip() or None,
+                                "company_type": company_type,
+                            }
+                        )
+                else:
+                    visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(data)
+    return contacts

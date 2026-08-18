@@ -1555,6 +1555,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public-registry/contractor-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anàlisi d'un adjudicatari sobre tot el dataset obert (agregacions) */
+        get: operations["analyzePublicContractor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public-registry/phase": {
         parameters: {
             query?: never;
@@ -6245,6 +6262,8 @@ export interface operations {
                 /** @description Cerca de text completa */
                 q?: string;
                 "filter[organisme]"?: string;
+                /** @description NIF exacte de l'adjudicatari (per a l'anàlisi de mercat). */
+                "filter[contractor_nif]"?: string;
                 "filter[contract_type]"?: string;
                 "filter[phase]"?: string;
                 "filter[amount_min]"?: number;
@@ -6317,6 +6336,50 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description El registre públic no respon */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    analyzePublicContractor: {
+        parameters: {
+            query: {
+                tax_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Totals, rànquing per organisme i desglossament per tipus */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tax_id: string;
+                        totals: {
+                            [key: string]: unknown;
+                        };
+                        by_organ: {
+                            [key: string]: unknown;
+                        }[];
+                        by_type: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             /** @description El registre públic no respon */
             502: {
                 headers: {

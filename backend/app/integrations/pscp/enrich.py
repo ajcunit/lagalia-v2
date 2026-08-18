@@ -89,6 +89,7 @@ async def _enrich_one(
 
     seen_criteria: set[str] = set()
     seen_members: set[tuple[str | None, str | None]] = set()
+    contractor_contacts: list[dict[str, str | None]] = []
     skipped_phases: list[str] = []
     for phase_name, url in phase_urls.items():
         if not url:
@@ -118,6 +119,7 @@ async def _enrich_one(
         for document in extract.collect_documents(payload, client.base_url):
             document["phase"] = phase_name
             documents.append(document)
+        contractor_contacts.extend(extract.collect_contractor_contacts(payload))
 
     if not enrichment and skipped_phases:
         raise ConnectorError(
@@ -132,6 +134,13 @@ async def _enrich_one(
 
     contract.enrichment = enrichment
     contract.enriched_at = datetime.now(UTC)
+
+    # Contacte de l'adjudicatari (telèfon/correu/tipus) des del portal:
+    # només omple camps buits del registre de contractistes.
+    if contractor_contacts:
+        from app.modules.contractors.service import fill_contact_details
+
+        await fill_contact_details(session, contractor_contacts)
 
     # Idempotent: es reconstrueixen criteris i mesa.
     await session.execute(delete(AwardCriterion).where(AwardCriterion.contract_id == contract.id))

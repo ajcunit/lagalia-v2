@@ -122,15 +122,35 @@ async def _upsert_record(
         raise ValueError("registre sense codi_expedient")
     now = datetime.now(UTC)
 
-    existing = (
-        await session.execute(
-            select(Contract).where(
-                Contract.file_code == values["file_code"],
-                Contract.status == values["status"],
-                Contract.lot == values["lot"],
+    # Identitat primària: id_intern de la font (estable per lot). El portal
+    # SUBSTITUEIX la fila quan la fase avança (p. ex. Adjudicació →
+    # Formalització): si es busca per (expedient, estat, lot) el canvi de
+    # fase sembla una fila nova i la vella queda òrfena (cas 4732/2026).
+    existing = None
+    id_intern = str(record.get("id_intern") or "").strip()
+    if id_intern:
+        existing = (
+            await session.execute(
+                select(Contract)
+                .where(
+                    Contract.file_code == values["file_code"],
+                    Contract.lot == values["lot"],
+                    Contract.raw["id_intern"].astext == id_intern,
+                )
+                .order_by(Contract.id)
+                .limit(1)
             )
-        )
-    ).scalar_one_or_none()
+        ).scalar_one_or_none()
+    if existing is None:
+        existing = (
+            await session.execute(
+                select(Contract).where(
+                    Contract.file_code == values["file_code"],
+                    Contract.status == values["status"],
+                    Contract.lot == values["lot"],
+                )
+            )
+        ).scalar_one_or_none()
 
     if existing is not None and existing.content_hash == values["content_hash"]:
         existing.last_synced_at = now
