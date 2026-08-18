@@ -1,5 +1,11 @@
 # Configuracio: parametres i connectors, amb pantalla (Estat: implementada)
 
+> Ampliacio 2026-08-18: la pantalla /admin/config passa a pestanyes
+> (Parametres · Connectors · LDAP/Directori). La pestanya LDAP gestiona les
+> regles de mapatge grup AD → rol o departament (specs/ldap-auth.md); el
+> servidor i el compte de servei van al connector `ldap` de la pestanya
+> Connectors, com qualsevol altre connector.
+
 > Ampliacio 2026-08-13: `POST /connectors/smtp/actions/send-test-email` (config:write)
 > envia un correu de prova a l'admin autenticat i retorna `sent|failed` amb detall;
 > mai tomba l'API i s'audita (`config.smtp_test_email`). Boto «Envia'm un correu de

@@ -80,6 +80,19 @@ async def login(
     user = await repository.get_user_by_email(session, email)
     password_ok = verify_password(password, user.password_hash if user else None)
 
+    # Usuari de directori (sense contrasenya local) o desconegut: intent LDAP
+    # si el connector està habilitat. L'AD caigut no trenca el flux local.
+    if not password_ok and (user is None or user.password_hash is None):
+        from app.modules.users import ldap_auth
+
+        ldap_result = await ldap_auth.try_ldap_login(session, email, password)
+        if ldap_result is not None:
+            user, password_ok = ldap_result.user, True
+            if ldap_result.provisioned:
+                await _audit_auth(
+                    session, "auth.ldap_provision", True, ctx, actor_id=user.id, email=user.email
+                )
+
     if user is None or not password_ok:
         await _audit_auth(session, "auth.login", False, ctx, email=email)
         await session.commit()

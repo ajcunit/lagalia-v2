@@ -82,7 +82,7 @@ Com v1: `department_id`, `rule_type department|body|keyword|cpv|amount`, `source
 - `user_credentials`: `user_id`, `provider` (`gestiona`), `credential_type` (`access_token|auth_id|user_id`), `value_encrypted BYTEA`, `expires_at NULL`. Xifrat aplicatiu (vegeu 06 §4).
 - `user_departments` M2M; `contract_departments` M2M; `contract_managers` M2M.
 - `refresh_tokens`: `token_hash UNIQUE`, `user_id`, `family_id` (detecció de reutilització), `expires_at`, `revoked_at NULL`, `created_ip`.
-- `ldap_group_mappings`: `ad_group`, `role`, `department_id` (v1 ho guardava com a JSON dins config → taula pròpia).
+- `ldap_group_mappings`: `ad_group` (UNIQUE case-insensitive), `role` NULL, `department_id` NULL amb CHECK «exactament un dels dos»: cada regla és de rol (dona accés) o de departament (assigna abast). (v1 ho guardava com a JSON dins config → taula pròpia.)
 
 ## 4. Sincronització i jobs
 

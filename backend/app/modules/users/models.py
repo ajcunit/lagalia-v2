@@ -81,6 +81,33 @@ class User(Base, TimestampMixin):
     departments: Mapped[list[Department]] = relationship(secondary=user_departments)
 
 
+class LdapGroupMapping(Base):
+    """Regla grup AD → rol O departament (specs/ldap-auth.md).
+
+    El grup de rol és el que dona accés a la plataforma; el de departament
+    només assigna l'abast. CHECK a la BD: exactament un dels dos camps.
+    """
+
+    __tablename__ = "ldap_group_mappings"
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
+    ad_group: Mapped[str] = mapped_column(String(500))
+    role: Mapped[UserRole | None] = mapped_column(
+        Enum(
+            UserRole,
+            name="user_role",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=True,
+    )
+    department_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("departments.id", ondelete="CASCADE"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class RefreshToken(Base, TimestampMixin):
     __tablename__ = "refresh_tokens"
 

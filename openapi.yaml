@@ -1239,6 +1239,64 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /ldap/group-mappings:
+    get:
+      tags: [config]
+      operationId: listLdapGroupMappings
+      summary: Regles de mapatge grup AD → rol o departament (specs/ldap-auth.md)
+      x-required-scopes: [config:read]
+      responses:
+        "200":
+          description: Regles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/LdapGroupMapping" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [config]
+      operationId: createLdapGroupMapping
+      summary: Nova regla (exactament un de role o department_id)
+      x-required-scopes: [config:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LdapGroupMappingCreate" }
+      responses:
+        "201":
+          description: Regla creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LdapGroupMapping" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /ldap/group-mappings/{mapping_id}:
+    delete:
+      tags: [config]
+      operationId: deleteLdapGroupMapping
+      summary: Esborra una regla de mapatge LDAP
+      x-required-scopes: [config:write]
+      parameters:
+        - name: mapping_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "204": { description: Esborrada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ───────────────────────── chat ─────────────────────────
   /chat/threads:
     get:
@@ -5187,6 +5245,33 @@ components:
           type: [array, "null"]
           description: Fases del portal on aplica (només pscp).
           items: { type: string }
+
+    LdapGroupMapping:
+      type: object
+      description: |
+        Regla grup AD → rol O departament. El grup de rol és el que dona
+        accés a la plataforma; el de departament només assigna l'abast.
+      required: [id, ad_group, role, department_id, department_name]
+      properties:
+        id: { type: integer, format: int64 }
+        ad_group: { type: string, examples: ["CN=LAGALIA-Gestio,OU=Grups,DC=cunit,DC=local"] }
+        role:
+          oneOf:
+            - { $ref: "#/components/schemas/Role" }
+            - { type: "null" }
+        department_id: { type: [integer, "null"], format: int64 }
+        department_name: { type: [string, "null"] }
+
+    LdapGroupMappingCreate:
+      type: object
+      required: [ad_group]
+      properties:
+        ad_group: { type: string, minLength: 2, maxLength: 500 }
+        role:
+          oneOf:
+            - { $ref: "#/components/schemas/Role" }
+            - { type: "null" }
+        department_id: { type: [integer, "null"], format: int64 }
 
     Job:
       type: object

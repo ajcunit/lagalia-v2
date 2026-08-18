@@ -747,6 +747,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ldap/group-mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Regles de mapatge grup AD → rol o departament (specs/ldap-auth.md) */
+        get: operations["listLdapGroupMappings"];
+        put?: never;
+        /** Nova regla (exactament un de role o department_id) */
+        post: operations["createLdapGroupMapping"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ldap/group-mappings/{mapping_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Esborra una regla de mapatge LDAP */
+        delete: operations["deleteLdapGroupMapping"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/threads": {
         parameters: {
             query?: never;
@@ -3113,6 +3148,26 @@ export interface components {
             phases?: string[] | null;
         };
         /**
+         * @description Regla grup AD → rol O departament. El grup de rol és el que dona
+         *     accés a la plataforma; el de departament només assigna l'abast.
+         */
+        LdapGroupMapping: {
+            /** Format: int64 */
+            id: number;
+            /** @example CN=LAGALIA-Gestio,OU=Grups,DC=cunit,DC=local */
+            ad_group: string;
+            role: components["schemas"]["Role"] | null;
+            /** Format: int64 */
+            department_id: number | null;
+            department_name: string | null;
+        };
+        LdapGroupMappingCreate: {
+            ad_group: string;
+            role?: components["schemas"]["Role"] | null;
+            /** Format: int64 */
+            department_id?: number | null;
+        };
+        /**
          * @description Treball en segon pla. Mai inclou el `payload` d'entrada: només
          *     estat, progrés i resultat.
          */
@@ -4657,6 +4712,81 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listLdapGroupMappings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["LdapGroupMapping"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createLdapGroupMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LdapGroupMappingCreate"];
+            };
+        };
+        responses: {
+            /** @description Regla creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LdapGroupMapping"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    deleteLdapGroupMapping: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapping_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Esborrada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listChatThreads: {

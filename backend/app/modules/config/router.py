@@ -6,7 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authz
@@ -18,7 +18,9 @@ from app.modules.audit.models import AuditActorType
 from app.modules.audit.service import record_audit
 from app.modules.config.known_settings import KNOWN_SETTINGS
 from app.modules.config.models import Setting
+from app.modules.departments.models import Department
 from app.modules.users.dependencies import get_request_context
+from app.modules.users.models import LdapGroupMapping, UserRole
 from app.modules.users.service import RequestContext
 
 router = APIRouter(tags=["config"])
@@ -256,6 +258,102 @@ async def check_connector_health(
     record.last_health_check = datetime.now(UTC)
     await session.commit()
     return {"status": status, "detail": detail}
+
+
+# ─────────────────────── mapatges LDAP (specs/ldap-auth.md) ───────────────────────
+
+
+class LdapMappingCreate(BaseModel):
+    ad_group: str = Field(min_length=2, max_length=500)
+    # Exactament un dels dos: regla de rol (dona accés) o de departament.
+    role: UserRole | None = None
+    department_id: int | None = None
+
+
+class LdapMappingResponse(BaseModel):
+    id: int
+    ad_group: str
+    role: UserRole | None
+    department_id: int | None
+    department_name: str | None
+
+
+async def _ldap_mapping_rows(session: AsyncSession) -> list[LdapMappingResponse]:
+    rows = (
+        await session.execute(
+            select(LdapGroupMapping, Department.name)
+            .join(Department, Department.id == LdapGroupMapping.department_id, isouter=True)
+            .order_by(LdapGroupMapping.role.isnot(None).desc(), LdapGroupMapping.ad_group)
+        )
+    ).all()
+    return [
+        LdapMappingResponse(
+            id=mapping.id,
+            ad_group=mapping.ad_group,
+            role=mapping.role,
+            department_id=mapping.department_id,
+            department_name=department_name,
+        )
+        for mapping, department_name in rows
+    ]
+
+
+@router.get("/ldap/group-mappings", operation_id="listLdapGroupMappings")
+async def list_ldap_group_mappings(
+    session: SessionDep, _authz: ReadDep
+) -> dict[str, list[LdapMappingResponse]]:
+    return {"data": await _ldap_mapping_rows(session)}
+
+
+@router.post("/ldap/group-mappings", operation_id="createLdapGroupMapping", status_code=201)
+async def create_ldap_group_mapping(
+    body: LdapMappingCreate, session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> LdapMappingResponse:
+    if (body.role is None) == (body.department_id is None):
+        raise Problem(
+            422,
+            "Cada regla és de rol O de departament: exactament un dels dos camps",
+            "validation",
+        )
+    ad_group = body.ad_group.strip()
+    duplicate = (
+        await session.execute(
+            select(LdapGroupMapping.id).where(
+                func.lower(LdapGroupMapping.ad_group) == ad_group.lower()
+            )
+        )
+    ).scalar_one_or_none()
+    if duplicate is not None:
+        raise Problem(409, "Ja hi ha una regla per a aquest grup", "conflict")
+    if body.department_id is not None:
+        department = await session.get(Department, body.department_id)
+        if department is None:
+            raise Problem(404, "Departament desconegut", "not-found")
+    mapping = LdapGroupMapping(
+        ad_group=ad_group, role=body.role, department_id=body.department_id
+    )
+    session.add(mapping)
+    await session.flush()
+    await _audit(session, authz_ctx.user.id, "config.ldap_mapping_created", ad_group, ctx)
+    await session.commit()
+    rows = await _ldap_mapping_rows(session)
+    return next(row for row in rows if row.id == mapping.id)
+
+
+@router.delete(
+    "/ldap/group-mappings/{mapping_id}",
+    operation_id="deleteLdapGroupMapping",
+    status_code=204,
+)
+async def delete_ldap_group_mapping(
+    mapping_id: int, session: SessionDep, authz_ctx: WriteDep, ctx: ContextDep
+) -> None:
+    mapping = await session.get(LdapGroupMapping, mapping_id)
+    if mapping is None:
+        raise Problem(404, "Regla desconeguda", "not-found")
+    await session.delete(mapping)
+    await _audit(session, authz_ctx.user.id, "config.ldap_mapping_deleted", mapping.ad_group, ctx)
+    await session.commit()
 
 
 @router.post("/connectors/smtp/actions/send-test-email", operation_id="sendSmtpTestEmail")

@@ -26,7 +26,7 @@ Estratègia: **reescriptura completa en repositori nou** amb la v1 en producció
 
 ## Fase 2 — Organització, pla i integracions (3-4 setmanes)
 
-- Departaments/empleats complets, LDAP endurit, mapejos AD.
+- Departaments/empleats complets, LDAP endurit, mapejos AD. ✅ (2026-08-18, specs/ldap-auth.md: connector ldap amb filtres escapats i TLS obligatori, regles grup→rol/departament amb pantalla, provisió automàtica, fallback local)
 - Pla anual de contractació (amb els bugs v1 corregits), favorits, superbuscador.
 - Connector `gestiona` (autorització d'usuari + creació d'expedients redissenyada) i `smtp` (notificacions reals).
 - **Tasques i recordatoris de contracte** (mòdul nou v2): calendari, assignacions, recordatoris per email/webhook, feed iCal, tasques proposades per les alertes.
