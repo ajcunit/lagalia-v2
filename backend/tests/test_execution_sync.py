@@ -161,3 +161,61 @@ async def test_upsert_matching_and_api_scope(api_client, make_user) -> None:  # 
         )
         await session.commit()
     assert row.action_name == "Aprovada per JGL"
+
+
+def test_extract_execution_detail() -> None:
+    """Extracció del JSON de detall (estructura real del portal, 300731659)."""
+    detail = {
+        "publicacio": {
+            "dadesPublicacioLot": [
+                {
+                    "modificacions": [
+                        {
+                            "supositHabilitant": {
+                                "id": 1008336,
+                                "ca": "No prevista en plecs (art. 205.2.c LCSP)",
+                                "en": "Not anticipated",
+                            },
+                            "informeJustificatiu": {
+                                "ca": [
+                                    {
+                                        "id": 302189629,
+                                        "titol": "Informe jurídic.pdf",
+                                        "hash": "37C1F290",
+                                        "mida": 333817,
+                                    }
+                                ]
+                            },
+                            "resolucioModificacio": {
+                                "ca": [
+                                    {
+                                        "id": 302189625,
+                                        "titol": "Certificat modificació.pdf",
+                                        "hash": "DFB3A8AA",
+                                        "mida": 599575,
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    extracted = sync_execution.extract_execution_detail(
+        detail, "https://contractaciopublica.cat"
+    )
+    assert extracted["suposit_habilitant"] == "No prevista en plecs (art. 205.2.c LCSP)"
+    groups = {d["group"] for d in extracted["documents"]}
+    assert groups == {"informeJustificatiu", "resolucioModificacio"}
+    informe = next(
+        d for d in extracted["documents"] if d["group"] == "informeJustificatiu"
+    )
+    assert informe["title"] == "Informe jurídic.pdf"
+    assert informe["size"] == 333817
+    assert informe["download_url"].startswith(
+        "https://contractaciopublica.cat/portal-api/descarrega-document/302189629/"
+    )
+    # Fora dels grups coneguts no s'arrepleguen documents.
+    stray = {"altresCoses": {"id": 1, "titol": "x.pdf", "hash": "A"}}
+    assert sync_execution.extract_execution_detail(stray, "https://x")["documents"] == []

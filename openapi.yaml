@@ -4967,6 +4967,21 @@ components:
         contractor_tax_id: { type: [string, "null"] }
         observations: { type: [string, "null"] }
         url_json: { type: [string, "null"] }
+        suposit_habilitant:
+          type: [string, "null"]
+          description: Supòsit habilitant de la modificació (del JSON de detall).
+        documents:
+          type: [array, "null"]
+          description: Documents de l'actuació agrupats per tipus (del JSON de detall).
+          items:
+            type: object
+            required: [source_doc_id, title, download_url]
+            properties:
+              source_doc_id: { type: string }
+              group: { type: [string, "null"] }
+              title: { type: string }
+              size: { type: [integer, "null"] }
+              download_url: { type: string }
 
     ChatThread:
       type: object

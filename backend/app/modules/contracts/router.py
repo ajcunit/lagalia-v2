@@ -372,7 +372,8 @@ async def get_contract_executions(
         await session.execute(
             sql_text(
                 "SELECT id, lot, action_type, action_name, date, end_date, amount, "
-                "contractor_name, contractor_tax_id, observations, url_json "
+                "contractor_name, contractor_tax_id, observations, url_json, "
+                "suposit_habilitant, documents "
                 "FROM contract_executions WHERE file_code = :f "
                 "ORDER BY date DESC NULLS LAST, id DESC"
             ),

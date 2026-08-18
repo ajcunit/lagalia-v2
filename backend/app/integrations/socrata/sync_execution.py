@@ -50,6 +50,79 @@ def _src(overrides: dict[str, str] | None, target: str) -> str:
     return (overrides or {}).get(target) or EXECUTION_FIELDS[target].source
 
 
+# Grups de documents del JSON de detall d'una actuació (observats al portal,
+# per tipus: modificacions, pròrrogues i genèrics d'«altres actuacions»).
+DOC_GROUPS = (
+    "informeJustificatiu",
+    "resolucioModificacio",
+    "formalitzacioModificacio",
+    "alegacions",
+    "altraDocumentacio",
+    "resolucioProrroga",
+    "formalitzacioProrroga",
+    "resolucioExtincio",
+    "resolucio",
+)
+
+_LANG_KEYS = {"ca", "es", "en", "oc"}
+
+
+def extract_execution_detail(detail: Any, base_url: str) -> dict[str, Any]:
+    """Del JSON de detall (`url_json`): supòsit habilitant + documents per grup.
+
+    Els documents tenen la mateixa forma que els de fase ({id, titol, hash,
+    mida}) agrupats per tipus i idioma; el supòsit habilitant és un catàleg
+    multiidioma ca→es→en.
+    """
+    from app.integrations.pscp.extract import DOWNLOAD_PATH, ml
+
+    documents: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    suposit: str | None = None
+
+    def visit(node: Any, group: str | None) -> None:
+        nonlocal suposit
+        if isinstance(node, dict):
+            if suposit is None and "supositHabilitant" in node:
+                suposit = ml(node.get("supositHabilitant"))
+            if (
+                group is not None
+                and isinstance(node.get("id"), int)
+                and isinstance(node.get("titol"), str)
+                and isinstance(node.get("hash"), str)
+            ):
+                source_doc_id = str(node["id"])
+                if source_doc_id not in seen:
+                    seen.add(source_doc_id)
+                    size = str(node.get("mida", ""))
+                    documents.append(
+                        {
+                            "source_doc_id": source_doc_id,
+                            "group": group,
+                            "title": node["titol"][:500],
+                            "size": int(size) if size.isdigit() else None,
+                            "download_url": base_url
+                            + DOWNLOAD_PATH.format(id=node["id"], hash=node["hash"]),
+                        }
+                    )
+                return
+            for key, value in node.items():
+                next_group = group
+                if key in DOC_GROUPS:
+                    next_group = key
+                elif key in _LANG_KEYS:
+                    pass  # l'idioma no canvia el grup
+                elif isinstance(value, (dict, list)) and group is None:
+                    next_group = None
+                visit(value, next_group)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value, group)
+
+    visit(detail, None)
+    return {"suposit_habilitant": suposit, "documents": documents}
+
+
 def _url_value(value: Any) -> str | None:
     if isinstance(value, dict):
         url = value.get("url")
@@ -196,6 +269,12 @@ async def sync_execution(ctx: JobContext) -> dict[str, Any]:
         await sc.fail_run(run_id, exc)
         raise
 
+    # Enriquiment del detall (supòsit habilitant + documents) via connector
+    # pscp per a les files que encara no el tenen (o totes amb force_detail).
+    detail_counters = await _enrich_details(force=bool(payload.get("force_detail", False)))
+    counters["detail_fetched"] = detail_counters["fetched"]
+    counters["detail_failed"] = detail_counters["failed"]
+
     status = SyncStatus.PARTIAL if counters["failed"] else SyncStatus.SUCCESS
     await sc.finish_run(
         run_id,
@@ -207,6 +286,64 @@ async def sync_execution(ctx: JobContext) -> dict[str, Any]:
     )
     logger.info("sync_execution_finished", run_id=run_id, **counters)
     return {"sync_run_id": run_id, **counters}
+
+
+async def _enrich_details(force: bool = False) -> dict[str, int]:
+    """Descarrega el JSON de detall de cada actuació (validat pel connector
+    pscp, mateixa whitelist de host que les fases) i en persisteix el supòsit
+    habilitant i els documents. Els errors per fila no aturen res."""
+    from app.integrations.pscp.connector import PscpConnector
+
+    async with session_factory() as session:
+        condition = "" if force else "AND detail_fetched_at IS NULL"
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT id, url_json FROM contract_executions "  # noqa: S608 — condició fixa
+                    f"WHERE url_json IS NOT NULL {condition} ORDER BY id"
+                )
+            )
+        ).all()
+    if not rows:
+        return {"fetched": 0, "failed": 0}
+
+    async with session_factory() as session:
+        connector = await hub.get_connector(session, "pscp")
+        await session.commit()
+    if not isinstance(connector, PscpConnector):
+        raise TypeError("El hub ha resolt un connector inesperat per a 'pscp'")
+
+    import json as _json
+
+    fetched = 0
+    failed = 0
+    async with connector.client() as client:
+        for row in rows:
+            try:
+                detail = await client.fetch_phase(str(row.url_json))
+                extracted = extract_execution_detail(detail, client.base_url)
+                async with session_factory() as session:
+                    await session.execute(
+                        text(
+                            "UPDATE contract_executions SET suposit_habilitant = :s, "
+                            "documents = CAST(:d AS jsonb), detail_fetched_at = now() "
+                            "WHERE id = :i"
+                        ),
+                        {
+                            "s": extracted["suposit_habilitant"],
+                            "d": _json.dumps(extracted["documents"]),
+                            "i": row.id,
+                        },
+                    )
+                    await session.commit()
+                fetched += 1
+            except Exception as exc:  # una fila amb detall caducat no atura res
+                failed += 1
+                logger.warning(
+                    "execution_detail_failed", execution_id=row.id, error=str(exc)
+                )
+    logger.info("execution_details_enriched", fetched=fetched, failed=failed)
+    return {"fetched": fetched, "failed": failed}
 
 
 @job("sync.remap_execution")

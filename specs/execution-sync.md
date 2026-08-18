@@ -43,14 +43,33 @@ a /admin/field-mappings com les altres fonts; remap local des del `raw`
 4. `sync_run` amb comptadors i errors per registre, com el pipeline de
    referència.
 
+### Enriquiment del detall (ampliació 2026-08-18, petició de l'Esteve)
+
+El `url_json` de cada actuació apunta a un JSON de detall al portal. Dins del
+mateix job (segona passada, files amb `detail_fetched_at` NULL o payload
+`force_detail`), es descarrega via connector pscp (mateixa whitelist de host
+que les fases) i se n'extreu (migració 0029):
+
+- **`suposit_habilitant`**: catàleg multiidioma ca→es→en (p. ex. «No prevista
+  en plecs. Modificacions no substancials (art. 205.2.c LCSP)»).
+- **`documents`** (JSONB): els cinc grups observats al portal —
+  `informeJustificatiu`, `resolucioModificacio`, `formalitzacioModificacio`,
+  `alegacions`, `altraDocumentacio` — amb títol, mida i URL de descàrrega
+  (mateixa forma {id, titol, hash} que els documents de fase); l'idioma no
+  canvia el grup i fora dels grups coneguts no s'arreplega res.
+
+Els errors per fila (detalls caducats) es registren i no aturen el job.
+
 ### API i pantalla
 
 - `GET /contracts/{id}/executions` (tag `contracts`, abast departamental com
   la resta de subrecursos): actuacions de l'expedient (per file_code, tots
   els lots), ordenades per data descendent.
 - **Fitxa del contracte, pestanya Execució**: targeta «Actuacions d'execució
-  (n)» amb tipus (badge), denominació, dates, import, adjudicatari i
-  observacions; les pròrrogues i modificacions RPC es mantenen al costat.
+  (n)» amb tipus (badge), denominació, **supòsit habilitant**, dates, import,
+  adjudicatari, observacions i **documents de l'actuació** (icona per tipus
+  de fitxer, enllaç de descàrrega, grup traduït i «＋ projecte» cap al
+  generador); les pròrrogues i modificacions RPC es mantenen al costat.
   El comptador de la pestanya suma les tres coses.
 - **Sincronitzacions** (/admin/sync): tipus nou `execution` al desplegable de
   llançament manual.

@@ -661,8 +661,40 @@ export function ContractDetail() {
                       </td>
                       <td className="py-1.5 pr-2">
                         {row.action_name ?? "—"}
+                        {row.suposit_habilitant && (
+                          <span className="mt-0.5 block text-xs italic text-muted">
+                            {t("contract.execution.assumption")}: {row.suposit_habilitant}
+                          </span>
+                        )}
                         {row.observations && (
                           <span className="mt-0.5 block text-xs text-muted">{row.observations}</span>
+                        )}
+                        {(row.documents ?? []).length > 0 && (
+                          <ul className="mt-1 space-y-0.5">
+                            {(row.documents ?? []).map((doc) => (
+                              <li key={doc.source_doc_id} className="flex flex-wrap items-center gap-1.5 text-xs">
+                                <FileTypeIcon name={doc.title} className="h-3.5 w-3.5" />
+                                <a
+                                  href={doc.download_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-accent underline-offset-2 hover:underline"
+                                >
+                                  {doc.title}
+                                </a>
+                                {doc.group && (
+                                  <span className="text-muted">
+                                    ({t(`contract.execution.group.${doc.group}` as Parameters<typeof t>[0])})
+                                  </span>
+                                )}
+                                <AddToProject
+                                  title={doc.title}
+                                  downloadUrl={doc.download_url}
+                                  fileCode={data.file_code}
+                                />
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </td>
                       <td className="py-1.5 pr-2 whitespace-nowrap text-muted">

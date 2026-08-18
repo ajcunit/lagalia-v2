@@ -2976,6 +2976,16 @@ export interface components {
             contractor_tax_id?: string | null;
             observations?: string | null;
             url_json?: string | null;
+            /** @description Supòsit habilitant de la modificació (del JSON de detall). */
+            suposit_habilitant?: string | null;
+            /** @description Documents de l'actuació agrupats per tipus (del JSON de detall). */
+            documents?: {
+                source_doc_id: string;
+                group?: string | null;
+                title: string;
+                size?: number | null;
+                download_url: string;
+            }[] | null;
         };
         ChatThread: {
             /** Format: int64 */
