@@ -330,7 +330,7 @@ export function ConfigAdmin() {
       </div>
 
       {tab === "connectors" && (
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="mt-4 space-y-4">
           {connectors.isPending ? (
             <Skeleton rows={8} />
           ) : connectors.isError ? (
