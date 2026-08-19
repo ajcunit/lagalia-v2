@@ -240,7 +240,7 @@ async def test_ldap_login_provisions_role_and_departments(
         ).scalar_one_or_none()
     await engine.dispose()
 
-    assert row.role == "procurement_manager"
+    assert row.role == "procurement_manager"  # lint-ok: assercio de fila, no authz
     assert row.password_hash is None  # usuari de directori: mai contrasenya local
     assert departments == [ldap_fixture["dept_id"]]
     assert provision is True

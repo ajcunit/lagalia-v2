@@ -44,7 +44,8 @@ class Settings(BaseSettings):
 
     # Emmagatzematge d'objectes (B-003: la tria és configuració).
     # CA bundle per a destins interns amb certificat propi (webhooks n8n...).
-    # MAI verify=False (06 §2): fitxer PEM amb les CA públiques + la interna.
+    # La verificació TLS no es desactiva MAI (06 §2): fitxer PEM amb les CA
+    # públiques més la interna.
     outbound_ca_bundle: str | None = None
 
     storage_backend: Literal["filesystem", "s3"] = "filesystem"

@@ -27,13 +27,15 @@ async def v1_schema() -> AsyncIterator[dict[str, Any]]:
     tag = uuid4().hex[:8]
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     async with engine.begin() as conn:
-        await conn.execute(text(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE"))
+        await conn.execute(text(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE"))  # lint-ok: DDL de test
         for ddl in source_map.synthetic_ddl(SCHEMA):
             await conn.execute(text(ddl))
 
         # v1: departament, usuaris, contractes.
         await conn.execute(
-            text(f"INSERT INTO {SCHEMA}.departamentos (id, nombre) VALUES (1, :n)"),
+            text(
+                f"INSERT INTO {SCHEMA}.departamentos (id, nombre) VALUES (1, :n)"
+            ),  # lint-ok: schema fix
             {"n": f"Urbanisme Migració {tag}"},
         )
         await conn.execute(
@@ -114,7 +116,7 @@ async def v1_schema() -> AsyncIterator[dict[str, Any]]:
 
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     async with engine.begin() as conn:
-        await conn.execute(text(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE"))
+        await conn.execute(text(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE"))  # lint-ok: DDL de test
         await conn.execute(
             text("DELETE FROM contracts WHERE file_code LIKE :p"), {"p": f"MIG-{tag}%"}
         )

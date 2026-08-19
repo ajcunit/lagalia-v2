@@ -97,7 +97,7 @@ async def empty_database_url() -> AsyncIterator[str]:
         f"{base_url}/postgres", poolclass=NullPool, isolation_level="AUTOCOMMIT"
     )
     async with admin_engine.connect() as conn:
-        await conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+        await conn.execute(text(f'CREATE DATABASE "{db_name}"'))  # lint-ok: DDL, nom generat
 
     temp_url = f"{base_url}/{db_name}"
     env = os.environ | {"DATABASE_URL": temp_url}
@@ -113,7 +113,7 @@ async def empty_database_url() -> AsyncIterator[str]:
     yield temp_url
 
     async with admin_engine.connect() as conn:
-        await conn.execute(text(f'DROP DATABASE "{db_name}" WITH (FORCE)'))
+        await conn.execute(text(f'DROP DATABASE "{db_name}" WITH (FORCE)'))  # lint-ok: DDL
     await admin_engine.dispose()
 
 
@@ -144,7 +144,7 @@ async def test_initialize_on_empty_database(empty_database_url: str) -> None:
                 {"email": "admin-inicial@cunit.cat"},
             )
         ).one()
-        assert row.role == "admin"
+        assert row.role == "admin"  # lint-ok: assercio de fila, no authz
         assert verify_password("Contrasenya-Inicial-42", row.password_hash)
 
         keys = {r[0] for r in await conn.execute(text("SELECT key FROM settings"))}

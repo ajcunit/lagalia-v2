@@ -77,8 +77,12 @@ jobs:
 
           check() {
             local pattern="$1" message="$2" path="${3:-.}"
+            # Excepcions revisades: la línia porta el marcador `noqa: S608`
+            # (SQL validat, mateix marcador que fa servir ruff) o `lint-ok:`
+            # amb la justificació al costat.
             if grep -rInE --include='*.py' --include='*.ts' --include='*.tsx' \
-                 --exclude-dir=node_modules --exclude-dir=.git "$pattern" "$path" ; then
+                 --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.venv \
+                 "$pattern" "$path" | grep -vE 'noqa: S608|lint-ok:' ; then
               echo "::error::$message"
               fail=1
             fi
