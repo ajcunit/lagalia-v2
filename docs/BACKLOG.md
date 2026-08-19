@@ -63,6 +63,12 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** afegir els tres paràmetres a `app/core/config.py` i aplicar-los amb `enforce_rate_limit` als endpoints corresponents (API general per identitat, endpoints d'IA, llançament de sincronitzacions), amb test de límit assolit → 429.
 - **Specs afectades:** [06-seguretat.md](06-seguretat.md) §5.
 
+### B-020 · Connectar el frontend a la xarxa del Traefik en lloc de publicar un port
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** S
+- **Descripció:** al desplegament de test (specs/deployment.md), Caddy publica el port 5173 al host perquè és el que ataca el Traefik existent. Aquest port és accessible des de la LAN: qui hi arribi saltant-se el Traefik pot falsificar `X-Forwarded-For` i, per tant, la IP registrada a l'auditoria i el bucket del límit de login.
+- **Com desenvolupar-la:** treure la publicació de ports i connectar el servei `frontend` a la xarxa externa del Traefik amb etiquetes (`traefik.enable`, `traefik.http.routers...`), de manera que només el Traefik hi arribi. Cal saber el nom de la xarxa i dels entrypoints del Traefik municipal.
+- **Specs afectades:** [deployment.md](../specs/deployment.md).
+
 ---
 
 ## Tancades

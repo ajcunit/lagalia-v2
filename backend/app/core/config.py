@@ -38,7 +38,16 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
+    # Buit = cap origen extern (cas del desplegament estàndard: SPA i API
+    # al mateix origen). El valor per defecte serveix el dev server de Vite.
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    @field_validator("cors_origins")
+    @classmethod
+    def no_wildcard_with_credentials(cls, value: list[str]) -> list[str]:
+        if "*" in value:
+            raise ValueError("CORS_ORIGINS no admet '*': s'envien credencials (06 §5)")
+        return value
 
     # Proxys de confiança dels quals s'accepta X-Forwarded-For. Buit = no
     # confiar en cap capçalera (docs/06-seguretat.md §5): darrere d'un

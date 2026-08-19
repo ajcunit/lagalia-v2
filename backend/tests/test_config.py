@@ -204,3 +204,39 @@ def test_client_ip_only_trusts_declared_proxies(monkeypatch: pytest.MonkeyPatch)
     # Una entrada mal escrita no fa confiar en ningú (ni peta).
     monkeypatch.setattr(settings, "trusted_proxy_ips", ["no-es-un-rang"])
     assert client_ip(make_request("172.18.0.1", "198.51.100.7")) == "172.18.0.1"
+
+
+def test_cors_rejects_wildcard() -> None:
+    """Amb credencials, "*" no és acceptable (06 §5)."""
+    with pytest.raises(ValidationError, match="CORS_ORIGINS"):
+        Settings(  # type: ignore[arg-type]
+            _env_file=None,
+            secret_key=VALID_SECRET_KEY,
+            encryption_key=VALID_ENCRYPTION_KEY,
+            cors_origins=["*"],
+        )
+
+
+def test_cors_middleware_only_when_origins_declared(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sense orígens declarats no s'instal·la CORS (cas del desplegament
+    estàndard: mateix origen); amb orígens, la resposta els reflecteix."""
+    import importlib
+
+    from fastapi.testclient import TestClient
+
+    import app.main
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "cors_origins", [])
+    reloaded = importlib.reload(app.main)
+    plain = TestClient(reloaded.app).get(
+        "/api/v1/health", headers={"Origin": "https://altre.example"}
+    )
+    assert "access-control-allow-origin" not in {k.lower() for k in plain.headers}
+
+    monkeypatch.setattr(settings, "cors_origins", ["https://lagalia.example"])
+    reloaded = importlib.reload(app.main)
+    allowed = TestClient(reloaded.app).get(
+        "/api/v1/health", headers={"Origin": "https://lagalia.example"}
+    )
+    assert allowed.headers["access-control-allow-origin"] == "https://lagalia.example"

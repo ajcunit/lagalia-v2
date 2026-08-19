@@ -9,6 +9,12 @@
 #                                amb TLS davant
 {
 	admin off
+	servers {
+		# Cadena de proxys (Traefik/nginx de la casa → Caddy → API): amb els
+		# rangs privats declarats, Caddy resol {remote_host} com la IP REAL
+		# del client a partir de X-Forwarded-For, en lloc de la del proxy.
+		trusted_proxies static private_ranges
+	}
 }
 
 {$SITE_ADDRESS::80} {
@@ -16,7 +22,11 @@
 
 	# Mateix origen per a SPA i API: el client ataca /api/v1 relatiu.
 	handle /api/* {
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			# Un únic valor de confiança per a l'API: així l'auditoria i el
+			# límit de login veuen el client real i no la cadena sencera.
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 
 	handle {

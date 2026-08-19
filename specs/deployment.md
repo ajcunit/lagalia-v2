@@ -39,6 +39,31 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 | `lagalia.local` | Certificat intern de Caddy (LAN); cal confiar en la seva CA als navegadors |
 | `:80` | HTTP pla; **només** si ja hi ha un altre proxy amb TLS davant |
 
+### Darrere d'un proxy que ja existeix (cas de Cunit)
+
+L'Ajuntament ja té un **Traefik** que serveix
+`https://lagalia-contractacio.ajcunit.local` cap al port 5173 del host. En
+aquest cas el TLS **no** el fa Caddy:
+
+```
+SITE_ADDRESS=:80      # HTTP pla; el TLS és del Traefik
+HTTP_PORT=5173        # el port que ataca el Traefik: cap canvi a la seva config
+HTTPS_PORT=8443       # el 443 és del Traefik; aquí, un port lliure qualsevol
+```
+
+**Cadena de proxys**: el Caddyfile declara `trusted_proxies static
+private_ranges` i reenvia a l'API un únic `X-Forwarded-For` amb
+`{remote_host}`. Així Caddy resol la IP real del client a partir de la
+capçalera del Traefik, i l'API (amb `TRUSTED_PROXY_IPS=172.16.0.0/12`) veu
+el client real: auditoria i límit de login correctes al llarg de tota la
+cadena. Verificat en local amb una capçalera simulada
+(`client_ip` als registres de Caddy = la IP injectada).
+
+> ⚠️ El port publicat és accessible des de la LAN, així que qui hi arribi
+> saltant-se el Traefik podria falsificar `X-Forwarded-For`. Enduriment
+> pendent (BACKLOG B-020): connectar el contenidor a la xarxa del Traefik
+> amb etiquetes en lloc de publicar un port del host.
+
 ### Capçaleres de seguretat
 
 El proxy afegeix HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`,
@@ -52,7 +77,14 @@ docs/06-seguretat.md §2 (la v1 no tenia CSP ni HSTS).
 Sense fitxer `.env` al servidor: les variables són de l'stack (a Portainer,
 *Environment variables*, a mà o carregant-hi un `.env`). Obligatòries —
 l'stack falla ràpid amb el nom de la que falta: `SECRET_KEY`,
-`ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `CORS_ORIGINS`, `S3_SECRET_KEY`.
+`ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `S3_SECRET_KEY`.
+
+`CORS_ORIGINS` queda **buit** en el desplegament estàndard: la SPA i l'API
+comparteixen origen (les peticions del mateix origen no passen per CORS).
+Només s'omple si un altre domini ataca l'API. El middleware de CORS
+s'instal·la només si hi ha orígens declarats i **rebutja `"*"`** (s'envien
+credencials, 06 §5) — abans el paràmetre existia però el middleware no
+estava connectat: no feia res.
 
 `TRUSTED_PROXY_IPS` accepta IPs i **rangs CIDR**: amb Docker no hi va la IP
 del servidor (el contenidor veu la passarel·la de la xarxa del compose, o

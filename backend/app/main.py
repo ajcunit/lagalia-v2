@@ -53,6 +53,23 @@ app = FastAPI(
 
 register_problem_handlers(app)
 
+# CORS només si s'han declarat orígens: amb el desplegament estàndard la SPA
+# i l'API comparteixen origen (el proxy serveix totes dues) i no cal. Es
+# configura per als casos en què el navegador ataca l'API des d'un altre
+# origen (docs/06-seguretat.md §5). Mai "*": la validació de config ho
+# rebutja perquè s'envien credencials.
+if settings.cors_origins:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+        expose_headers=["X-Trace-Id"],
+    )
+
 
 @app.middleware("http")
 async def trace_requests(
