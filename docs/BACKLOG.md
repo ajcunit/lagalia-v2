@@ -21,10 +21,6 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Descripció:** [07-agents-ia.md](07-agents-ia.md) §5 preveu mesurar el pipeline CPV amb parells objecte→codi validats, però el dataset inicial no existeix.
 - **Com desenvolupar-la:** extreure'l dels contractes històrics ja classificats de la v1 (mostra revisada manualment), i alimentar-lo després amb el feedback loop de la pròpia aplicació.
 
-### B-006 · Política de retenció i purga de dades
-- **Prioritat:** P3 · **Estat:** Proposta · **Mida:** S
-- **Descripció:** [06-seguretat.md](06-seguretat.md) §7 fixa 2 anys d'auditoria i 1 any per a entrades/sortides d'IA com a valors per defecte, però han de ser validats per la responsable de protecció de dades de l'ajuntament.
-- **Com desenvolupar-la:** validació formal, i implementar la purga com a job programat configurable.
 
 ### B-007 · Idempotència persistent del header `Idempotency-Key`
 - **Prioritat:** P3 · **Estat:** Proposta · **Mida:** S
@@ -68,6 +64,11 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Prioritat:** P2 · **Estat:** Resolta (2026-08-19: només **LCSP** el dia 1; la resta de normes s’afegeixen a mà des de la pestanya BOE de la configuració d’IA quan calgui) · **Mida:** S
 - **Descripció:** cal fixar quines normes se subscriuen al connector BOE el dia 1 (LCSP i quines altres) i si s'inclou normativa autonòmica (DOGC) i instruccions internes de contractació.
 - **Com desenvolupar-la:** llista acordada amb Secretaria/Intervenció; documentar-la a [07-agents-ia.md](07-agents-ia.md) §3bis i carregar-la com a dades inicials del connector.
+
+### B-006 · Política de retenció i purga de dades
+- **Prioritat:** P3 · **Estat:** Implementada (2026-08-19, specs/data-retention.md: purga diària `retention.purge`, terminis configurables per settings — auditoria 730 dies, IA 365 — acceptats per l'Esteve i ajustables segons indicacions del DPO) · **Mida:** S
+- **Descripció:** [06-seguretat.md](06-seguretat.md) §7 fixa 2 anys d'auditoria i 1 any per a entrades/sortides d'IA com a valors per defecte, però han de ser validats per la responsable de protecció de dades de l'ajuntament.
+- **Com desenvolupar-la:** validació formal, i implementar la purga com a job programat configurable.
 
 ### B-009 · Reintents amb backoff i dead-letter queue per a jobs
 - **Prioritat:** P2 · **Estat:** Implementada (2026-08-18, specs/jobs-queue.md §B-009) · **Mida:** M

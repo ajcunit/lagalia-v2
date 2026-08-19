@@ -34,6 +34,13 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=86400,
         dedup_key="sync.boe_norms",
     ),
+    # Retenció de dades (B-006): purga diària d'auditoria i IA caducades,
+    # amb terminis configurables per settings (indicacions del DPO).
+    ScheduledJob(
+        job_type="retention.purge",
+        interval_seconds=86400,
+        dedup_key="retention.purge",
+    ),
     # Purga d'índexs temporals de projectes del generador: diària.
     ScheduledJob(
         job_type="docgen.purge_expired",

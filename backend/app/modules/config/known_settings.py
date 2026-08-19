@@ -26,6 +26,18 @@ KNOWN_SETTINGS: list[KnownSetting] = [
         "6",
     ),
     KnownSetting(
+        "retention.audit_log_days",
+        "Retenció de l'auditoria en dies abans de la purga automàtica "
+        "(30-3650; per defecte 730 = 2 anys; segons indicacions del DPO)",
+        "730",
+    ),
+    KnownSetting(
+        "retention.ai_days",
+        "Retenció d'execucions d'IA i converses de xat en dies "
+        "(30-3650; per defecte 365 = 1 any; segons indicacions del DPO)",
+        "365",
+    ),
+    KnownSetting(
         "reports.audit_enabled",
         "Informe d'auditoria automàtic activat (true/false; desactivat de sèrie)",
         "false",

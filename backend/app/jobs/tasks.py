@@ -15,6 +15,7 @@ import app.integrations.boe.connector  # noqa: F401 — registra el connector bo
 import app.integrations.field_mappings  # noqa: F401 — registra sync.remap_contracts
 import app.integrations.ldap.connector  # noqa: F401 — registra el connector ldap
 import app.jobs.nightly  # noqa: F401 — registra sync.nightly
+import app.jobs.retention  # noqa: F401 — registra retention.purge
 import app.integrations.pscp.enrich  # noqa: F401 — registra enrich.contract/batch
 import app.integrations.smtp.connector  # noqa: F401 — registra el connector smtp
 import app.integrations.socrata.sync  # noqa: F401 — registra sync.contracts
