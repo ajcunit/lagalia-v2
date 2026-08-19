@@ -27,6 +27,10 @@ desactivables des de la configuració, sense desplegar ni tocar la BD a mà.
 - **Pantalla**: pestanya **Mòduls** a /admin/config (Paràmetres · Mòduls ·
   Connectors · LDAP) amb un commutador per mòdul (`config:write`). Les
   dades no s'esborren mai: desactivar només talla l'accés.
+- **Superfícies incrustades**: també segueixen els mòduls — les pestanyes
+  de la fitxa del contracte (Xat, Tasques, Adjudicatari), el botó de
+  revisió legal (compliance) i els controls compartits «＋ projecte»
+  (docgen) i «⭐ Desa» (favorits).
 
 ## Canvis d'API
 

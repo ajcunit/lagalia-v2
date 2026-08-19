@@ -4,14 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Folder, FolderOpen, Star } from "lucide-react";
 
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthProvider";
 import { FileTypeIcon } from "./FileTypeIcon";
 import { Button, Skeleton } from "./ui";
 import { useFolders } from "../features/favorites/useFolders";
 import { t } from "../i18n";
 import { formatBytes } from "../lib/format";
 
-/** Afegir un document extern a un projecte del generador, amb creació al vol. */
+/** Afegir un document extern a un projecte del generador, amb creació al vol.
+ *  Desapareix si el mòdul del generador està desactivat (specs/module-flags.md). */
 export function AddToProject(props: { title: string; downloadUrl: string; fileCode: string }) {
+  const { permissions } = useAuth();
+  const docgenDisabled = (permissions?.disabled_modules ?? []).includes("docgen");
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -53,6 +57,8 @@ export function AddToProject(props: { title: string; downloadUrl: string; fileCo
       void queryClient.invalidateQueries({ queryKey: ["doc-projects"] });
     },
   });
+
+  if (docgenDisabled) return null;
 
   return (
     <span className="relative">
@@ -196,6 +202,8 @@ export function PhasePanel(props: { url: string; fileCode: string; documentsOnly
 
 /** Desa un expedient extern a una carpeta de favorits (amb creació al vol). */
 export function SaveToFolder(props: { fileCode: string }) {
+  const { permissions } = useAuth();
+  const favoritesDisabled = (permissions?.disabled_modules ?? []).includes("favorites");
   const queryClient = useQueryClient();
   const folders = useFolders();
   const [open, setOpen] = useState(false);
@@ -234,6 +242,8 @@ export function SaveToFolder(props: { fileCode: string }) {
   });
 
   const list = folders.data?.data ?? [];
+  if (favoritesDisabled) return null;
+
   return (
     <span className="relative">
       <button

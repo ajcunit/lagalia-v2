@@ -258,6 +258,7 @@ export function ContractDetail() {
   const [tab, setTab] = useState("resum");
   const canEdit = actions.includes("contracts:update");
   const canEditWarning = canEdit || actions.includes("contracts:update_warning");
+  const disabledModules = permissions?.disabled_modules ?? [];
   const [editing, setEditing] = useState(false);
 
   // Seguiment del job d'enriquiment fins a estat terminal (B-012, v. sondeig).
@@ -387,12 +388,16 @@ export function ContractDetail() {
                 data.counters.modifications +
                 (executions.data?.data.length ?? 0),
             },
-            ...(data.contractor
+            ...(data.contractor && !disabledModules.includes("contractors")
               ? [{ key: "adjudicatari", label: t("sheet.tabContractor"), icon: Building2 }]
               : []),
             { key: "historial", label: t("sheet.tabHistory"), count: data.counters.history, icon: History },
-            { key: "tasques", label: t("sheet.tabTasks"), icon: ListChecks },
-            { key: "xat", label: t("sheet.tabChat"), icon: MessageSquare },
+            ...(disabledModules.includes("tasks")
+              ? []
+              : [{ key: "tasques", label: t("sheet.tabTasks"), icon: ListChecks }]),
+            ...(disabledModules.includes("chat")
+              ? []
+              : [{ key: "xat", label: t("sheet.tabChat"), icon: MessageSquare }]),
           ]}
           active={tab}
           onSelect={setTab}
@@ -670,7 +675,9 @@ export function ContractDetail() {
         <div className="mt-4">
           <DocumentsSection
             documents={documents.data?.data ?? []}
-            canReview={actions.includes("compliance:run")}
+            canReview={
+              actions.includes("compliance:run") && !disabledModules.includes("compliance")
+            }
             fileCode={data.file_code}
           />
         </div>
