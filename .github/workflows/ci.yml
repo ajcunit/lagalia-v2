@@ -144,6 +144,14 @@ jobs:
           pip install uv
           uv sync --frozen
 
+      # `uv run` re-sincronitza el lock en silenci, així que un lock endarrerit
+      # passava desapercebut aquí i petava a la imatge Docker (que només fa
+      # `uv sync --frozen`): les migracions no trobaven pgvector.
+      - name: El lock està al dia amb pyproject
+        if: steps.check.outputs.exists == 'true'
+        working-directory: backend
+        run: uv lock --check
+
       - name: Lint i tipatge
         if: steps.check.outputs.exists == 'true'
         working-directory: backend

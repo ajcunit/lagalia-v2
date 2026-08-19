@@ -84,6 +84,13 @@ Un servei **`migrate`** d'un sol ús executa `alembic upgrade head` i acaba;
 (`service_completed_successfully`). Així l'esquema existeix abans que
 arrenqui res i mai hi ha dos processos migrant alhora.
 
+> ⚠️ Perquè les migracions corrin dins de la imatge, el **`uv.lock` ha
+> d'estar al dia**: la imatge fa `uv sync --frozen` i res més, mentre que
+> `uv run` (CI i local) re-sincronitza el lock en silenci. Sis dependències
+> (pgvector, ldap3, pymupdf, python-docx, python-multipart, tzdata) hi
+> faltaven i el `migrate` petava amb `ModuleNotFoundError: pgvector`. El CI
+> ho comprova ara amb `uv lock --check`.
+
 La imatge del backend inclou `alembic.ini` i `alembic/` (abans només hi
 havia `app/`: sense això, cap desplegament creava les taules — es veia com
 «arribo al login però no em demana el wizard», perquè `GET /setup/status`
