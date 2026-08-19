@@ -12,7 +12,7 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 ## Obertes
 
 ### B-002 · Contracte real del webhook Gestiona sense el token d'usuari al cos
-- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** M
+- **Prioritat:** P3 · **Estat:** Proposta (posposada 2026-08-19: decisió de l'Esteve — la integració amb Gestiona es farà amb calma després del desplegament de test; el mòdul es pot activar quan arribi) · **Mida:** M
 - **Descripció:** la v2 elimina l'enviament del `gestiona_access_token` personal dins del payload cap a n8n ([06-seguretat.md](06-seguretat.md) §2 fila 9), però cal validar amb l'entorn de proves de Gestiona quina alternativa funciona (credencial pròpia de n8n o token efímer d'abast mínim).
 - **Com desenvolupar-la:** provar contra l'entorn de proves abans de la Fase 2; documentar el contracte definitiu a [08-hub-integracions.md](08-hub-integracions.md) §2.3 i escriure'n la spec de feature amb els contract tests que farà servir també el mode `n8n_bridge`.
 

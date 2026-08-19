@@ -35,3 +35,6 @@ storage/
 Thumbs.db
 ops/n8n-tls/
 ops/outbound-ca-bundle.pem
+
+# Configuració local d'agents IA
+.claude/
