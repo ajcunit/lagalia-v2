@@ -101,6 +101,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # El bucket no existeix en un MinIO acabat de crear, i boto3 no el crea:
+  # sense això, la primera pujada de document responia «NoSuchBucket». Mateix
+  # patró que `migrate`: un sol contenidor que corre, és idempotent i acaba.
+  createbucket:
+    image: minio/mc:latest
+    restart: "no"
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-lagalia}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?cal S3_SECRET_KEY}
+      S3_BUCKET: ${S3_BUCKET:-lagalia}
+    # $$ perquè les expandeixi el shell del contenidor i no Compose: així els
+    # secrets no queden escrits al `docker inspect` de l'stack.
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+        set -e
+        mc alias set lagalia http://storage:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY"
+        mc mb --ignore-existing "lagalia/$$S3_BUCKET"
+        mc anonymous set none "lagalia/$$S3_BUCKET"
+    depends_on:
+      storage: { condition: service_healthy }
+
   # Migracions abans que res: un sol contenidor que corre i acaba. Així
   # l'esquema existeix quan arrenca l'API (i no hi ha dos processos
   # migrant alhora).
@@ -121,6 +144,7 @@ services:
     volumes: *ops-mount
     depends_on:
       migrate: { condition: service_completed_successfully }
+      createbucket: { condition: service_completed_successfully }
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
       storage: { condition: service_healthy }
@@ -144,6 +168,7 @@ services:
     volumes: *ops-mount
     depends_on:
       migrate: { condition: service_completed_successfully }
+      createbucket: { condition: service_completed_successfully }
       api: { condition: service_started }
       db: { condition: service_healthy }
       redis: { condition: service_healthy }

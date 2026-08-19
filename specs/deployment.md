@@ -84,6 +84,25 @@ Un servei **`migrate`** d'un sol ús executa `alembic upgrade head` i acaba;
 (`service_completed_successfully`). Així l'esquema existeix abans que
 arrenqui res i mai hi ha dos processos migrant alhora.
 
+### Bucket d'objectes
+
+Un MinIO acabat de crear **no té cap bucket**, i `S3Storage` (boto3) no el
+crea: la primera pujada de document responia `NoSuchBucket` i el fitxer es
+perdia. Amb el mateix patró que `migrate`, un servei d'un sol ús
+**`createbucket`** (`minio/mc`) fa `mc mb --ignore-existing` sobre
+`S3_BUCKET` i li deixa permís **privat**; `api` i `worker` esperen que hagi
+acabat bé. És idempotent: als desplegaments següents troba el bucket fet i
+surt amb codi 0.
+
+Verificat en local amb un secret que conté `+`, `/` i `=` (els que genera
+`openssl rand -base64`): creació, segona execució idempotent i escriptura
+real d'un objecte.
+
+> Si algun dia l'`S3_ENDPOINT_URL` apunta a un **MinIO extern** (B-003: a
+> Cunit n'hi ha un en un altre servidor; per a les proves es manté a la
+> mateixa instància), aquest servei no hi arriba amb credencials d'arrel:
+> el bucket l'ha de crear l'administració del servei abans del desplegament.
+
 ### Dependències de la imatge: guardià al build
 
 La imatge fa `uv sync --frozen --no-dev` i prou, mentre que `uv run` (CI i
@@ -100,13 +119,6 @@ Per tancar la categoria sencera, el `Dockerfile` **importa tots els mòduls
 de `app/`** després d'instal·lar (165 mòduls) amb dependències de producció
 només: si en falta cap, el build falla allà i no al desplegament. El CI, a
 més, comprova `uv lock --check`.
-
-> ⚠️ Perquè les migracions corrin dins de la imatge, el **`uv.lock` ha
-> d'estar al dia**: la imatge fa `uv sync --frozen` i res més, mentre que
-> `uv run` (CI i local) re-sincronitza el lock en silenci. Sis dependències
-> (pgvector, ldap3, pymupdf, python-docx, python-multipart, tzdata) hi
-> faltaven i el `migrate` petava amb `ModuleNotFoundError: pgvector`. El CI
-> ho comprova ara amb `uv lock --check`.
 
 La imatge del backend inclou `alembic.ini` i `alembic/` (abans només hi
 havia `app/`: sense això, cap desplegament creava les taules — es veia com
@@ -153,3 +165,5 @@ Cap.
   rutes de client i capçaleres de seguretat (provat en local).
 - [x] Cap port d'infraestructura publicat; només 80/443.
 - [x] `docker compose config` vàlid amb les variables de l'stack.
+- [x] El bucket d'objectes existeix abans que arrenqui l'API, sense passos
+  manuals, i el servei que el crea és idempotent.
