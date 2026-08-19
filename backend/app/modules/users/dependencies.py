@@ -35,9 +35,32 @@ def _valid_ip(host: str | None) -> str | None:
     return host
 
 
+def client_ip(request: Request) -> str | None:
+    """IP real del client, amb X-Forwarded-For NOMÉS si la connexió ve d'un
+    proxy declarat a `trusted_proxy_ips` (docs/06-seguretat.md §5).
+
+    Sense aquesta comprovació la capçalera seria falsificable (qualsevol
+    podria dir que ve d'una altra IP i saltar-se el límit de login); amb
+    la llista buida, mai es mira la capçalera.
+    """
+    from app.core.config import settings
+
+    peer = _valid_ip(request.client.host if request.client else None)
+    if peer is None or peer not in settings.trusted_proxy_ips:
+        return peer
+    forwarded = request.headers.get("x-forwarded-for", "")
+    # El primer valor de la cadena és el client original; la resta són
+    # proxys intermedis.
+    for candidate in forwarded.split(","):
+        resolved = _valid_ip(candidate.strip())
+        if resolved is not None:
+            return resolved
+    return peer
+
+
 def get_request_context(request: Request) -> RequestContext:
     return RequestContext(
-        ip=_valid_ip(request.client.host if request.client else None),
+        ip=client_ip(request),
         user_agent=request.headers.get("user-agent"),
         trace_id=current_trace_id(),
     )

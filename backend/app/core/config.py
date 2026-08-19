@@ -6,10 +6,10 @@ l'aplicació no arrenca.
 """
 
 import base64
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -39,6 +39,24 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     cors_origins: list[str] = ["http://localhost:5173"]
+
+    # Proxys de confiança dels quals s'accepta X-Forwarded-For. Buit = no
+    # confiar en cap capçalera (docs/06-seguretat.md §5): darrere d'un
+    # reverse proxy cal declarar-hi la seva IP, o l'auditoria registraria
+    # la IP del proxy i el límit de login seria compartit per tothom.
+    trusted_proxy_ips: Annotated[list[str], NoDecode] = []
+
+    @field_validator("trusted_proxy_ips", mode="before")
+    @classmethod
+    def split_proxy_ips(cls, value: object) -> object:
+        """Accepta llista JSON o cadena separada per comes (buida = cap)."""
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return []
+            if not stripped.startswith("["):
+                return [part.strip() for part in stripped.split(",") if part.strip()]
+        return value
 
     rate_limit_login: str = "5/minute"
 

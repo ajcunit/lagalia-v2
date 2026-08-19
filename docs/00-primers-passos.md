@@ -101,9 +101,18 @@ worker i el scheduler hi arriben per la xarxa interna del compose. Només
 queden publicats l'API i el frontend, i lligats a `127.0.0.1` perquè hi
 arribi el reverse proxy amb TLS (Caddy/Nginx) i ningú més.
 
-A Portainer: al stack, «Compose path» ha d'incloure els dos fitxers
-(o enganxa el contingut combinat) i les variables d'entorn del `.env`
-van a la secció **Environment variables** del stack.
+**A Portainer**, les variables van a la secció **Environment variables**
+de l'stack: pots afegir-les a mà o carregar-hi el `.env` amb «Load
+variables from .env file» (Portainer les desa com a variables de
+l'stack; l'efecte és el mateix). L'override **no llegeix cap fitxer
+`.env` del servidor** justament per això: amb desplegament des de Git el
+fitxer no hi és, i els secrets no han d'entrar mai al repositori.
+
+Variables obligatòries (l'stack no arrenca sense elles): `SECRET_KEY`,
+`ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `CORS_ORIGINS` i `S3_SECRET_KEY`.
+Molt recomanable: `TRUSTED_PROXY_IPS` amb la IP del reverse proxy —
+sense això l'auditoria registra la IP del proxy i **tots els usuaris
+comparteixen el límit de 5 logins per minut**.
 
 Si algun port publicat encara xoca (per exemple el 8000 ja ocupat),
 canvia'l amb variables sense tocar el compose: `API_PORT`,

@@ -147,3 +147,51 @@ async def test_connectors_config_api(api_client, make_user) -> None:  # type: ig
             )
         )
         await session.commit()
+
+
+def test_trusted_proxy_ips_parsing() -> None:
+    """La llista accepta comes o JSON; buida = no confiar en cap proxy."""
+    from app.core.config import Settings
+
+    common = {"secret_key": VALID_SECRET_KEY, "encryption_key": VALID_ENCRYPTION_KEY}
+    assert Settings(trusted_proxy_ips="", **common).trusted_proxy_ips == []  # type: ignore[arg-type]
+    assert Settings(trusted_proxy_ips="10.0.0.1, 10.0.0.2", **common).trusted_proxy_ips == [
+        "10.0.0.1",
+        "10.0.0.2",
+    ]  # type: ignore[arg-type]
+    assert Settings(trusted_proxy_ips=["10.0.0.3"], **common).trusted_proxy_ips == ["10.0.0.3"]
+
+
+def test_client_ip_only_trusts_declared_proxies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """X-Forwarded-For només val si la connexió ve d'un proxy declarat:
+    altrament qualsevol podria falsificar la seva IP (docs/06 §5)."""
+    from starlette.requests import Request
+
+    from app.core.config import settings
+    from app.modules.users.dependencies import client_ip
+
+    def make_request(peer: str, forwarded: str | None) -> Request:
+        headers = []
+        if forwarded is not None:
+            headers.append((b"x-forwarded-for", forwarded.encode()))
+        return Request(
+            {
+                "type": "http",
+                "headers": headers,
+                "client": (peer, 12345),
+            }
+        )
+
+    # Sense proxys declarats: la capçalera s'ignora sempre.
+    monkeypatch.setattr(settings, "trusted_proxy_ips", [])
+    assert client_ip(make_request("203.0.113.9", "1.2.3.4")) == "203.0.113.9"
+
+    # Amb el proxy declarat: es pren el primer valor de la cadena.
+    monkeypatch.setattr(settings, "trusted_proxy_ips", ["10.0.0.1"])
+    assert client_ip(make_request("10.0.0.1", "198.51.100.7, 10.0.0.1")) == "198.51.100.7"
+
+    # Una IP que no és el proxy no pot falsificar la capçalera.
+    assert client_ip(make_request("203.0.113.9", "198.51.100.7")) == "203.0.113.9"
+
+    # Capçalera amb escombraries: es cau a la IP de la connexió.
+    assert client_ip(make_request("10.0.0.1", "no-es-una-ip")) == "10.0.0.1"

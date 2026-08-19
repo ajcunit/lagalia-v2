@@ -3,19 +3,52 @@
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 #     --profile app up -d --build
 #
-# Diferència clau amb el compose de desenvolupament: la infraestructura
-# (BD, Redis, MinIO) NO publica cap port al host — els serveis s'hi
-# connecten per la xarxa interna del compose. Això evita xocs amb altres
-# stacks del servidor (p. ex. un PostgreSQL o un MinIO ja existents) i
-# treu superfície d'atac: la BD no s'exposa mai fora del host.
+# Dues diferències clau amb el compose de desenvolupament:
 #
-# Només queden publicats l'API i el frontend, que han d'anar darrere del
-# reverse proxy amb TLS. Si el proxy corre en un altre stack, connecta'l
-# a aquesta xarxa i pots treure també aquestes publicacions.
+# 1. La infraestructura (BD, Redis, MinIO) NO publica cap port al host: els
+#    serveis s'hi connecten per la xarxa interna del compose. Això evita
+#    xocs amb altres stacks del servidor (un PostgreSQL o un MinIO ja
+#    existents) i treu superfície d'atac — la BD no s'exposa mai.
+#
+# 2. Els serveis NO llegeixen cap fitxer `.env`: la configuració arriba per
+#    variables d'entorn. Amb Portainer, s'omplen a «Environment variables»
+#    de l'stack (a mà o carregant-hi un .env: Portainer les desa com a
+#    variables de l'stack, i des d'aquí s'interpolen aquí sota). Així el
+#    desplegament des de Git funciona sense pujar secrets al repositori.
+#
+# Només queden publicats l'API i el frontend, lligats a 127.0.0.1 perquè
+# hi arribi el reverse proxy amb TLS (Caddy/Nginx) i ningú més.
+
+x-app-env: &app-env
+  ENVIRONMENT: ${ENVIRONMENT:-production}
+  DEBUG: ${DEBUG:-false}
+  APP_VERSION: ${APP_VERSION:-0.1.0}
+  # Obligatoris: l'aplicació no arrenca sense ells (docs/06-seguretat.md §4).
+  SECRET_KEY: ${SECRET_KEY:?cal SECRET_KEY}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?cal ENCRYPTION_KEY}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-lagalia}:${POSTGRES_PASSWORD:?cal POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-lagalia}
+  REDIS_URL: redis://redis:6379/0
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+  REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+  CORS_ORIGINS: ${CORS_ORIGINS:?cal CORS_ORIGINS amb la URL real}
+  TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-}
+  RATE_LIMIT_LOGIN: ${RATE_LIMIT_LOGIN:-5/minute}
+  STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+  S3_ENDPOINT_URL: http://storage:9000
+  S3_BUCKET: ${S3_BUCKET:-lagalia}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-lagalia}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:?cal S3_SECRET_KEY}
+  OUTBOUND_CA_BUNDLE: ${OUTBOUND_CA_BUNDLE:-}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_FORMAT: ${LOG_FORMAT:-json}
 
 services:
   db:
     ports: !override []
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lagalia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?cal POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-lagalia}
 
   redis:
     ports: !override []
@@ -24,8 +57,18 @@ services:
     ports: !override []
 
   api:
+    env_file: !override []
+    environment: *app-env
     ports: !override
       - "127.0.0.1:${API_PORT:-8000}:8000"
+
+  worker:
+    env_file: !override []
+    environment: *app-env
+
+  scheduler:
+    env_file: !override []
+    environment: *app-env
 
   frontend:
     ports: !override

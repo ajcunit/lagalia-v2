@@ -57,6 +57,12 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** afegir el paràmetre `view` (gramàtica `user|all|dept:<id>`, validació `resolve_view_scope`) als endpoints de llistat que filtren per departament i connectar-los al `ViewProvider` del frontend.
 - **Specs afectades:** [view-selector.md](../specs/view-selector.md), specs dels mòduls afectats.
 
+### B-019 · Aplicar els límits de petició d'API, IA i sincronització
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** S
+- **Descripció:** detectat en preparar el desplegament (2026-08-19): `.env.example` declarava `RATE_LIMIT_API`, `RATE_LIMIT_AI` i `RATE_LIMIT_SYNC`, però només `RATE_LIMIT_LOGIN` existeix com a paràmetre i s'aplica ([06-seguretat.md](06-seguretat.md) §5 en preveu quatre). Les variables inexistents s'ignoraven silenciosament.
+- **Com desenvolupar-la:** afegir els tres paràmetres a `app/core/config.py` i aplicar-los amb `enforce_rate_limit` als endpoints corresponents (API general per identitat, endpoints d'IA, llançament de sincronitzacions), amb test de límit assolit → 429.
+- **Specs afectades:** [06-seguretat.md](06-seguretat.md) §5.
+
 ---
 
 ## Tancades
