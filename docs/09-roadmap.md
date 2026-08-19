@@ -1,6 +1,11 @@
 # 09 — Roadmap de construcció i migració
 
-Estratègia: **reescriptura completa en repositori nou** amb la v1 en producció intacta fins al tall. La migració de dades és un script reproduïble que es pot executar tantes vegades com calgui (assajos setmanals contra còpia de producció).
+Estratègia: **reescriptura completa en repositori nou** amb la v1 en producció intacta fins al tall.
+
+> ⚠️ DECISIÓ (2026-08-19): la v1 estava en fase de test, **no es farà migració de
+> dades v1→v2**. Les dades de la v2 vénen senceres de les fonts (Socrata, PSCP,
+> RPC, execució) via sincronització. Els punts de migració d'aquest document
+> queden sense efecte; el tall es redueix a desplegar, sincronitzar i redirigir.
 
 ## Fase 0 — Fonaments (2-3 setmanes)
 
