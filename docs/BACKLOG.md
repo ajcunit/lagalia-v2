@@ -71,6 +71,14 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 
 ---
 
+### B-022 · Dashboard d'estat del sistema i observabilitat per a administradors
+- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** L
+- **Descripció:** l'administrador no té manera de saber des de la mateixa aplicació si el sistema és viu de veritat: un servei pot estar «running» al contenidor però no funcionar (cas real: l'API en crash-loop es veia igual que una API sana des de Portainer). Cal una pantalla d'administració amb: **salut per servei** (API, worker, scheduler, BD, Redis, MinIO, i cada connector actiu) amb comprovacions reals i no només «el procés existeix» — p. ex. el worker demostra que és viu executant un heartbeat recent, el scheduler pel seu últim tick; **tasques en execució** (jobs en curs amb progrés, encuats, morts a la DLQ, i accions de cancel·lar/re-encuar); **consums de recursos** (mida de la BD i creixement, espai del bucket MinIO, memòria/CPU si són accessibles, latid de Redis, fondària de la cua); i **observabilitat** (errors recents agregats per tipus, últims sync_runs fallats, webhooks pendents de reintent, temps de resposta de l'API). Amb avisos visibles quan alguna cosa porta massa temps aturada.
+- **Com desenvolupar-la:** ja hi ha peces que només cal exposar: `system.heartbeat` (cada 5 min, demostra worker+scheduler+cua), `GET /health`, la taula `jobs` (en curs/DLQ), `sync_runs`, i `webhook_deliveries`. Nou endpoint agregador `GET /admin/system-status` (permís nou `system:read`, només admin) que comprovi cada servei amb un ping real (SELECT 1, PING de Redis, HeadBucket de MinIO) i retorni l'edat de l'últim heartbeat i tick; pantalla nova a Configuració → Estat del sistema amb refresc periòdic. Les mètriques de CPU/memòria dels contenidors no són visibles des de dins sense muntar el socket de Docker (mai!): limitar-se al que la BD/Redis/MinIO reporten per consulta. Targetes a tot l'ample, apilades (mai en graella).
+- **Specs afectades:** [admin-ui.md](../specs/admin-ui.md) (nova secció o spec pròpia system-status.md), [jobs-queue.md](../specs/jobs-queue.md), [config-ui.md](../specs/config-ui.md), [06-seguretat.md](06-seguretat.md) (permís nou a la matriu A2).
+
+---
+
 ## Tancades
 
 ### B-021 · Una execució de sync tallada a mig fer queda per sempre com a «executant»
