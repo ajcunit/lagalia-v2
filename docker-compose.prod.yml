@@ -38,7 +38,9 @@ x-app-env: &app-env
   S3_BUCKET: ${S3_BUCKET:-lagalia}
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:-lagalia}
   S3_SECRET_KEY: ${S3_SECRET_KEY:?cal S3_SECRET_KEY}
-  OUTBOUND_CA_BUNDLE: ${OUTBOUND_CA_BUNDLE:-}
+  # El fitxer es munta a sota: dins del contenidor la ruta és relativa
+  # a /srv/app, no al repositori.
+  OUTBOUND_CA_BUNDLE: ${OUTBOUND_CA_BUNDLE:-./ops/outbound-ca-bundle.pem}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   LOG_FORMAT: ${LOG_FORMAT:-json}
 
@@ -59,16 +61,20 @@ services:
   api:
     env_file: !override []
     environment: *app-env
+    volumes: &ops-mount
+      - ./ops/outbound-ca-bundle.pem:/srv/app/ops/outbound-ca-bundle.pem:ro
     ports: !override
       - "127.0.0.1:${API_PORT:-8000}:8000"
 
   worker:
     env_file: !override []
     environment: *app-env
+    volumes: *ops-mount
 
   scheduler:
     env_file: !override []
     environment: *app-env
+    volumes: *ops-mount
 
   frontend:
     ports: !override
