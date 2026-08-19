@@ -174,3 +174,17 @@ async def test_requeue_endpoint(api_client, make_user) -> None:  # type: ignore[
             text("DELETE FROM jobs WHERE id IN (:a, :b)"), {"a": dead_id, "b": ok_id}
         )
         await session.commit()
+
+
+def test_worker_timeout_survives_long_running_jobs() -> None:
+    """Sense `job_timeout` propi, arq talla qualsevol job als 300 s: prou per
+    matar l'enriquiment massiu i les sincronitzacions completes."""
+    import inspect
+
+    from arq.worker import Worker
+
+    from app.jobs.worker import WorkerSettings
+
+    arq_default = inspect.signature(Worker.__init__).parameters["job_timeout"].default
+    assert WorkerSettings.job_timeout > arq_default
+    assert WorkerSettings.job_timeout >= 3600, "un job llarg de veritat ha de poder durar hores"

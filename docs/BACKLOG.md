@@ -71,6 +71,14 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 
 ---
 
+### B-021 · Una execució de sync tallada a mig fer queda per sempre com a «executant»
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** S
+- **Descripció:** si un job de sincronització o enriquiment es cancel·la (botó de cancel·lar, `job_timeout` exhaurit, o el contenidor `worker` que es reinicia), el runner deixa la fila `jobs` en `cancelled`, però la fila de `sync_runs` es queda en `running` per sempre: `fail_run` només es crida des d'un `except Exception`, i `CancelledError` no ho és. La pantalla de sincronització mostra una execució viva que ja no existeix.
+- **Com desenvolupar-la:** tancar la run també al camí de cancel·lació (`try/finally` o `except BaseException` amb re-llançament) i, com a xarxa de seguretat, un escombrat a l'arrencada del worker que passi a `failed` les runs `running` sense job viu — anàleg al que ja hi ha per als jobs encallats.
+- **Specs afectades:** [jobs-queue.md](../specs/jobs-queue.md), [sync-admin.md](../specs/sync-admin.md).
+
+---
+
 ## Tancades
 
 ### B-003 · Decidir emmagatzematge d'objectes: sistema de fitxers o MinIO

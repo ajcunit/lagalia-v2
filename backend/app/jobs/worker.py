@@ -34,3 +34,6 @@ class WorkerSettings:
     queue_name = settings.jobs_queue_name
     allow_abort_jobs = True
     max_tries = 1  # reintents amb backoff: backlog B-009
+    # Sense això, arq talla qualsevol job als 300 s (el seu valor per
+    # defecte) i l'enriquiment massiu moria a mig fer.
+    job_timeout = settings.jobs_timeout_seconds

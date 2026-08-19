@@ -149,6 +149,10 @@ usuaris comparteixen el límit de login.
 `OUTBOUND_CA_BUNDLE` apunta a `./ops/outbound-ca-bundle.pem`, que l'override
 munta dins del contenidor (a la imatge només hi ha `app/`).
 
+`JOBS_TIMEOUT_SECONDS` (opcional, 6 h per defecte) limita la durada d'un
+job del worker; vegeu [jobs-queue.md](jobs-queue.md). Només s'ha de tocar si
+una primera càrrega completa arriba a durar-hi més.
+
 ## Canvis d'API
 
 Cap.

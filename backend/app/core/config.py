@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # Cua d'arq. Els tests en fan servir una de pròpia perquè un worker viu
     # de desenvolupament no executi els jobs que encuen.
     jobs_queue_name: str = "arq:queue"
+    # Temps màxim d'un job. El valor per defecte d'arq (300 s) mata els
+    # treballs llargs de veritat: l'enriquiment massiu i les sincronitzacions
+    # completes piquen la font expedient a expedient i duren hores.
+    jobs_timeout_seconds: int = 21600  # 6 h
 
     # Sense valor per defecte: obligatoris per arrencar.
     secret_key: SecretStr
