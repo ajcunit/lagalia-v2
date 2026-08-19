@@ -101,6 +101,8 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Excepcions revisades (constants de test): .gitleaks.toml
+          GITLEAKS_CONFIG: .gitleaks.toml
 
   # ───────────────────────────────────────────────────────────────
   backend:
