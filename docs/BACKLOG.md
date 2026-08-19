@@ -11,31 +11,15 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 
 ## Obertes
 
-### B-001 · Mitigar debilitats crítiques de seguretat a la v1 mentre conviu amb la v2
-- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** S
-- **Descripció:** la v1 continuarà en producció durant tot el projecte (~4 mesos). Dues debilitats permeten a qualsevol usuari autenticat robar secrets: `GET /api/config/` retorna API keys i tokens, i `/api/empleados/` exposa els tokens de Gestiona d'altres usuaris.
-- **Com desenvolupar-la:** pegat mínim sobre la v1 — filtrar claus secretes a la resposta de config i eliminar els camps de token del schema d'empleat. No refactoritzar res més: la v1 està congelada funcionalment.
-- **Specs afectades:** cap de la v2 (és manteniment de la v1); anotar el resultat a [06-seguretat.md](06-seguretat.md) §2 files 1-2.
-
 ### B-002 · Contracte real del webhook Gestiona sense el token d'usuari al cos
 - **Prioritat:** P1 · **Estat:** Proposta · **Mida:** M
 - **Descripció:** la v2 elimina l'enviament del `gestiona_access_token` personal dins del payload cap a n8n ([06-seguretat.md](06-seguretat.md) §2 fila 9), però cal validar amb l'entorn de proves de Gestiona quina alternativa funciona (credencial pròpia de n8n o token efímer d'abast mínim).
 - **Com desenvolupar-la:** provar contra l'entorn de proves abans de la Fase 2; documentar el contracte definitiu a [08-hub-integracions.md](08-hub-integracions.md) §2.3 i escriure'n la spec de feature amb els contract tests que farà servir també el mode `n8n_bridge`.
 
-### B-003 · Decidir emmagatzematge d'objectes: sistema de fitxers o MinIO
-- **Prioritat:** P2 · **Estat:** Parcialment resolta (PR pscp-enrichment) · **Mida:** S
-- **Descripció:** [03-arquitectura.md](03-arquitectura.md) §2.6 deixa obert si els documents descarregats i generats van a disc muntat o a MinIO (S3).
-- **Com desenvolupar-la:** l'abstracció ja existeix (`core/storage.py`, backends `filesystem` i `s3` seleccionables amb `STORAGE_BACKEND`; vegeu [specs/pscp-enrichment.md](../specs/pscp-enrichment.md)); queda només la decisió d'infraestructura per a producció segons la política de còpies municipal.
-
 ### B-004 · Dataset d'or per avaluar el classificador CPV
 - **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
 - **Descripció:** [07-agents-ia.md](07-agents-ia.md) §5 preveu mesurar el pipeline CPV amb parells objecte→codi validats, però el dataset inicial no existeix.
 - **Com desenvolupar-la:** extreure'l dels contractes històrics ja classificats de la v1 (mostra revisada manualment), i alimentar-lo després amb el feedback loop de la pròpia aplicació.
-
-### B-005 · Abast del corpus normatiu inicial de l'assistent legal
-- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** S
-- **Descripció:** cal fixar quines normes se subscriuen al connector BOE el dia 1 (LCSP i quines altres) i si s'inclou normativa autonòmica (DOGC) i instruccions internes de contractació.
-- **Com desenvolupar-la:** llista acordada amb Secretaria/Intervenció; documentar-la a [07-agents-ia.md](07-agents-ia.md) §3bis i carregar-la com a dades inicials del connector.
 
 ### B-006 · Política de retenció i purga de dades
 - **Prioritat:** P3 · **Estat:** Proposta · **Mida:** S
@@ -54,37 +38,12 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** fitxer de hashos empaquetat amb la imatge o taula carregada per job; comprovació local a `app/core/security.py`.
 - **Specs afectades:** [users-departments.md](../specs/users-departments.md), [06-seguretat.md](06-seguretat.md).
 
-### B-009 · Reintents amb backoff i dead-letter queue per a jobs
-- **Prioritat:** P2 · **Estat:** Implementada (2026-08-18, specs/jobs-queue.md §B-009) · **Mida:** M
-- **Descripció:** [03-arquitectura.md](03-arquitectura.md) §2.4 preveu reintents amb backoff exponencial i DLQ. La infraestructura de la Fase 0 (spec [jobs-queue.md](../specs/jobs-queue.md)) executa amb un sol intent; cal la política de reintents per tipus de job i la safata de morts amb re-encuat manual.
-- **Com desenvolupar-la:** amb els primers jobs reals (sync Socrata, Fase 1): `max_tries` i backoff per tipus al registre de jobs, estat `dead` o taula/etiqueta DLQ, i endpoint d'administració per re-encuar.
-- **Specs afectades:** [jobs-queue.md](../specs/jobs-queue.md), [03-arquitectura.md](03-arquitectura.md).
-
-- **Cas real (2026-08-13):** un job `queued` agafat per un worker antic sense el handler queda zombi i el seu `dedup_key` bloqueja tots els encuaments següents; cal l'escombrat de jobs `queued` estancats (re-encuar o marcar `failed`) dins d'aquesta peça.
-
 ### B-010 · Seguiment d'ús de la plataforma (connexions, API, connectors, cues)
 - **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
 - **Descripció:** petició d'usuari (2026-08-12): un seguiment operatiu de què passa a la plataforma — connexions/sessions actives, ús de l'API (crides per identitat/endpoint/dia, ràtios d'error, rate limits assolits), crides a connectors externs (latència, errors, quota — ja previst a [08-hub-integracions.md](08-hub-integracions.md) §1) i estat de les cues (jobs encuats/en execució/fallits, temps d'espera). Part de la matèria primera ja existeix (`audit_log`, `jobs`, `sync_runs`, logs estructurats amb `trace_id`); falta agregar-la i exposar-la.
 - **Com desenvolupar-la:** dues capes complementàries: (1) mètriques OpenTelemetry/Prometheus previstes a [03-arquitectura.md](03-arquitectura.md) §3 (comptadors per endpoint, connector i cua) per a Grafana; (2) un endpoint d'administració de resum (`/admin/usage`?) i pantalla a la zona d'Administració que consumeixi agregats de BD per a qui no tingui Grafana. Decidir retenció d'agregats (taula de comptadors diaris vs. només mètriques efímeres).
 - **Specs afectades:** [03-arquitectura.md](03-arquitectura.md) §6, [08-hub-integracions.md](08-hub-integracions.md) §1, [10-ui.md](10-ui.md) §4 (zona Administració); spec de feature nova quan es triï.
 
-### B-011 · Normalització de noms d'adjudicatari a la ingesta i revisió de duplicats agrupada
-- **Prioritat:** P2 · **Estat:** Resolta (specs/contractor-normalization.md; 2026-08-13, 223 parells genuïns restants en 147 grups revisables) · **Mida:** M
-- **Descripció:** el primer sync real (2026-08-12, run 19) confirma la brutícia de la font: un mateix NIF apareix amb fins a **53 variants de nom** (puntuació, majúscules, «S.L» vs «S.L.»), cosa que crea un contractor per variant i fa esclatar els parells de duplicats de manera quadràtica (8.481 parells pendents — irrevisables un a un).
-- **Com desenvolupar-la:** (1) normalització de noms a `resolve_contractor` abans de comparar (casefold, treure puntuació i formes societàries) perquè les variants trivials s'adjuntin al canònic com a àlies en lloc de crear contractor; (2) la pantalla de duplicats agrupa **per NIF** (un grup = un cas) en lloc de parells; (3) acció de fusió en bloc que converteix variants en `contractor_aliases`.
-- **Specs afectades:** [contracts-sync.md](../specs/contracts-sync.md), [04-model-de-dades.md](04-model-de-dades.md) §2, [02-especificacio-funcional.md](02-especificacio-funcional.md) (duplicats d'adjudicatari).
-
----
-
-## Tancades
-
-*(cap encara)*
-
----
-
-## Descartades
-
-*(cap encara)*
 ### B-012 · Feedback del resultat dels jobs llançats des de la fitxa
 - **Prioritat:** P2 · **Estat:** Parcialment resolta (sondeig implementat; queda la versió SSE) · **Mida:** S
 - **Descripció:** el botó «Enriqueix» de la fitxa encua el job i avisa que està encuat, però l'usuari no sap si ha acabat, si ha fallat (p. ex. fases caducades a la font) ni quan cal recarregar. Detectat en ús real (2026-08-12): dos jobs fallits invisibles per a l'usuari.
@@ -96,6 +55,33 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Descripció:** la fase 1 de les API keys ([specs/service-accounts.md](../specs/service-accounts.md)) cobreix els endpoints amb `Authorize(...)` (lectura); els d'escriptura usen la sessió d'usuari directament i responen 401 a una clau. Perquè n8n/agents puguin escriure (crear tasques, llançar syncs) cal estendre la identitat de màquina a `get_current_session` i als serveis que registren autoria.
 - **Com desenvolupar-la:** actor unificat (usuari | màquina) a les dependències; autoria d'escriptures amb `actor_type agent` + id del service account a `audit_log` i als camps `created_by` (nullable o taula d'autoria); revisar cas per cas els serveis que llegeixen `user.id`/`user.departments`.
 
+---
+
+## Tancades
+
+### B-003 · Decidir emmagatzematge d'objectes: sistema de fitxers o MinIO
+- **Prioritat:** P2 · **Estat:** Resolta (2026-08-19: **MinIO** — ja muntat en un servidor; per al test es manté a la mateixa instància de LAGALia, `STORAGE_BACKEND=s3`) · **Mida:** S
+- **Descripció:** [03-arquitectura.md](03-arquitectura.md) §2.6 deixa obert si els documents descarregats i generats van a disc muntat o a MinIO (S3).
+- **Com desenvolupar-la:** l'abstracció ja existeix (`core/storage.py`, backends `filesystem` i `s3` seleccionables amb `STORAGE_BACKEND`; vegeu [specs/pscp-enrichment.md](../specs/pscp-enrichment.md)); queda només la decisió d'infraestructura per a producció segons la política de còpies municipal.
+
+### B-005 · Abast del corpus normatiu inicial de l'assistent legal
+- **Prioritat:** P2 · **Estat:** Resolta (2026-08-19: només **LCSP** el dia 1; la resta de normes s’afegeixen a mà des de la pestanya BOE de la configuració d’IA quan calgui) · **Mida:** S
+- **Descripció:** cal fixar quines normes se subscriuen al connector BOE el dia 1 (LCSP i quines altres) i si s'inclou normativa autonòmica (DOGC) i instruccions internes de contractació.
+- **Com desenvolupar-la:** llista acordada amb Secretaria/Intervenció; documentar-la a [07-agents-ia.md](07-agents-ia.md) §3bis i carregar-la com a dades inicials del connector.
+
+### B-009 · Reintents amb backoff i dead-letter queue per a jobs
+- **Prioritat:** P2 · **Estat:** Implementada (2026-08-18, specs/jobs-queue.md §B-009) · **Mida:** M
+- **Descripció:** [03-arquitectura.md](03-arquitectura.md) §2.4 preveu reintents amb backoff exponencial i DLQ. La infraestructura de la Fase 0 (spec [jobs-queue.md](../specs/jobs-queue.md)) executa amb un sol intent; cal la política de reintents per tipus de job i la safata de morts amb re-encuat manual.
+- **Com desenvolupar-la:** amb els primers jobs reals (sync Socrata, Fase 1): `max_tries` i backoff per tipus al registre de jobs, estat `dead` o taula/etiqueta DLQ, i endpoint d'administració per re-encuar.
+- **Specs afectades:** [jobs-queue.md](../specs/jobs-queue.md), [03-arquitectura.md](03-arquitectura.md).
+
+- **Cas real (2026-08-13):** un job `queued` agafat per un worker antic sense el handler queda zombi i el seu `dedup_key` bloqueja tots els encuaments següents; cal l'escombrat de jobs `queued` estancats (re-encuar o marcar `failed`) dins d'aquesta peça.
+
+### B-011 · Normalització de noms d'adjudicatari a la ingesta i revisió de duplicats agrupada
+- **Prioritat:** P2 · **Estat:** Resolta (specs/contractor-normalization.md; 2026-08-13, 223 parells genuïns restants en 147 grups revisables) · **Mida:** M
+- **Descripció:** el primer sync real (2026-08-12, run 19) confirma la brutícia de la font: un mateix NIF apareix amb fins a **53 variants de nom** (puntuació, majúscules, «S.L» vs «S.L.»), cosa que crea un contractor per variant i fa esclatar els parells de duplicats de manera quadràtica (8.481 parells pendents — irrevisables un a un).
+- **Com desenvolupar-la:** (1) normalització de noms a `resolve_contractor` abans de comparar (casefold, treure puntuació i formes societàries) perquè les variants trivials s'adjuntin al canònic com a àlies en lloc de crear contractor; (2) la pantalla de duplicats agrupa **per NIF** (un grup = un cas) en lloc de parells; (3) acció de fusió en bloc que converteix variants en `contractor_aliases`.
+- **Specs afectades:** [contracts-sync.md](../specs/contracts-sync.md), [04-model-de-dades.md](04-model-de-dades.md) §2, [02-especificacio-funcional.md](02-especificacio-funcional.md) (duplicats d'adjudicatari).
 
 ### B-014 · Aïllament real entre bateria de tests i BD de desenvolupament
 - **Prioritat:** P2 · **Estat:** Feta (2026-08-14) · **Mida:** M
@@ -136,3 +122,13 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
   pròrrogues d'aquest dataset substitueixen o complementen les del RPC.
 - **Specs afectades:** remaining-syncs.md, field-mapping.md, contracts-ui.md,
   08-hub-integracions.md.
+
+---
+
+## Descartades
+
+### B-001 · Mitigar debilitats crítiques de seguretat a la v1 mentre conviu amb la v2
+- **Prioritat:** P1 · **Estat:** Descartada (2026-08-19: la v1 només estava en fase de test i s’apagarà; no queda exposada en producció) · **Mida:** S
+- **Descripció:** la v1 continuarà en producció durant tot el projecte (~4 mesos). Dues debilitats permeten a qualsevol usuari autenticat robar secrets: `GET /api/config/` retorna API keys i tokens, i `/api/empleados/` exposa els tokens de Gestiona d'altres usuaris.
+- **Com desenvolupar-la:** pegat mínim sobre la v1 — filtrar claus secretes a la resposta de config i eliminar els camps de token del schema d'empleat. No refactoritzar res més: la v1 està congelada funcionalment.
+- **Specs afectades:** cap de la v2 (és manteniment de la v1); anotar el resultat a [06-seguretat.md](06-seguretat.md) §2 files 1-2.
