@@ -59,13 +59,21 @@ async def sync_nightly(ctx: JobContext) -> dict[str, Any]:
 _ALL_DAYS = {1, 2, 3, 4, 5, 6, 7}
 
 
-def parse_enabled(raw: Any) -> bool:
-    """No definit = activada; només "false"/false explícits la paren."""
-    if raw is None:
-        return True
+def parse_enabled(raw: Any, *, default: bool = True) -> bool:
+    """No definit = `default`; la nocturna neix activada, l'informe no."""
+    if raw is None or raw == "":
+        return default
     if isinstance(raw, bool):
         return raw
     return str(raw).strip().lower() not in {"false", "0", "no", "off"}
+
+
+def parse_interval_days(raw: Any, *, default: int = 30) -> int:
+    try:
+        days = int(str(raw).strip())
+    except (ValueError, TypeError):
+        return default
+    return days if 1 <= days <= 365 else default
 
 
 def parse_days(raw: Any) -> set[int]:

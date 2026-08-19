@@ -26,6 +26,16 @@ KNOWN_SETTINGS: list[KnownSetting] = [
         "6",
     ),
     KnownSetting(
+        "reports.audit_enabled",
+        "Informe d'auditoria automàtic activat (true/false; desactivat de sèrie)",
+        "false",
+    ),
+    KnownSetting(
+        "reports.audit_interval_days",
+        "Cadència de l'informe d'auditoria automàtic, en dies (1-365)",
+        "30",
+    ),
+    KnownSetting(
         "reports.audit_recipients",
         "Destinataris de l'informe mensual d'auditoria (correus separats per comes)",
         "intervencio@cunit.cat, secretaria@cunit.cat",

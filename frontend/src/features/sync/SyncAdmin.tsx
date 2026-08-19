@@ -228,7 +228,12 @@ export function SyncAdmin() {
       </>
       )}
 
-      {tab === "programacio" && <NightlyScheduleCard />}
+      {tab === "programacio" && (
+        <>
+          <NightlyScheduleCard />
+          <AuditReportScheduleCard />
+        </>
+      )}
 
       {tab === "jobs" && <JobsTray />}
     </div>
@@ -361,6 +366,79 @@ function NightlyScheduleCard() {
           {last !== undefined
             ? `${formatDateTime(last.created_at)} · ${t(`sync.jobStatus.${last.status}` as Parameters<typeof t>[0])}`
             : "—"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Informe d'auditoria automàtic: activable i amb cadència pròpia; mai
+ *  s'envia de sèrie (specs/ai-refinements.md). */
+function AuditReportScheduleCard() {
+  const { permissions } = useAuth();
+  const canWrite = permissions?.actions.includes("config:write") ?? false;
+  const queryClient = useQueryClient();
+
+  const settings = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/settings");
+      if (error !== undefined) throw error;
+      return data;
+    },
+  });
+  const put = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: unknown }) => {
+      const { error } = await api.PUT("/settings/{key}", {
+        params: { path: { key } },
+        body: { value },
+      });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["settings"] }),
+  });
+
+  const byKey = new Map((settings.data?.data ?? []).map((s) => [s.key, s.value]));
+  const enabled =
+    String(byKey.get("reports.audit_enabled") ?? "false").toLowerCase() === "true";
+  const intervalDays = String(byKey.get("reports.audit_interval_days") ?? "30");
+  const recipients = String(byKey.get("reports.audit_recipients") ?? "");
+
+  return (
+    <div className="mt-4 rounded-lg border border-line bg-surface-raised p-4 shadow-card">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold text-ink">{t("sync.auditReportTitle")}</h2>
+        {canWrite && (
+          <label className="ml-auto flex items-center gap-2 text-sm">
+            <Switch
+              checked={enabled}
+              onChange={(checked) =>
+                put.mutate({ key: "reports.audit_enabled", value: String(checked) })
+              }
+            />
+            {t("sync.nightlyEnabled")}
+          </label>
+        )}
+      </div>
+      <p className="mt-1 text-sm text-muted">{t("sync.auditReportIntro")}</p>
+      <div className="mt-3 flex flex-wrap items-end gap-4">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-xs text-muted">{t("sync.auditReportInterval")}</span>
+          <input
+            type="number"
+            min={1}
+            max={365}
+            defaultValue={intervalDays}
+            disabled={!canWrite}
+            onBlur={(e) => {
+              if (e.target.value && e.target.value !== intervalDays)
+                put.mutate({ key: "reports.audit_interval_days", value: e.target.value });
+            }}
+            className="w-28 rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
+          />
+        </label>
+        <p className="text-sm text-muted">
+          {t("sync.auditReportRecipients")} {recipients || "—"}
         </p>
       </div>
     </div>

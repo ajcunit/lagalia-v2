@@ -23,7 +23,16 @@ Tanca els dos punts oberts del roadmap F3: **agent revisor** del redactor docume
 
 ## Fora d'abast
 
-- PDF de l'informe (de moment cos de correu en Markdown/text); periodicitat configurable per UI.
+- PDF de l'informe (de moment cos de correu en Markdown/text).
+
+### Programació activable (2026-08-19, petició de l'Esteve)
+
+L'informe **no s'envia de sèrie**: fora de la SCHEDULE fixa. El scheduler
+el dispara només si `reports.audit_enabled` és `true` (per defecte
+`false`), amb cadència `reports.audit_interval_days` (1-365; per defecte
+30). Targeta «Informe d'auditoria automàtic» a la pestanya Programació de
+Sincronitzacions (commutador + cadència + destinataris visibles); l'enviament
+manual immediat (`send-now`) no canvia.
 
 ## Criteris d'acceptacio
 

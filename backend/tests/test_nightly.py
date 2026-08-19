@@ -27,6 +27,18 @@ def test_parse_time_and_enabled() -> None:
     assert nightly.parse_enabled("false") is False
     assert nightly.parse_enabled(False) is False
     assert nightly.parse_enabled("true") is True
+    # L'informe d'auditoria neix desactivat: default=False quan no hi ha setting.
+    assert nightly.parse_enabled(None, default=False) is False
+    assert nightly.parse_enabled("true", default=False) is True
+
+
+def test_parse_interval_days() -> None:
+    assert nightly.parse_interval_days("15") == 15
+    assert nightly.parse_interval_days(7) == 7
+    assert nightly.parse_interval_days(None) == 30
+    assert nightly.parse_interval_days("garbage") == 30
+    assert nightly.parse_interval_days("0") == 30  # fora de rang = per defecte
+    assert nightly.parse_interval_days("9999") == 30
 
 
 def test_nightly_due_respects_local_time_and_days() -> None:

@@ -38,6 +38,43 @@ async def _tick(redis: Redis) -> None:
             except Exception as exc:
                 logger.error("scheduled_job_failed", job_type=item.job_type, error=str(exc))
     await _tick_nightly(redis)
+    await _tick_reports(redis)
+
+
+async def _tick_reports(redis: Redis) -> None:
+    """Informe d'auditoria programat: activable i amb cadència configurable
+    (specs/ai-refinements.md). Desactivat de sèrie."""
+    from sqlalchemy import select
+
+    from app.jobs.nightly import parse_enabled, parse_interval_days
+    from app.modules.config.models import Setting
+
+    async with session_factory() as session:
+        rows = (
+            await session.execute(
+                select(Setting.key, Setting.value).where(
+                    Setting.key.in_(["reports.audit_enabled", "reports.audit_interval_days"])
+                )
+            )
+        ).all()
+    values = {row.key: row.value for row in rows}
+    # Sense el setting = desactivat: mai s'envia un informe que ningú ha demanat.
+    if not parse_enabled(values.get("reports.audit_enabled"), default=False):
+        return
+    interval_days = parse_interval_days(values.get("reports.audit_interval_days"), default=30)
+    due = await redis.set(
+        "sched:reports.audit_monthly", "1", nx=True, ex=interval_days * 86400
+    )
+    if not due:
+        return
+    async with session_factory() as session:
+        try:
+            job = await enqueue_job(
+                session, job_type="reports.audit_monthly", dedup_key="reports.audit_monthly"
+            )
+            logger.info("audit_report_enqueued", job_id=str(job.id), interval_days=interval_days)
+        except Exception as exc:
+            logger.error("audit_report_failed", error=str(exc))
 
 
 async def _tick_nightly(redis: Redis) -> None:

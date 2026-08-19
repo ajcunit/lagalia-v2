@@ -559,6 +559,11 @@ export const ca = {
   "sync.nightlyTime": "Hora",
   "sync.nightlyDays": "Dies",
   "sync.nightlyLast": "Última cadena:",
+  "sync.auditReportTitle": "Informe d'auditoria automàtic",
+  "sync.auditReportIntro":
+    "Informe executiu de red flags generat per l'agent auditor i enviat per correu als destinataris configurats. Desactivat de sèrie: activa'l només si Intervenció el vol rebre.",
+  "sync.auditReportInterval": "Cada (dies)",
+  "sync.auditReportRecipients": "Destinataris (paràmetre reports.audit_recipients):",
   "sync.jobAttempts": "Intents",
   "sync.jobError": "Error / estat",
   "sync.requeue": "Re-encua",

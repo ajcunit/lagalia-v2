@@ -40,12 +40,8 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=86400,
         dedup_key="docgen.purge_expired",
     ),
-    # Informe d'auditoria per a Intervenció: mensual (30 dies).
-    ScheduledJob(
-        job_type="reports.audit_monthly",
-        interval_seconds=30 * 86400,
-        dedup_key="reports.audit_monthly",
-    ),
+    # L'informe d'auditoria NO és aquí: és programable i desactivat de
+    # sèrie (settings reports.audit_*; vegeu scheduler._tick_reports).
     # Reintents de deliveries pendents (l'emissió ja encua un dispatch).
     ScheduledJob(
         job_type="webhooks.dispatch",
