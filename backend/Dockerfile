@@ -21,6 +21,13 @@ COPY alembic ./alembic
 COPY README.md ./
 RUN uv sync --frozen --no-dev
 
+# Guardià: importa tots els mòduls de app/ amb les dependències de
+# producció NOMÉS. Si alguna està declarada com a dev (cas real: httpx) o
+# falta al lock (cas real: pgvector), el build falla aquí i no al servidor.
+# Els secrets són valors d'usar i llençar només per satisfer la validació
+# de configuració durant la comprovació.
+RUN SECRET_KEY=build-check-secret-key-32-chars-minim     ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=     .venv/bin/python -c "import importlib, pkgutil, app; [importlib.import_module(m.name) for m in pkgutil.walk_packages(app.__path__, 'app.')]"
+
 # Mai com a root.
 RUN useradd --system --no-create-home lagalia && chown -R lagalia:lagalia /srv/app
 USER lagalia

@@ -84,6 +84,23 @@ Un servei **`migrate`** d'un sol ús executa `alembic upgrade head` i acaba;
 (`service_completed_successfully`). Així l'esquema existeix abans que
 arrenqui res i mai hi ha dos processos migrant alhora.
 
+### Dependències de la imatge: guardià al build
+
+La imatge fa `uv sync --frozen --no-dev` i prou, mentre que `uv run` (CI i
+local) re-sincronitza el lock i instal·la també el grup `dev`. Això va
+amagar **dos** defectes que només apareixien al servidor:
+
+1. `uv.lock` endarrerit → faltaven pgvector, ldap3, pymupdf, python-docx,
+   python-multipart i tzdata (el `migrate` moria amb
+   `ModuleNotFoundError: pgvector`).
+2. `httpx` declarat al grup **dev** tot i que el codi de producció
+   l'importa a cinc mòduls (l'API no arrencava).
+
+Per tancar la categoria sencera, el `Dockerfile` **importa tots els mòduls
+de `app/`** després d'instal·lar (165 mòduls) amb dependències de producció
+només: si en falta cap, el build falla allà i no al desplegament. El CI, a
+més, comprova `uv lock --check`.
+
 > ⚠️ Perquè les migracions corrin dins de la imatge, el **`uv.lock` ha
 > d'estar al dia**: la imatge fa `uv sync --frozen` i res més, mentre que
 > `uv run` (CI i local) re-sincronitza el lock en silenci. Sis dependències
