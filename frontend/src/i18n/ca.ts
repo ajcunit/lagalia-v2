@@ -326,6 +326,8 @@ export const ca = {
   "config.settings": "Paràmetres",
   "config.health": "Salut",
   "config.checkHealth": "Comprova la connexió",
+  "login.backendDown":
+    "El servidor no respon o encara no està a punt. Si acabes de desplegar, comprova que les migracions s'hagin aplicat (contenidor «migrate») i que l'API estigui en marxa.",
   "nav.help": "Ajuda",
   "help.title": "Centre d'ajuda",
   "help.intro": "Com funciona LAGALia, pantalla a pantalla.",

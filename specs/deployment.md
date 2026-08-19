@@ -77,6 +77,19 @@ El proxy afegeix HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`,
 CDN) i amaga la capçalera `Server`. Tanca la debilitat 16 de
 docs/06-seguretat.md §2 (la v1 no tenia CSP ni HSTS).
 
+### Migracions
+
+Un servei **`migrate`** d'un sol ús executa `alembic upgrade head` i acaba;
+`api`, `worker` i `scheduler` esperen que hagi acabat bé
+(`service_completed_successfully`). Així l'esquema existeix abans que
+arrenqui res i mai hi ha dos processos migrant alhora.
+
+La imatge del backend inclou `alembic.ini` i `alembic/` (abans només hi
+havia `app/`: sense això, cap desplegament creava les taules — es veia com
+«arribo al login però no em demana el wizard», perquè `GET /setup/status`
+petava i el frontend es quedava al formulari). El formulari de login ara
+avisa explícitament si aquesta comprovació falla.
+
 ### Configuració
 
 Sense fitxer `.env` al servidor: les variables són de l'stack (a Portainer,

@@ -20,6 +20,11 @@ export function Login() {
   if (setup.data?.needs_setup) return <Navigate to="/setup" replace />;
   if (status === "authenticated") return <Navigate to="/" replace />;
 
+  // Si l'estat d'instal·lació no respon, el servidor no està a punt (per
+  // exemple, migracions sense aplicar): més val dir-ho que oferir un
+  // formulari que no pot funcionar.
+  const backendDown = setup.isError;
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSubmitting(true);
@@ -53,6 +58,12 @@ export function Login() {
           </h2>
           <p className="text-sm text-muted">{t("login.subtitle")}</p>
         </div>
+
+        {backendDown && (
+          <p role="alert" className="rounded-md bg-danger/10 p-3 text-sm text-ink">
+            {t("login.backendDown")}
+          </p>
+        )}
 
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-ink">

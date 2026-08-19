@@ -14,6 +14,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app ./app
+# Migracions dins de la imatge: el servei `migrate` del compose executa
+# `alembic upgrade head` abans que arrenqui l'API (specs/deployment.md).
+COPY alembic.ini ./
+COPY alembic ./alembic
 COPY README.md ./
 RUN uv sync --frozen --no-dev
 

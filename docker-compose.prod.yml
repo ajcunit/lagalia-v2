@@ -101,6 +101,18 @@ services:
       timeout: 5s
       retries: 10
 
+  # Migracions abans que res: un sol contenidor que corre i acaba. Així
+  # l'esquema existeix quan arrenca l'API (i no hi ha dos processos
+  # migrant alhora).
+  migrate:
+    build:
+      context: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment: *app-env
+    restart: "no"
+    depends_on:
+      db: { condition: service_healthy }
+
   api:
     build:
       context: ./backend
@@ -108,6 +120,7 @@ services:
     environment: *app-env
     volumes: *ops-mount
     depends_on:
+      migrate: { condition: service_completed_successfully }
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
       storage: { condition: service_healthy }
@@ -130,6 +143,7 @@ services:
     environment: *app-env
     volumes: *ops-mount
     depends_on:
+      migrate: { condition: service_completed_successfully }
       api: { condition: service_started }
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -145,6 +159,7 @@ services:
     environment: *app-env
     volumes: *ops-mount
     depends_on:
+      migrate: { condition: service_completed_successfully }
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
     deploy:
