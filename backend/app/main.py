@@ -22,6 +22,7 @@ from app.modules.contracts.router import router as contracts_router
 from app.modules.departments.router import router as departments_router
 from app.modules.docgen.router import router as docgen_router
 from app.modules.favorites.router import router as favorites_router
+from app.modules.help.router import router as help_router
 from app.modules.minor_contracts.router import router as minor_contracts_router
 from app.modules.plan.router import router as plan_router
 from app.modules.public_registry.router import router as public_registry_router
@@ -106,6 +107,7 @@ api.include_router(audit_router)
 api.include_router(sync_router)
 api.include_router(public_registry_router)
 api.include_router(favorites_router)
+api.include_router(help_router)
 api.include_router(risk_audit_router)
 api.include_router(cpv_router)
 api.include_router(plan_router)

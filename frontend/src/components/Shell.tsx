@@ -1,5 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 
+import { CircleHelp } from "lucide-react";
+
 import { useAuth } from "../auth/AuthProvider";
 import { t } from "../i18n";
 import { ADMIN_NAV_ITEM, canSeeAdminHub, MAIN_NAV, visibleItems } from "./navigation";
@@ -47,8 +49,21 @@ export function Shell() {
             ))}
           </ul>
         </nav>
-        {showAdmin && (
-          <div className="border-t border-line px-3 py-2">
+        <div className="border-t border-line px-3 py-2">
+          <NavLink
+            to="/help"
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
+                isActive
+                  ? "bg-accent-soft font-semibold text-accent"
+                  : "text-ink hover:bg-surface-sunken"
+              }`
+            }
+          >
+            <CircleHelp aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+            {t("nav.help")}
+          </NavLink>
+          {showAdmin && (
             <NavLink
               to={ADMIN_NAV_ITEM.to}
               end
@@ -63,8 +78,8 @@ export function Shell() {
               <ADMIN_NAV_ITEM.icon aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.8} />
               {t(ADMIN_NAV_ITEM.labelKey)}
             </NavLink>
-          </div>
-        )}
+          )}
+        </div>
         {user && <UserMenu user={user} onLogout={() => void logout()} />}
       </aside>
 

@@ -5,6 +5,7 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { ViewProvider } from "./view/ViewProvider";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Shell } from "./components/Shell";
+import { HelpCenter } from "./features/help/HelpCenter";
 import { t } from "./i18n";
 import { DepartmentsAdmin } from "./features/admin/DepartmentsAdmin";
 import { UsersAdmin } from "./features/admin/UsersAdmin";
@@ -63,6 +64,7 @@ export function App() {
               }
             >
               <Route path="/" element={<Dashboard />} />
+              <Route path="/help" element={<HelpCenter />} />
               <Route path="/contracts" element={<ContractsList />} />
               <Route path="/contracts/:id" element={<ContractDetail />} />
               <Route path="/minor-contracts" element={<MinorsList />} />

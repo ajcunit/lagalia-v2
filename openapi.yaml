@@ -333,6 +333,57 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /help:
+    get:
+      tags: [help]
+      operationId: listHelpArticles
+      summary: Wiki d'ajuda (els articles d'administració, només per a admins)
+      responses:
+        "200":
+          description: Articles visibles per al rol de l'usuari
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [slug, title, audience]
+                      properties:
+                        slug: { type: string }
+                        title: { type: string }
+                        audience: { type: string, enum: [all, admin] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /help/{slug}:
+    get:
+      tags: [help]
+      operationId: getHelpArticle
+      summary: Article d'ajuda (Markdown)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9-]{1,60}$" }
+      responses:
+        "200":
+          description: Article
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [slug, title, audience, body]
+                properties:
+                  slug: { type: string }
+                  title: { type: string }
+                  audience: { type: string, enum: [all, admin] }
+                  body: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /me/notices:
     get:
       tags: [me]

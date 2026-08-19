@@ -303,3 +303,36 @@ TOOLS.update(
         ),
     }
 )
+
+
+async def help_articles(session: AsyncSession, args: dict[str, Any]) -> list[dict[str, Any]]:
+    """Wiki d'ajuda de la plataforma (specs/help-wiki.md): manual d'usuari.
+
+    Sempre l'audiència general — els articles d'administració no passen mai
+    pel xat (l'assistent el poden usar rols que no són admin).
+    """
+    from app.modules.help.articles import visible_articles
+
+    query = str(args.get("q") or "").strip().casefold()
+    articles = visible_articles(is_admin=False)
+    if query:
+        terms = [term for term in query.split() if len(term) > 2]
+        scored = []
+        for article in articles:
+            haystack = f"{article.title}\n{article.body}".casefold()
+            score = sum(haystack.count(term) for term in terms)
+            if score:
+                scored.append((score, article))
+        articles = [a for _, a in sorted(scored, key=lambda pair: -pair[0])]
+    return [
+        {"title": a.title, "slug": a.slug, "content": a.body[:2000]}
+        for a in articles[:3]
+    ]
+
+
+TOOLS["help_articles"] = (
+    help_articles,
+    "Manual d'ús de LAGALia (wiki d'ajuda): com funciona cada pantalla o "
+    "funcionalitat. Args: q (paraules clau). Usa'l quan preguntin com fer "
+    "servir la plataforma, no per a dades.",
+)
