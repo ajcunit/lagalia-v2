@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import authz
@@ -87,6 +88,68 @@ async def get_my_permissions(
         scope=PermissionScope(type=scope.type, department_ids=scope.department_ids),
         can_switch_view=authz.can_switch_view(current.user),
         disabled_modules=sorted(await module_flags.disabled_modules()),
+    )
+
+
+class NoticesResponse(BaseModel):
+    """Comptadors de la barra d'avisos (specs/view-selector.md)."""
+
+    tasks_open: int
+    tasks_overdue: int
+    contracts_expiring: int
+    contracts_pending_review: int
+
+
+@router.get("/me/notices", tags=["me"], operation_id="getMyNotices")
+async def get_my_notices(
+    session: SessionDep,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    ctx: ContextDep,
+    view: Annotated[str, Query(pattern=r"^(user|all|dept:[0-9]{1,10})$")] = "user",
+) -> NoticesResponse:
+    """Avisos per a la barra superior: tasques pròpies obertes/vençudes i
+    contractes amb avís de venciment o pendents de revisió dins la vista."""
+    from sqlalchemy import text as sql_text
+
+    scope = await authz.resolve_view_scope(session, current.user, view, ctx)
+
+    tasks = (
+        await session.execute(
+            sql_text(
+                "SELECT count(*) FILTER (WHERE t.status IN ('pending', 'in_progress')) AS open, "
+                "count(*) FILTER (WHERE t.status IN ('pending', 'in_progress') "
+                "AND t.due_date < CURRENT_DATE) AS overdue "
+                "FROM tasks t JOIN task_assignees a ON a.task_id = t.id "
+                "WHERE a.user_id = :uid"
+            ),
+            {"uid": current.user.id},
+        )
+    ).one()
+
+    scope_sql = ""
+    params: dict[str, object] = {}
+    if scope.type == "departments":
+        scope_sql = (
+            " AND c.id IN (SELECT contract_id FROM contract_departments "
+            "WHERE department_id = ANY(:deps))"
+        )
+        params["deps"] = list(scope.department_ids or [])
+    contracts = (
+        await session.execute(
+            sql_text(
+                "SELECT count(*) FILTER (WHERE c.expiry_warning) AS expiring, "
+                "count(*) FILTER (WHERE c.internal_status = 'pending_review') AS pending "
+                f"FROM contracts c WHERE true{scope_sql}"
+            ),
+            params,
+        )
+    ).one()
+
+    return NoticesResponse(
+        tasks_open=int(tasks.open or 0),
+        tasks_overdue=int(tasks.overdue or 0),
+        contracts_expiring=int(contracts.expiring or 0),
+        contracts_pending_review=int(contracts.pending or 0),
     )
 
 

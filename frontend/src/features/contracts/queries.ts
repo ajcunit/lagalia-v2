@@ -235,7 +235,7 @@ export function useContractHistory(id: number) {
   });
 }
 
-export function useContractsStats(params: { view?: "user" | "all"; year?: number }) {
+export function useContractsStats(params: { view?: string; year?: number }) {
   return useQuery({
     queryKey: ["contracts-stats", params],
     queryFn: async () => {
@@ -254,7 +254,7 @@ export function useContractsStats(params: { view?: "user" | "all"; year?: number
   });
 }
 
-export function useContractsFacets(view: "user" | "all" = "user") {
+export function useContractsFacets(view: string = "user") {
   return useQuery({
     queryKey: ["contracts-facets", view],
     staleTime: 5 * 60_000,

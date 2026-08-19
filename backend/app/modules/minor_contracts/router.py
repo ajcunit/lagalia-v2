@@ -45,7 +45,7 @@ async def list_minor_contracts(
     ctx: ContextDep,
     page_size: Annotated[int, Query(alias="page[size]", ge=1, le=500)] = 50,
     page_cursor: Annotated[str | None, Query(alias="page[cursor]")] = None,
-    view: Annotated[str, Query(pattern="^(user|all)$")] = "user",
+    view: Annotated[str, Query(pattern=r"^(user|all|dept:[0-9]{1,10})$")] = "user",
     q: Annotated[str | None, Query(max_length=200)] = None,
     sort: str = "-award_date",
     fiscal_year: Annotated[int | None, Query(alias="filter[fiscal_year]")] = None,

@@ -51,6 +51,12 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Descripció:** la fase 1 de les API keys ([specs/service-accounts.md](../specs/service-accounts.md)) cobreix els endpoints amb `Authorize(...)` (lectura); els d'escriptura usen la sessió d'usuari directament i responen 401 a una clau. Perquè n8n/agents puguin escriure (crear tasques, llançar syncs) cal estendre la identitat de màquina a `get_current_session` i als serveis que registren autoria.
 - **Com desenvolupar-la:** actor unificat (usuari | màquina) a les dependències; autoria d'escriptures amb `actor_type agent` + id del service account a `audit_log` i als camps `created_by` (nullable o taula d'autoria); revisar cas per cas els serveis que llegeixen `user.id`/`user.departments`.
 
+### B-018 · Estendre el selector de vista a tasques, adjudicataris i alertes
+- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
+- **Descripció:** el selector de vista de la barra superior (specs/view-selector.md, 2026-08-19) ja governa contractes, menors i tauler; la resta de llistats (tasques de contracte, adjudicataris, alertes) continuen amb l'abast per defecte (tots els departaments de l'usuari) i no reaccionen a la tria.
+- **Com desenvolupar-la:** afegir el paràmetre `view` (gramàtica `user|all|dept:<id>`, validació `resolve_view_scope`) als endpoints de llistat que filtren per departament i connectar-los al `ViewProvider` del frontend.
+- **Specs afectades:** [view-selector.md](../specs/view-selector.md), specs dels mòduls afectats.
+
 ---
 
 ## Tancades

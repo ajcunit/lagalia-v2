@@ -333,6 +333,29 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /me/notices:
+    get:
+      tags: [me]
+      operationId: getMyNotices
+      summary: Avisos per a la barra superior (tasques pròpies i contractes de la vista)
+      parameters:
+        - $ref: "#/components/parameters/ViewScope"
+      responses:
+        "200":
+          description: Comptadors d'avisos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tasks_open, tasks_overdue, contracts_expiring, contracts_pending_review]
+                properties:
+                  tasks_open: { type: integer }
+                  tasks_overdue: { type: integer }
+                  contracts_expiring: { type: integer }
+                  contracts_pending_review: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /me/permissions:
     get:
       tags: [me]
@@ -4329,8 +4352,10 @@ components:
       description: |
         Abast demanat. `user` (per defecte) limita als departaments propis;
         `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
-        permet — es valida al servidor, no és una preferència del client.
-      schema: { type: string, enum: [user, all], default: user }
+        permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+        qualsevol amb Vista Admin) — es valida al servidor, no és una
+        preferència del client.
+      schema: { type: string, pattern: "^(user|all|dept:[0-9]{1,10})$", default: user }
 
     IdempotencyKey:
       name: Idempotency-Key
@@ -5155,7 +5180,7 @@ components:
           default: csv
         view:
           type: string
-          enum: [user, all]
+          pattern: "^(user|all|dept:[0-9]{1,10})$"
           default: user
         filters:
           type: object

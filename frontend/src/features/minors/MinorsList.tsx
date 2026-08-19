@@ -8,6 +8,7 @@ import { Receipt } from "lucide-react";
 
 import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
+import { useView } from "../../view/ViewProvider";
 import { formatCurrency, formatDate } from "../../lib/format";
 import { useMinorContracts, type MinorsListParams } from "./queries";
 
@@ -25,7 +26,8 @@ export function MinorsList() {
   const q = searchParams.get("q") ?? "";
   const [search, setSearch] = useState(q);
   const sort = searchParams.get("sort") ?? "-award_date";
-  const view = searchParams.get("view") ?? "user";
+  const { view: contextView } = useView();
+  const view = searchParams.get("view") ?? contextView;
   const cursor = searchParams.get("cursor") ?? undefined;
 
   useEffect(() => {

@@ -8,6 +8,7 @@ import { useTasks } from "../features/tasks/queries";
 import { LayoutDashboard } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { t } from "../i18n";
+import { useView } from "../view/ViewProvider";
 import { formatCurrency, formatDate } from "../lib/format";
 
 function KpiCard(props: { label: string; value: string; to: string }) {
@@ -81,9 +82,8 @@ function UpcomingTasks() {
 }
 
 export function Dashboard() {
-  const { user, permissions } = useAuth();
-  const canSeeAll = permissions?.can_switch_view ?? false;
-  const view = canSeeAll ? "all" : "user";
+  const { user } = useAuth();
+  const { view } = useView();
   const [year, setYear] = useState<number | undefined>(undefined);
   const stats = useContractsStats({ view, year });
   const facets = useContractsFacets(view);

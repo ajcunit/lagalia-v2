@@ -184,6 +184,23 @@ export interface paths {
         patch: operations["updateMe"];
         trace?: never;
     };
+    "/me/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Avisos per a la barra superior (tasques pròpies i contractes de la vista) */
+        get: operations["getMyNotices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/permissions": {
         parameters: {
             query?: never;
@@ -3047,11 +3064,8 @@ export interface components {
              * @enum {string}
              */
             format: "csv" | "xlsx";
-            /**
-             * @default user
-             * @enum {string}
-             */
-            view: "user" | "all";
+            /** @default user */
+            view: string;
             /** @description Mateixos filtres que el llistat de contractes. */
             filters?: {
                 q?: string | null;
@@ -3391,9 +3405,11 @@ export interface components {
         /**
          * @description Abast demanat. `user` (per defecte) limita als departaments propis;
          *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
-         *     permet — es valida al servidor, no és una preferència del client.
+         *     permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+         *     qualsevol amb Vista Admin) — es valida al servidor, no és una
+         *     preferència del client.
          */
-        ViewScope: "user" | "all";
+        ViewScope: string;
         /**
          * @description Clau única del client per evitar duplicats en reintents. Repetir la
          *     mateixa clau retorna el resultat original en comptes de crear un recurs nou.
@@ -3699,6 +3715,42 @@ export interface operations {
             422: components["responses"]["ValidationError"];
         };
     };
+    getMyNotices: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Abast demanat. `user` (per defecte) limita als departaments propis;
+                 *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
+                 *     permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+                 *     qualsevol amb Vista Admin) — es valida al servidor, no és una
+                 *     preferència del client.
+                 */
+                view?: components["parameters"]["ViewScope"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comptadors d'avisos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tasks_open: number;
+                        tasks_overdue: number;
+                        contracts_expiring: number;
+                        contracts_pending_review: number;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     getMyPermissions: {
         parameters: {
             query?: never;
@@ -3743,7 +3795,9 @@ export interface operations {
                 /**
                  * @description Abast demanat. `user` (per defecte) limita als departaments propis;
                  *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
-                 *     permet — es valida al servidor, no és una preferència del client.
+                 *     permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+                 *     qualsevol amb Vista Admin) — es valida al servidor, no és una
+                 *     preferència del client.
                  */
                 view?: components["parameters"]["ViewScope"];
                 /** @description Cerca lliure per expedient, objecte o adjudicatari. */
@@ -3969,7 +4023,9 @@ export interface operations {
                 /**
                  * @description Abast demanat. `user` (per defecte) limita als departaments propis;
                  *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
-                 *     permet — es valida al servidor, no és una preferència del client.
+                 *     permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+                 *     qualsevol amb Vista Admin) — es valida al servidor, no és una
+                 *     preferència del client.
                  */
                 view?: components["parameters"]["ViewScope"];
                 "filter[year]"?: number;
@@ -4001,7 +4057,9 @@ export interface operations {
                 /**
                  * @description Abast demanat. `user` (per defecte) limita als departaments propis;
                  *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
-                 *     permet — es valida al servidor, no és una preferència del client.
+                 *     permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+                 *     qualsevol amb Vista Admin) — es valida al servidor, no és una
+                 *     preferència del client.
                  */
                 view?: components["parameters"]["ViewScope"];
             };
@@ -4297,7 +4355,9 @@ export interface operations {
                 /**
                  * @description Abast demanat. `user` (per defecte) limita als departaments propis;
                  *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
-                 *     permet — es valida al servidor, no és una preferència del client.
+                 *     permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+                 *     qualsevol amb Vista Admin) — es valida al servidor, no és una
+                 *     preferència del client.
                  */
                 view?: components["parameters"]["ViewScope"];
                 q?: string;
@@ -7978,7 +8038,9 @@ export interface operations {
                 /**
                  * @description Abast demanat. `user` (per defecte) limita als departaments propis;
                  *     `all` demana abast complet i **només s'accepta** si el rol de l'usuari ho
-                 *     permet — es valida al servidor, no és una preferència del client.
+                 *     permet; `dept:<id>` estreny a UN departament (ha de ser de l'usuari, o
+                 *     qualsevol amb Vista Admin) — es valida al servidor, no és una
+                 *     preferència del client.
                  */
                 view?: components["parameters"]["ViewScope"];
                 "filter[active]"?: boolean;

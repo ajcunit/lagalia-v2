@@ -73,7 +73,7 @@ async def list_contracts(
     ctx: ContextDep,
     page_size: Annotated[int, Query(alias="page[size]", ge=1, le=500)] = 50,
     page_cursor: Annotated[str | None, Query(alias="page[cursor]")] = None,
-    view: Annotated[str, Query(pattern="^(user|all)$")] = "user",
+    view: Annotated[str, Query(pattern=r"^(user|all|dept:[0-9]{1,10})$")] = "user",
     q: Annotated[str | None, Query(max_length=200)] = None,
     sort: str = "-published_at",
     department_id: Annotated[int | None, Query(alias="filter[department_id]")] = None,
@@ -122,7 +122,7 @@ async def get_contracts_stats(
     session: SessionDep,
     authz_ctx: ReadDep,
     ctx: ContextDep,
-    view: Annotated[str, Query(pattern="^(user|all)$")] = "user",
+    view: Annotated[str, Query(pattern=r"^(user|all|dept:[0-9]{1,10})$")] = "user",
     year: Annotated[int | None, Query(alias="filter[year]")] = None,
     amount_min: Annotated[float | None, Query(alias="filter[amount_min]", ge=0)] = None,
     amount_max: Annotated[float | None, Query(alias="filter[amount_max]", ge=0)] = None,
@@ -144,7 +144,7 @@ async def get_contracts_facets(
     session: SessionDep,
     authz_ctx: ReadDep,
     ctx: ContextDep,
-    view: Annotated[str, Query(pattern="^(user|all)$")] = "user",
+    view: Annotated[str, Query(pattern=r"^(user|all|dept:[0-9]{1,10})$")] = "user",
 ) -> ContractFacets:
     scope = await _effective_scope(session, authz_ctx, view, ctx)
     data = await repository.facets(session, scope=scope, user_id=authz_ctx.user.id)

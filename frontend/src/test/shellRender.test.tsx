@@ -23,14 +23,21 @@ vi.mock("../auth/AuthProvider", () => ({
   }),
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
 import { Shell } from "../components/Shell";
+import { ViewProvider } from "../view/ViewProvider";
 
 describe("Shell", () => {
   it("mostra l'entrada de Configuració per a un admin", () => {
     render(
-      <MemoryRouter>
-        <Shell />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <ViewProvider>
+            <Shell />
+          </ViewProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     expect(screen.getByRole("link", { name: /Configuració/i })).toBeTruthy();
     expect(screen.getByRole("link", { name: /Contractació/i })).toBeTruthy();

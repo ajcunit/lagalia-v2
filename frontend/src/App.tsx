@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { AuthProvider } from "./auth/AuthProvider";
+import { ViewProvider } from "./view/ViewProvider";
 import { RequireAuth } from "./auth/RequireAuth";
 import { Shell } from "./components/Shell";
 import { t } from "./i18n";
@@ -50,6 +51,7 @@ export function App() {
       </a>
       <BrowserRouter>
         <AuthProvider>
+        <ViewProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/setup" element={<Setup />} />
@@ -91,6 +93,7 @@ export function App() {
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+        </ViewProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

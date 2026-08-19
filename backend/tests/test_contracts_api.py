@@ -242,6 +242,48 @@ async def test_admin_can_request_user_view(api_client: TestClient, world: dict[s
     assert scoped["meta"]["total"] == 0  # l'admin no té departaments
 
 
+async def test_department_view_narrows_and_is_validated(
+    api_client: TestClient, world: dict[str, Any]
+) -> None:
+    """`dept:<id>` (specs/view-selector.md): membre → només aquell
+    departament; no membre sense Vista Admin → 403; admin → qualsevol."""
+    tag = world["tag"]
+
+    # employee_a és de dept_a: veu el contracte de A i res de B.
+    headers_a = login_headers(api_client, world["employee_a"].email)
+    own = _list(api_client, headers_a, tag, view=f"dept:{world['dept_a']}")
+    assert own["meta"]["total"] == 1
+
+    forbidden = api_client.get(
+        "/api/v1/contracts",
+        params={"q": tag, "view": f"dept:{world['dept_b']}"},
+        headers=headers_a,
+    )
+    assert forbidden.status_code == 403
+
+    # L'admin (Vista Admin) pot estrenyer a qualsevol departament.
+    admin_dept_b = _list(
+        api_client,
+        login_headers(api_client, world["admin"].email),
+        tag,
+        view=f"dept:{world['dept_b']}",
+    )
+    assert admin_dept_b["meta"]["total"] == 0  # a B no hi ha contractes
+
+    # Avisos: comptadors amb la mateixa vista, i tasques sempre pròpies.
+    notices = api_client.get(
+        "/api/v1/me/notices", params={"view": f"dept:{world['dept_a']}"}, headers=headers_a
+    )
+    assert notices.status_code == 200
+    body = notices.json()
+    assert set(body) == {
+        "tasks_open",
+        "tasks_overdue",
+        "contracts_expiring",
+        "contracts_pending_review",
+    }
+
+
 async def test_patch_by_admin_creates_history_and_audit(
     api_client: TestClient, world: dict[str, Any]
 ) -> None:

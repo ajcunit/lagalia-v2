@@ -6,6 +6,7 @@ import { Badge, Button, EmptyState, Skeleton, Switch } from "../../components/ui
 import { FileText } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
+import { useView } from "../../view/ViewProvider";
 import { formatCurrency, formatDate } from "../../lib/format";
 import {
   downloadExport,
@@ -33,7 +34,8 @@ export function ContractsList() {
   const q = searchParams.get("q") ?? "";
   const [search, setSearch] = useState(q);
   const sort = searchParams.get("sort") ?? "-published_at";
-  const view = searchParams.get("view") ?? "user";
+  const { view: contextView } = useView();
+  const view = searchParams.get("view") ?? contextView;
   const cursor = searchParams.get("cursor") ?? undefined;
 
   // Debounce de la cerca cap a la URL (l'estat viu a la URL, 10-ui §1.2).

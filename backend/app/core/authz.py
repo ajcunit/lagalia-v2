@@ -348,9 +348,12 @@ class Authorize:
 async def resolve_view_scope(
     session: AsyncSession, user: User, view: str, ctx: RequestContext
 ) -> ScopeInfo:
-    """Valida el paràmetre ?view=user|all contra el rol REAL (mai de confiança).
+    """Valida el paràmetre ?view=user|all|dept:<id> contra el rol REAL
+    (mai de confiança).
 
-    `view=all` sense dret a Vista Admin → 403 auditat.
+    `view=all` sense dret a Vista Admin → 403 auditat. `dept:<id>` estreny
+    la vista a UN departament: ha de ser un dels de l'usuari (o qualsevol,
+    si té Vista Admin) — si no, 403 auditat.
     """
     if is_machine(user):
         # Les màquines no tenen departaments: l'abast és sempre global i la
@@ -361,6 +364,13 @@ async def resolve_view_scope(
             await _audit_denial(session, user, "view:all", ctx)
             raise _forbidden()
         return ScopeInfo(type="all")
+    if view.startswith("dept:"):
+        department_id = int(view.removeprefix("dept:"))
+        member_ids = {d.id for d in user.departments}
+        if department_id not in member_ids and not can_switch_view(user):
+            await _audit_denial(session, user, f"view:dept:{department_id}", ctx)
+            raise _forbidden()
+        return ScopeInfo(type="departments", department_ids=[department_id])
     if user.role in _FULL_SCOPE_ROLES:
         # Vista Usuari demanada per un rol d'abast complet.
         return ScopeInfo(type="departments", department_ids=[d.id for d in user.departments])

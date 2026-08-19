@@ -326,6 +326,13 @@ export const ca = {
   "config.settings": "Paràmetres",
   "config.health": "Salut",
   "config.checkHealth": "Comprova la connexió",
+  "shell.viewSelector": "Vista de dades",
+  "shell.viewAll": "Tot l'ens",
+  "shell.viewMine": "Els meus departaments",
+  "shell.noticeTasks": "tasques obertes",
+  "shell.noticeTasksOverdue": "vençudes",
+  "shell.noticeExpiring": "venciments",
+  "shell.noticePendingReview": "per revisar",
   "config.modulesTab": "Mòduls",
   "config.modulesIntro":
     "Activa o desactiva mòduls sencers de la plataforma. Un mòdul desactivat desapareix del menú de tothom i la seva API queda tallada a l'instant. Les dades no s'esborren: en reactivar-lo, tot torna a ser-hi.",
