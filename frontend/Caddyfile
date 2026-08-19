@@ -1,0 +1,46 @@
+# Reverse proxy amb TLS + servidor de la SPA (docs/06-seguretat.md §5).
+#
+# SITE_ADDRESS mana com se serveix:
+#   https://lagalia.cunit.cat  → HTTPS automàtic (Let's Encrypt) si el nom
+#                                resol des d'Internet i el 80/443 són oberts
+#   lagalia.local              → certificat intern de Caddy (LAN); cal
+#                                confiar en la seva CA als navegadors
+#   :80                        → HTTP pla, NOMÉS si ja hi ha un altre proxy
+#                                amb TLS davant
+{
+	admin off
+}
+
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# Mateix origen per a SPA i API: el client ataca /api/v1 relatiu.
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv/www
+		# SPA amb rutes de client: tot el que no és un fitxer, a l'índex.
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Capçaleres que la v1 no tenia (06 §2, debilitat 16).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		# El bundle és propi i no hi ha CDNs; 'unsafe-inline' només per als
+		# estils en línia dels components (barres de progrés, amplades).
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

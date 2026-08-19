@@ -16,8 +16,10 @@
 #    variables de l'stack, i des d'aquí s'interpolen aquí sota). Així el
 #    desplegament des de Git funciona sense pujar secrets al repositori.
 #
-# Només queden publicats l'API i el frontend, lligats a 127.0.0.1 perquè
-# hi arribi el reverse proxy amb TLS (Caddy/Nginx) i ningú més.
+# 3. El frontend NO és el servidor de Vite: es construeix i el serveix
+#    Caddy, que a més fa de reverse proxy amb TLS cap a l'API. És l'única
+#    entrada publicada (80/443); l'API no s'exposa al host, hi arriba pel
+#    proxy. Configura el nom amb SITE_ADDRESS.
 
 x-app-env: &app-env
   ENVIRONMENT: ${ENVIRONMENT:-production}
@@ -63,8 +65,9 @@ services:
     environment: *app-env
     volumes: &ops-mount
       - ./ops/outbound-ca-bundle.pem:/srv/app/ops/outbound-ca-bundle.pem:ro
-    ports: !override
-      - "127.0.0.1:${API_PORT:-8000}:8000"
+    # Sense port al host: el navegador hi arriba pel proxy (/api), i el
+    # servei és accessible per la xarxa interna del compose.
+    ports: !override []
 
   worker:
     env_file: !override []
@@ -77,5 +80,22 @@ services:
     volumes: *ops-mount
 
   frontend:
+    build: !override
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    environment:
+      # https://lagalia.cunit.cat (TLS automàtic) · lagalia.local (TLS
+      # intern de Caddy) · :80 (HTTP pla, només amb un altre proxy davant).
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      # Certificats i claus emesos per Caddy: persistents entre desplegaments
+      # (si no, Let's Encrypt es tornaria a demanar a cada reinici).
+      - caddydata:/data
+      - caddyconfig:/config
     ports: !override
-      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+
+volumes:
+  caddydata:
+  caddyconfig:

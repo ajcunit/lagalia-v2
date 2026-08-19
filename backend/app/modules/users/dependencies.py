@@ -35,6 +35,24 @@ def _valid_ip(host: str | None) -> str | None:
     return host
 
 
+def _is_trusted_proxy(peer: str, trusted: list[str]) -> bool:
+    """Accepta IPs exactes i rangs CIDR.
+
+    Amb Docker el proxy no arriba mai amb la IP del servidor: si corre al
+    host, el contenidor veu la passarel·la de la xarxa del compose, i si
+    és un contenidor, una IP que canvia a cada reinici. Per això cal
+    poder declarar el rang (p. ex. 172.16.0.0/12).
+    """
+    address = ipaddress.ip_address(peer)
+    for entry in trusted:
+        try:
+            if address in ipaddress.ip_network(entry.strip(), strict=False):
+                return True
+        except ValueError:  # entrada mal escrita: s'ignora, mai es confia
+            continue
+    return False
+
+
 def client_ip(request: Request) -> str | None:
     """IP real del client, amb X-Forwarded-For NOMÉS si la connexió ve d'un
     proxy declarat a `trusted_proxy_ips` (docs/06-seguretat.md §5).
@@ -46,7 +64,7 @@ def client_ip(request: Request) -> str | None:
     from app.core.config import settings
 
     peer = _valid_ip(request.client.host if request.client else None)
-    if peer is None or peer not in settings.trusted_proxy_ips:
+    if peer is None or not _is_trusted_proxy(peer, settings.trusted_proxy_ips):
         return peer
     forwarded = request.headers.get("x-forwarded-for", "")
     # El primer valor de la cadena és el client original; la resta són

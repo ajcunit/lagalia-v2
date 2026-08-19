@@ -4,7 +4,9 @@
 #   docker compose --profile app up -d --build → + api, worker, scheduler, frontend
 #
 # El perfil "app" requereix que existeixin backend/ i frontend/ (Fase 0).
-# Per a producció cal, a més, un reverse proxy amb TLS (Caddy/Nginx) davant.
+#
+# Per al servidor: docker-compose.prod.yml, que hi afegeix el reverse proxy
+# amb TLS (Caddy) i el build estàtic del frontend. Vegeu specs/deployment.md.
 
 name: lagalia-v2
 

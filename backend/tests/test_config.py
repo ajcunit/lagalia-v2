@@ -195,3 +195,12 @@ def test_client_ip_only_trusts_declared_proxies(monkeypatch: pytest.MonkeyPatch)
 
     # Capçalera amb escombraries: es cau a la IP de la connexió.
     assert client_ip(make_request("10.0.0.1", "no-es-una-ip")) == "10.0.0.1"
+
+    # Rangs CIDR: imprescindible amb Docker (la IP del proxy canvia).
+    monkeypatch.setattr(settings, "trusted_proxy_ips", ["172.16.0.0/12"])
+    assert client_ip(make_request("172.18.0.1", "198.51.100.7")) == "198.51.100.7"
+    assert client_ip(make_request("203.0.113.9", "198.51.100.7")) == "203.0.113.9"
+
+    # Una entrada mal escrita no fa confiar en ningú (ni peta).
+    monkeypatch.setattr(settings, "trusted_proxy_ips", ["no-es-un-rang"])
+    assert client_ip(make_request("172.18.0.1", "198.51.100.7")) == "172.18.0.1"

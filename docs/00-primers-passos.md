@@ -83,38 +83,36 @@ Del [BACKLOG.md](BACKLOG.md), les que bloquegen:
 
 ## 7. Desplegament al servidor (test/producció)
 
-El `docker-compose.yml` és **de desenvolupament**: publica la BD, Redis i
-MinIO al host per poder-hi entrar des del portàtil. En un servidor això
-xoca amb els serveis que ja hi corren (error típic de Portainer:
-`Bind for 127.0.0.1:5432 failed: port is already allocated`) i, a més,
-exposa la base de dades sense necessitat.
+Detall complet: [specs/deployment.md](../specs/deployment.md).
 
-Per al servidor, afegeix sempre l'override de producció:
+El `docker-compose.yml` és **de desenvolupament**: servidor de Vite, sense
+proxy i amb la BD publicada al host (això últim xoca amb els serveis que ja
+corren al servidor: `Bind for 127.0.0.1:5432 failed: port is already
+allocated`). Al servidor s'hi afegeix sempre l'override:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-  --profile app up -d --build
+docker compose -f docker-compose.yml -f docker-compose.prod.yml   --profile app up -d --build
 ```
 
-Amb l'override, la infraestructura **no publica cap port**: l'API, el
-worker i el scheduler hi arriben per la xarxa interna del compose. Només
-queden publicats l'API i el frontend, i lligats a `127.0.0.1` perquè hi
-arribi el reverse proxy amb TLS (Caddy/Nginx) i ningú més.
+Què canvia: el frontend passa a ser el **build estàtic servit per Caddy**,
+que fa de **reverse proxy amb TLS** cap a l'API (mateix origen, com espera
+el client). L'única cosa publicada són el 80 i el 443 — ni l'API ni la BD
+ni Redis ni MinIO s'exposen al host.
 
-**A Portainer**, les variables van a la secció **Environment variables**
-de l'stack: pots afegir-les a mà o carregar-hi el `.env` amb «Load
-variables from .env file» (Portainer les desa com a variables de
-l'stack; l'efecte és el mateix). L'override **no llegeix cap fitxer
-`.env` del servidor** justament per això: amb desplegament des de Git el
-fitxer no hi és, i els secrets no han d'entrar mai al repositori.
+**Variables de l'stack** (a Portainer, *Environment variables*: a mà o amb
+«Load variables from .env file»; l'override no llegeix cap `.env` del
+servidor, perquè amb desplegament des de Git el fitxer no hi és i els
+secrets no han d'entrar al repositori):
 
-Variables obligatòries (l'stack no arrenca sense elles): `SECRET_KEY`,
-`ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `CORS_ORIGINS` i `S3_SECRET_KEY`.
-Molt recomanable: `TRUSTED_PROXY_IPS` amb la IP del reverse proxy —
-sense això l'auditoria registra la IP del proxy i **tots els usuaris
-comparteixen el límit de 5 logins per minut**.
-
-Si algun port publicat encara xoca (per exemple el 8000 ja ocupat),
-canvia'l amb variables sense tocar el compose: `API_PORT`,
-`FRONTEND_PORT` i, si mai els publiques, `POSTGRES_PORT`, `REDIS_PORT`,
-`S3_PORT`, `S3_CONSOLE_PORT`.
+- Obligatòries, l'stack no arrenca sense elles i diu quina falta:
+  `SECRET_KEY`, `ENCRYPTION_KEY`, `POSTGRES_PASSWORD`, `CORS_ORIGINS`,
+  `S3_SECRET_KEY`.
+- `SITE_ADDRESS`: `https://nom` (TLS automàtic), `nom.local` (certificat
+  intern de Caddy) o `:80` (HTTP pla, només amb un altre proxy davant).
+- `TRUSTED_PROXY_IPS`: **no** la IP del servidor — el contenidor veu la
+  passarel·la de Docker. Accepta rangs; el valor pràctic és
+  `172.16.0.0/12`. Sense això, l'auditoria registra la IP del proxy i tots
+  els usuaris comparteixen el límit de 5 logins per minut. Per verificar-ho
+  després del desplegament, mira la columna `ip` d'`audit_log` en un login:
+  hi ha de sortir la IP real de l'usuari.
+- Si el 80/443 ja estan ocupats: `HTTP_PORT` i `HTTPS_PORT`.

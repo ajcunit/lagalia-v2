@@ -1,0 +1,23 @@
+# Imatge de producció del frontend: build estàtic servit per Caddy, que a
+# més fa de reverse proxy amb TLS cap a l'API (docs/03-arquitectura.md §2).
+#
+# Una sola entrada per al navegador: el client TS ataca `/api/v1` relatiu,
+# així que SPA i API han de compartir origen. Res de servidor de Vite en
+# producció.
+
+FROM node:22-alpine AS build
+
+WORKDIR /srv/app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+FROM caddy:2-alpine
+
+COPY --from=build /srv/app/dist /srv/www
+COPY Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80 443
