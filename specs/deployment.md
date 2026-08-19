@@ -29,6 +29,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
   (evita xocs de ports al servidor i no exposa la base de dades).
 - Volums `caddydata`/`caddyconfig`: els certificats sobreviuen als
   desplegaments (si no, es tornarien a emetre a cada reinici).
+- Sense `profiles`: tot l'stack puja de cop (Portainer no passa `--profile`).
 
 ### TLS (`SITE_ADDRESS`)
 

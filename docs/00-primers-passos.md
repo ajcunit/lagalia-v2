@@ -88,11 +88,16 @@ Detall complet: [specs/deployment.md](../specs/deployment.md).
 El `docker-compose.yml` és **de desenvolupament**: servidor de Vite, sense
 proxy i amb la BD publicada al host (això últim xoca amb els serveis que ja
 corren al servidor: `Bind for 127.0.0.1:5432 failed: port is already
-allocated`). Al servidor s'hi afegeix sempre l'override:
+allocated`). Al servidor es fa servir **`docker-compose.prod.yml`, que és
+complet i autònom** — no es combina amb el de desenvolupament:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml   --profile app up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+A Portainer, «Compose path» = `docker-compose.prod.yml` i prou. (Portainer
+CE carrega un sol fitxer: si li passes només una superposició, falla amb
+`service "scheduler" has neither an image nor a build context specified`.)
 
 Què canvia: el frontend passa a ser el **build estàtic servit per Caddy**,
 que fa de **reverse proxy amb TLS** cap a l'API (mateix origen, com espera
