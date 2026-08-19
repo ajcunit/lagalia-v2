@@ -6,6 +6,7 @@ conserva raw_contractor_name al contracte per traçabilitat.
 
 import enum
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -77,8 +78,8 @@ class ContractorDuplicate(Base, TimestampMixin):
     )
     # Instantània de cada costat en el moment de resoldre (forma
     # ContractorRanking serialitzada; imports com a text).
-    snapshot_1: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    snapshot_2: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    snapshot_1: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    snapshot_2: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[ContractorDuplicateStatus] = mapped_column(
         Enum(
             ContractorDuplicateStatus,

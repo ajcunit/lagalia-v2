@@ -80,5 +80,16 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["boto3", "boto3.*", "botocore.*", "openpyxl", "openpyxl.*"]
+module = [
+    "boto3",
+    "boto3.*",
+    "botocore.*",
+    "openpyxl",
+    "openpyxl.*",
+    "ldap3",
+    "ldap3.*",
+    "defusedxml",
+    "defusedxml.*",
+    "fitz",
+]
 ignore_missing_imports = true

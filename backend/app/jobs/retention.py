@@ -15,6 +15,11 @@ from app.jobs.registry import JobContext, job
 
 logger = structlog.get_logger()
 
+
+def _rowcount(result: Any) -> int:
+    return int(getattr(result, "rowcount", 0) or 0)
+
+
 SETTING_AUDIT_DAYS = "retention.audit_log_days"
 SETTING_AI_DAYS = "retention.ai_days"
 
@@ -58,45 +63,52 @@ async def purge(ctx: JobContext) -> dict[str, Any]:
     async with session_factory() as session:
         audit_days, ai_days = await _load_days(session)
 
-        def older_than(days: int) -> str:
-            return f"now() - interval '{int(days)} days'"
-
         # Porta sancionada del trigger append-only (migració 0034): només
         # aquesta transacció pot esborrar auditoria, i només files caducades.
         await session.execute(text("SET LOCAL app.retention_purge = 'on'"))
         # Només el PREFIX de la cadena de hashos: mai una fila amb entrades
         # posteriors per id (una fila del mig trencaria l'enllaç prev_hash
         # de la següent). Amb occurred_at monòton són el mateix conjunt.
-        audit_deleted = (
+        audit_deleted = _rowcount(
             await session.execute(
                 text(
-                    "DELETE FROM audit_log WHERE occurred_at < " + older_than(audit_days) + " "
+                    "DELETE FROM audit_log "
+                    "WHERE occurred_at < now() - make_interval(days => :audit_days) "
                     "AND id < COALESCE((SELECT min(id) FROM audit_log "
-                    "WHERE occurred_at >= " + older_than(audit_days) + "), "
+                    "WHERE occurred_at >= now() - make_interval(days => :audit_days)), "
                     "(SELECT COALESCE(max(id), 0) + 1 FROM audit_log))"
-                )
+                ),
+                {"audit_days": audit_days},
             )
-        ).rowcount
-        ai_runs_deleted = (
+        )
+        ai_runs_deleted = _rowcount(
             await session.execute(
-                text("DELETE FROM ai_runs WHERE created_at < " + older_than(ai_days))
+                text(
+                    "DELETE FROM ai_runs WHERE created_at < now() - make_interval(days => :ai_days)"
+                ),
+                {"ai_days": ai_days},
             )
-        ).rowcount
+        )
         # Converses: missatges vells fora; els fils que queden buits, també.
-        chat_messages_deleted = (
+        chat_messages_deleted = _rowcount(
             await session.execute(
-                text("DELETE FROM chat_messages WHERE created_at < " + older_than(ai_days))
+                text(
+                    "DELETE FROM chat_messages "
+                    "WHERE created_at < now() - make_interval(days => :ai_days)"
+                ),
+                {"ai_days": ai_days},
             )
-        ).rowcount
-        chat_threads_deleted = (
+        )
+        chat_threads_deleted = _rowcount(
             await session.execute(
                 text(
                     "DELETE FROM chat_threads t WHERE NOT EXISTS "
                     "(SELECT 1 FROM chat_messages m WHERE m.thread_id = t.id) "
-                    "AND t.created_at < " + older_than(ai_days)
-                )
+                    "AND t.created_at < now() - make_interval(days => :ai_days)"
+                ),
+                {"ai_days": ai_days},
             )
-        ).rowcount
+        )
 
         # La purga també deixa rastre — via record_audit, que manté la
         # cadena de hashos (l'INSERT cru la trencaria). Esborrar el

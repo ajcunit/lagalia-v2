@@ -5,6 +5,7 @@ recuperats de LES REFERÈNCIES DEL PROJECTE i cita les fonts.
 """
 
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 from sqlalchemy import text
@@ -13,20 +14,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai import providers, rag, tasks
 from app.ai.cpv_agent import strip_json
 
-DOC_TYPE_NAMES = {"PPT": "Plec de prescripcions tècniques", "PPA": "Plec administratiu",
-                  "REPORT": "Informe de justificació"}
+DOC_TYPE_NAMES = {
+    "PPT": "Plec de prescripcions tècniques",
+    "PPA": "Plec administratiu",
+    "REPORT": "Informe de justificació",
+}
 
 # Plantilles de fallback si el JSON de l'índex no valida (A3: fallback fix).
 FALLBACK_SECTIONS = {
-    "PPT": ["Objecte del contracte", "Àmbit i abast de la prestació",
-            "Requisits tècnics", "Condicions d'execució", "Mitjans personals i materials",
-            "Control de qualitat i seguiment", "Termini i lliuraments"],
-    "PPA": ["Objecte i règim jurídic", "Pressupost i valor estimat",
-            "Procediment i criteris d'adjudicació", "Garanties",
-            "Drets i obligacions de les parts", "Modificació i pròrroga",
-            "Penalitats i resolució"],
-    "REPORT": ["Necessitat a satisfer", "Objecte del contracte", "Justificació del procediment",
-               "Pressupost i finançament", "Conclusió"],
+    "PPT": [
+        "Objecte del contracte",
+        "Àmbit i abast de la prestació",
+        "Requisits tècnics",
+        "Condicions d'execució",
+        "Mitjans personals i materials",
+        "Control de qualitat i seguiment",
+        "Termini i lliuraments",
+    ],
+    "PPA": [
+        "Objecte i règim jurídic",
+        "Pressupost i valor estimat",
+        "Procediment i criteris d'adjudicació",
+        "Garanties",
+        "Drets i obligacions de les parts",
+        "Modificació i pròrroga",
+        "Penalitats i resolució",
+    ],
+    "REPORT": [
+        "Necessitat a satisfer",
+        "Objecte del contracte",
+        "Justificació del procediment",
+        "Pressupost i finançament",
+        "Conclusió",
+    ],
 }
 
 INDEX_PROMPT = (
@@ -92,10 +112,16 @@ async def generate_index(
         result = await providers.complete(
             resolved.profile,
             [
-                {"role": "system", "content": INDEX_PROMPT.replace(
-                    "{doc_name}", DOC_TYPE_NAMES[doc_type])},
-                {"role": "user", "content": f"<referencies>\n{sample}\n</referencies>"
-                 if sample else "Sense referències: proposa un índex estàndard."},
+                {
+                    "role": "system",
+                    "content": INDEX_PROMPT.replace("{doc_name}", DOC_TYPE_NAMES[doc_type]),
+                },
+                {
+                    "role": "user",
+                    "content": f"<referencies>\n{sample}\n</referencies>"
+                    if sample
+                    else "Sense referències: proposa un índex estàndard.",
+                },
             ],
             task="doc.index",
             model=resolved.model,
@@ -110,8 +136,11 @@ async def generate_index(
                 sections.append({"title": item.strip(), "fields": []})
             elif isinstance(item, dict) and str(item.get("title", "")).strip():
                 fields = [
-                    {"label": str(f.get("label", ""))[:120],
-                     "hint": str(f.get("hint", ""))[:300], "value": ""}
+                    {
+                        "label": str(f.get("label", ""))[:120],
+                        "hint": str(f.get("hint", ""))[:300],
+                        "value": "",
+                    }
                     for f in (item.get("fields") or [])
                     if isinstance(f, dict) and str(f.get("label", "")).strip()
                 ][:5]
@@ -134,7 +163,7 @@ async def draft_section_events(
     fields: list[dict[str, Any]] | None = None,
     improve_text: str | None = None,
     **run_kw: Any,
-):
+) -> AsyncIterator[dict[str, Any]]:
     """Streaming NDJSON: sources → thinking/delta → done (el router desa).
 
     Amb `improve_text` (mode manual → millora): el model rep el text escrit
@@ -145,9 +174,7 @@ async def draft_section_events(
 
     doc_ids = await _reference_ids(session, project_id)
     query = f"{title}. {instructions or ''}".strip()
-    local = (
-        await rag.search(session, query, limit=5, document_ids=doc_ids) if doc_ids else []
-    )
+    local = await rag.search(session, query, limit=5, document_ids=doc_ids) if doc_ids else []
     for passage in local:
         passage["origin"] = "local"
     try:
@@ -197,8 +224,12 @@ async def draft_section_events(
     async for event in providers.stream(
         resolved.profile,
         [
-            {"role": "system", "content": SECTION_PROMPT.replace("{title}", title).replace(
-                "{doc_name}", DOC_TYPE_NAMES[doc_type])},
+            {
+                "role": "system",
+                "content": SECTION_PROMPT.replace("{title}", title).replace(
+                    "{doc_name}", DOC_TYPE_NAMES[doc_type]
+                ),
+            },
             {"role": "user", "content": user_content},
         ],
         task="doc.section",
@@ -231,7 +262,7 @@ async def review_document_events(
     doc_type: str,
     sections: list[dict[str, Any]],
     **run_kw: Any,
-):
+) -> AsyncIterator[dict[str, Any]]:
     """Streaming de la revisió global del document (agent revisor, 07 §2.3.4)."""
     body = "\n\n".join(
         f"## {section.get('title', '')}\n\n{section.get('content_md', '') or '(buida)'}"
@@ -241,8 +272,12 @@ async def review_document_events(
     async for event in providers.stream(
         resolved.profile,
         [
-            {"role": "system", "content": REVIEW_PROMPT.replace(
-                "{doc_name}", DOC_TYPE_NAMES.get(doc_type, doc_type))},
+            {
+                "role": "system",
+                "content": REVIEW_PROMPT.replace(
+                    "{doc_name}", DOC_TYPE_NAMES.get(doc_type, doc_type)
+                ),
+            },
             {"role": "user", "content": f"<document>\n{body}\n</document>"},
         ],
         task="doc.review",

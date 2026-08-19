@@ -35,7 +35,7 @@ class RetryPolicy:
     backoff_seconds: int = 60
 
     def delay_for(self, attempt: int) -> int:
-        return self.backoff_seconds * (2 ** max(0, attempt - 1))
+        return int(self.backoff_seconds * (2 ** max(0, attempt - 1)))
 
 
 _POLICIES: dict[str, RetryPolicy] = {}

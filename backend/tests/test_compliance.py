@@ -17,23 +17,35 @@ TODAY = date(2026, 8, 15)
 
 def test_minor_thresholds_by_type() -> None:
     over = engine.check_minor(
-        contract_type="Serveis", award_amount=Decimal("15000.01"),
-        duration_years=0, duration_months=6, when=TODAY,
+        contract_type="Serveis",
+        award_amount=Decimal("15000.01"),
+        duration_years=0,
+        duration_months=6,
+        when=TODAY,
     )
     assert engine.worst_status(over) == "no_conforme"
     works_ok = engine.check_minor(
-        contract_type="Obres", award_amount=Decimal("39999.99"),
-        duration_years=1, duration_months=0, when=TODAY,
+        contract_type="Obres",
+        award_amount=Decimal("39999.99"),
+        duration_years=1,
+        duration_months=0,
+        when=TODAY,
     )
     assert engine.worst_status(works_ok) == "conforme"
     too_long = engine.check_minor(
-        contract_type="Serveis", award_amount=Decimal("1000"),
-        duration_years=1, duration_months=1, when=TODAY,
+        contract_type="Serveis",
+        award_amount=Decimal("1000"),
+        duration_years=1,
+        duration_months=1,
+        when=TODAY,
     )
     assert engine.worst_status(too_long) == "no_conforme"
     unknown = engine.check_minor(
-        contract_type="Serveis", award_amount=None,
-        duration_years=None, duration_months=None, when=TODAY,
+        contract_type="Serveis",
+        award_amount=None,
+        duration_years=None,
+        duration_months=None,
+        when=TODAY,
     )
     assert engine.worst_status(unknown) == "no_verificable"
 
@@ -74,8 +86,10 @@ async def test_compliance_api(api_client, make_user) -> None:  # type: ignore[no
     created = api_client.post(
         "/api/v1/plan",
         json={
-            "fiscal_year": 2099, "quarter": 1,
-            "subject": "Servei gran de prova compliance", "contract_type": "Serveis",
+            "fiscal_year": 2099,
+            "quarter": 1,
+            "subject": "Servei gran de prova compliance",
+            "contract_type": "Serveis",
             "estimated_amount": 20000,
         },
         headers=admin,
@@ -117,6 +131,7 @@ async def test_compliance_api(api_client, make_user) -> None:  # type: ignore[no
         == 404
     )
     api_client.delete(f"/api/v1/plan/{entry_id}", headers=admin)
+
 
 async def test_review_document_endpoint(  # type: ignore[no-untyped-def]
     monkeypatch: pytest.MonkeyPatch, api_client, make_user
@@ -185,8 +200,9 @@ async def test_review_document_endpoint(  # type: ignore[no-untyped-def]
 
     # Sense compliance:run → 403; inexistent → 404; sense còpia local → 409.
     assert (
-        api_client.post(url(doc_with_copy), headers=login_headers(api_client, employee.email))
-        .status_code
+        api_client.post(
+            url(doc_with_copy), headers=login_headers(api_client, employee.email)
+        ).status_code
         == 403
     )
     assert api_client.post(url(999999999), headers=admin).status_code == 404
@@ -195,8 +211,9 @@ async def test_review_document_endpoint(  # type: ignore[no-untyped-def]
     # Abast departamental també al subrecurs: dept_manager d'un ALTRE
     # departament amb compliance:run → 404 (mai 403 que confirmi l'existència).
     assert (
-        api_client.post(url(doc_with_copy), headers=login_headers(api_client, dm_other.email))
-        .status_code
+        api_client.post(
+            url(doc_with_copy), headers=login_headers(api_client, dm_other.email)
+        ).status_code
         == 404
     )
 
@@ -255,8 +272,7 @@ async def test_review_document_endpoint(  # type: ignore[no-untyped-def]
         # Neteja (l'esborrat del contracte arrossega phase_documents per CASCADE).
         await session.execute(
             text(
-                "DELETE FROM compliance_reviews "
-                "WHERE subject_type = 'document' AND subject_id = :i"
+                "DELETE FROM compliance_reviews WHERE subject_type = 'document' AND subject_id = :i"
             ),
             {"i": doc_with_copy},
         )

@@ -208,9 +208,16 @@ async def requeue_job(
         raise Problem(404, "Treball desconegut", "not-found")
     job = await service.requeue_job(session, job)
     await record_audit(
-        session, actor_type=AuditActorType.USER, action="jobs.requeued", success=True,
-        actor_id=current.user.id, resource_type="job", resource_id=str(id),
-        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+        session,
+        actor_type=AuditActorType.USER,
+        action="jobs.requeued",
+        success=True,
+        actor_id=current.user.id,
+        resource_type="job",
+        resource_id=str(id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
     )
     await session.commit()
     return JobResponse.from_job(job)

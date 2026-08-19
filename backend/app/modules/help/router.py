@@ -35,8 +35,7 @@ async def list_help_articles(
     articles = visible_articles(is_admin=_is_admin(current))
     return {
         "data": [
-            HelpArticleSummary(slug=a.slug, title=a.title, audience=a.audience)
-            for a in articles
+            HelpArticleSummary(slug=a.slug, title=a.title, audience=a.audience) for a in articles
         ]
     }
 

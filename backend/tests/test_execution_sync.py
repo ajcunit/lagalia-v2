@@ -139,9 +139,7 @@ async def test_upsert_matching_and_api_scope(api_client, make_user) -> None:  # 
     async with session_factory() as session:
         row = (
             await session.execute(
-                text(
-                    "SELECT action_name FROM contract_executions WHERE file_code = :f"
-                ),
+                text("SELECT action_name FROM contract_executions WHERE file_code = :f"),
                 {"f": f"EXE/{tag}"},
             )
         ).first()
@@ -202,15 +200,11 @@ def test_extract_execution_detail() -> None:
             ]
         }
     }
-    extracted = sync_execution.extract_execution_detail(
-        detail, "https://contractaciopublica.cat"
-    )
+    extracted = sync_execution.extract_execution_detail(detail, "https://contractaciopublica.cat")
     assert extracted["suposit_habilitant"] == "No prevista en plecs (art. 205.2.c LCSP)"
     groups = {d["group"] for d in extracted["documents"]}
     assert groups == {"informeJustificatiu", "resolucioModificacio"}
-    informe = next(
-        d for d in extracted["documents"] if d["group"] == "informeJustificatiu"
-    )
+    informe = next(d for d in extracted["documents"] if d["group"] == "informeJustificatiu")
     assert informe["title"] == "Informe jurídic.pdf"
     assert informe["size"] == 333817
     assert informe["download_url"].startswith(

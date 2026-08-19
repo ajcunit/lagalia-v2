@@ -106,9 +106,7 @@ async def test_connectors_config_api(api_client, make_user) -> None:  # type: ig
 
     # Correu de prova: mai tomba l'API (connector desactivat/sense host →
     # failed estructurat); employee → 403.
-    test_mail = api_client.post(
-        "/api/v1/connectors/smtp/actions/send-test-email", headers=admin
-    )
+    test_mail = api_client.post("/api/v1/connectors/smtp/actions/send-test-email", headers=admin)
     assert test_mail.status_code == 200, test_mail.text
     assert test_mail.json()["status"] == "failed"
     assert (
@@ -121,9 +119,7 @@ async def test_connectors_config_api(api_client, make_user) -> None:  # type: ig
 
     # Els paràmetres coneguts surten encara que no existeixin a la BD.
     listing_before = api_client.get("/api/v1/settings", headers=admin).json()["data"]
-    recipients = next(
-        s for s in listing_before if s["key"] == "reports.audit_recipients"
-    )
+    recipients = next(s for s in listing_before if s["key"] == "reports.audit_recipients")
     assert recipients["is_set"] is False and recipients["placeholder"]
 
     # Paràmetres: secret emmascarat.

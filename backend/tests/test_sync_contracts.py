@@ -370,8 +370,12 @@ async def test_phase_change_updates_row_by_id_intern(make_user) -> None:  # type
         await session.commit()
 
     # La fase avança: mateixa fila a la font (mateix id_intern), estat nou.
-    advanced = {**base, "fase_publicacio": "Formalització", "resultat": "Formalització",
-                "data_formalitzacio_contracte": "2026-06-11T00:00:00.000"}
+    advanced = {
+        **base,
+        "fase_publicacio": "Formalització",
+        "resultat": "Formalització",
+        "data_formalitzacio_contracte": "2026-06-11T00:00:00.000",
+    }
     async with session_factory() as session:
         assert await _upsert_record(session, dict(advanced), []) == "updated"
         await session.commit()
@@ -451,15 +455,11 @@ async def test_manual_edits_survive_sync(api_client, make_user) -> None:  # type
     async with session_factory() as session:
         row = (
             await session.execute(
-                text(
-                    "SELECT start_date, award_amount, subject FROM contracts WHERE id = :id"
-                ),
+                text("SELECT start_date, award_amount, subject FROM contracts WHERE id = :id"),
                 {"id": contract_id},
             )
         ).one()
-        await session.execute(
-            text("DELETE FROM contracts WHERE id = :id"), {"id": contract_id}
-        )
+        await session.execute(text("DELETE FROM contracts WHERE id = :id"), {"id": contract_id})
         await session.commit()
     assert str(row.start_date) == "2026-01-15"  # l'esmena sobreviu
     assert str(row.award_amount) == "1234.56"  # també l'import esmenat

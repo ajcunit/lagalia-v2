@@ -29,9 +29,7 @@ async def test_chat_threads_and_stream(  # type: ignore[no-untyped-def]
         ).status_code
         == 403
     )
-    created = api_client.post(
-        "/api/v1/chat/threads", json={"scope": "general"}, headers=admin
-    )
+    created = api_client.post("/api/v1/chat/threads", json={"scope": "general"}, headers=admin)
     assert created.status_code == 201, created.text
     thread_id = created.json()["id"]
 
@@ -45,7 +43,9 @@ async def test_chat_threads_and_stream(  # type: ignore[no-untyped-def]
     )
 
     # Stream general amb agent simulat: persisteix pregunta i resposta.
-    async def fake_answer(session, question, *, history=None, scope=None, user_id=None, trace_id=None):  # type: ignore[no-untyped-def]
+    async def fake_answer(  # type: ignore[no-untyped-def]
+        session, question, *, history=None, scope=None, user_id=None, trace_id=None
+    ):
         assert isinstance(history, list)
         yield {"type": "thinking", "text": "pensant"}
         yield {"type": "delta", "text": "Resposta de prova."}
@@ -72,7 +72,9 @@ async def test_chat_threads_and_stream(  # type: ignore[no-untyped-def]
     # Segon torn: l'historial arriba a l'agent.
     seen_history: list = []
 
-    async def fake_answer2(session, question, *, history=None, scope=None, user_id=None, trace_id=None):  # type: ignore[no-untyped-def]
+    async def fake_answer2(  # type: ignore[no-untyped-def]
+        session, question, *, history=None, scope=None, user_id=None, trace_id=None
+    ):
         seen_history.extend(history or [])
         yield {"type": "delta", "text": "Segona resposta."}
         yield {"type": "done"}
@@ -86,16 +88,11 @@ async def test_chat_threads_and_stream(  # type: ignore[no-untyped-def]
     assert len(seen_history) == 2  # pregunta + resposta del primer torn
 
     # Llistat propi filtrat per scope.
-    listing = api_client.get(
-        "/api/v1/chat/threads", params={"scope": "general"}, headers=admin
-    )
+    listing = api_client.get("/api/v1/chat/threads", params={"scope": "general"}, headers=admin)
     assert any(row["id"] == thread_id for row in listing.json()["data"])
 
     # Esborrat en cascada.
-    assert (
-        api_client.delete(f"/api/v1/chat/threads/{thread_id}", headers=admin).status_code
-        == 204
-    )
+    assert api_client.delete(f"/api/v1/chat/threads/{thread_id}", headers=admin).status_code == 204
     async with session_factory() as session:
         remaining = (
             await session.execute(

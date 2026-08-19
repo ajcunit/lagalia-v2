@@ -103,9 +103,7 @@ class LdapGroupMapping(Base):
     department_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("departments.id", ondelete="CASCADE"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class RefreshToken(Base, TimestampMixin):

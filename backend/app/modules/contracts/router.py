@@ -369,15 +369,19 @@ async def get_contract_executions(
     from sqlalchemy import text as sql_text
 
     rows = (
-        await session.execute(
-            sql_text(
-                "SELECT id, lot, action_type, action_name, date, end_date, amount, "
-                "contractor_name, contractor_tax_id, observations, url_json, "
-                "suposit_habilitant, documents "
-                "FROM contract_executions WHERE file_code = :f "
-                "ORDER BY date DESC NULLS LAST, id DESC"
-            ),
-            {"f": contract.file_code},
+        (
+            await session.execute(
+                sql_text(
+                    "SELECT id, lot, action_type, action_name, date, end_date, amount, "
+                    "contractor_name, contractor_tax_id, observations, url_json, "
+                    "suposit_habilitant, documents "
+                    "FROM contract_executions WHERE file_code = :f "
+                    "ORDER BY date DESC NULLS LAST, id DESC"
+                ),
+                {"f": contract.file_code},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return {"data": [dict(row) for row in rows]}

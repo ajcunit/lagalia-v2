@@ -34,12 +34,11 @@ def _is_scoped(args: dict[str, Any]) -> bool:
 
 
 async def search_contracts(session: AsyncSession, args: dict[str, Any]) -> list[dict[str, Any]]:
-    conditions, params = [], {}
+    conditions: list[str] = []
+    params: dict[str, Any] = {}
     conditions.append(_scope_condition(args, params))
     if args.get("q"):
-        conditions.append(
-            "(subject ILIKE :q ESCAPE '\\' OR file_code ILIKE :q ESCAPE '\\')"
-        )
+        conditions.append("(subject ILIKE :q ESCAPE '\\' OR file_code ILIKE :q ESCAPE '\\')")
         params["q"] = f"%{_escape_like(str(args['q'])[:100])}%"
     if args.get("year"):
         conditions.append("EXTRACT(year FROM published_at) = :year")
@@ -78,7 +77,8 @@ async def aggregate(session: AsyncSession, args: dict[str, Any]) -> list[dict[st
     metric_sql = _METRICS.get(str(args.get("metric") or "count"))
     if group_sql is None or metric_sql is None:
         return [{"error": f"group_by vàlids: {sorted(_GROUPS)}; metric: {sorted(_METRICS)}"}]
-    conditions, params = [], {}
+    conditions: list[str] = []
+    params: dict[str, Any] = {}
     conditions.append(_scope_condition(args, params))
     if args.get("year_from"):
         conditions.append("EXTRACT(year FROM published_at) >= :yf")
@@ -238,10 +238,7 @@ async def data_schema(session: AsyncSession, args: dict[str, Any]) -> list[dict[
     """Catàleg de taules i columnes consultables (metadades del model)."""
     if _is_scoped(args):
         return [
-            {
-                "error": "El catàleg i la consulta lliure només estan disponibles "
-                "amb abast global."
-            }
+            {"error": "El catàleg i la consulta lliure només estan disponibles amb abast global."}
         ]
     rows = (
         await session.execute(
@@ -324,10 +321,7 @@ async def help_articles(session: AsyncSession, args: dict[str, Any]) -> list[dic
             if score:
                 scored.append((score, article))
         articles = [a for _, a in sorted(scored, key=lambda pair: -pair[0])]
-    return [
-        {"title": a.title, "slug": a.slug, "content": a.body[:2000]}
-        for a in articles[:3]
-    ]
+    return [{"title": a.title, "slug": a.slug, "content": a.body[:2000]} for a in articles[:3]]
 
 
 TOOLS["help_articles"] = (

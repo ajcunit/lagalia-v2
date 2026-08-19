@@ -4,6 +4,7 @@ Els números vénen del SQL de risk_audit; l'agent només redacta.
 """
 
 import json
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -34,8 +35,7 @@ async def _collect_data(session: AsyncSession) -> dict[str, Any]:
     }
     # A3: top 5 de cada red flag + totals.
     return {
-        name: {"total": block["total"], "top": block["items"][:5]}
-        for name, block in blocks.items()
+        name: {"total": block["total"], "top": block["items"][:5]} for name, block in blocks.items()
     }
 
 
@@ -45,14 +45,12 @@ async def stream_report(
     custom_prompt: str | None = None,
     user_id: int | None = None,
     trace_id: str | None = None,
-):
+) -> AsyncIterator[dict[str, Any]]:
     """Variant en streaming: cedeix deltes de text del Markdown."""
     data = await _collect_data(session)
     resolved = await tasks.resolve(session, "audit.report")
     user_extra = (
-        f"\n\nInstruccions addicionals de l'interventor:\n{custom_prompt}"
-        if custom_prompt
-        else ""
+        f"\n\nInstruccions addicionals de l'interventor:\n{custom_prompt}" if custom_prompt else ""
     )
     payload = json.dumps(jsonable_encoder(data), ensure_ascii=False)
     messages = [
@@ -82,9 +80,7 @@ async def generate_report(
     data = await _collect_data(session)
     resolved = await tasks.resolve(session, "audit.report")
     user_extra = (
-        f"\n\nInstruccions addicionals de l'interventor:\n{custom_prompt}"
-        if custom_prompt
-        else ""
+        f"\n\nInstruccions addicionals de l'interventor:\n{custom_prompt}" if custom_prompt else ""
     )
     result = await providers.complete(
         resolved.profile,

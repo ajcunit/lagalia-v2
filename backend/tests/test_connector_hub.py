@@ -23,13 +23,17 @@ async def clean_connector_rows() -> AsyncIterator[None]:
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     async with engine.begin() as conn:
         saved = (
-            await conn.execute(
-                text(
-                    "SELECT enabled, mode, manifest, config, health_status "
-                    "FROM connectors WHERE slug = 'socrata'"
+            (
+                await conn.execute(
+                    text(
+                        "SELECT enabled, mode, manifest, config, health_status "
+                        "FROM connectors WHERE slug = 'socrata'"
+                    )
                 )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         await conn.execute(text("DELETE FROM connectors WHERE slug = 'socrata'"))
     yield
     async with engine.begin() as conn:

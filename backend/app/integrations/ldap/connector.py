@@ -255,9 +255,7 @@ class LdapConnector:
                     attempt = self._open(server, upn, password)
                 except LDAPException as exc:
                     _step(trace, "connexió", False, str(exc))
-                    raise ConnectorError(
-                        f"No es pot connectar amb el directori: {exc}"
-                    ) from exc
+                    raise ConnectorError(f"No es pot connectar amb el directori: {exc}") from exc
                 try:
                     bound = attempt.bind()
                 except LDAPException:

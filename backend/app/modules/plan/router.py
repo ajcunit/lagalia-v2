@@ -81,11 +81,23 @@ class PlanResponse(BaseModel):
 
 async def _entry_response(session: AsyncSession, entry: PlanEntry) -> PlanResponse:
     dept = (
-        await session.execute(select(Department.name).where(Department.id == entry.department_id))
-    ).scalar_one_or_none() if entry.department_id else None
+        (
+            await session.execute(
+                select(Department.name).where(Department.id == entry.department_id)
+            )
+        ).scalar_one_or_none()
+        if entry.department_id
+        else None
+    )
     code = (
-        await session.execute(select(Contract.file_code).where(Contract.id == entry.contract_id))
-    ).scalar_one_or_none() if entry.contract_id else None
+        (
+            await session.execute(
+                select(Contract.file_code).where(Contract.id == entry.contract_id)
+            )
+        ).scalar_one_or_none()
+        if entry.contract_id
+        else None
+    )
     base = PlanResponse.model_validate(entry, from_attributes=True)
     base.department_name = dept
     base.contract_file_code = code
@@ -96,9 +108,16 @@ async def _audit(
     session: AsyncSession, user_id: int, action: str, resource: str, ctx: RequestContext
 ) -> None:
     await record_audit(
-        session, actor_type=AuditActorType.USER, action=action, success=True,
-        actor_id=user_id, resource_type="plan", resource_id=resource,
-        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+        session,
+        actor_type=AuditActorType.USER,
+        action=action,
+        success=True,
+        actor_id=user_id,
+        resource_type="plan",
+        resource_id=resource,
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
     )
 
 
@@ -186,9 +205,14 @@ async def list_expiring(
     quarter = extract("quarter", Contract.calculated_end_date)
     rows = (
         await session.execute(
-            select(Contract.id, Contract.file_code, Contract.subject,
-                   Contract.calculated_end_date, Contract.contract_type,
-                   quarter.label("quarter"))
+            select(
+                Contract.id,
+                Contract.file_code,
+                Contract.subject,
+                Contract.calculated_end_date,
+                Contract.contract_type,
+                quarter.label("quarter"),
+            )
             .where(
                 extract("year", Contract.calculated_end_date) == fiscal_year,
                 func.lower(func.coalesce(Contract.contract_type, "")).not_like("%obres%"),

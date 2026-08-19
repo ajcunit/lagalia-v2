@@ -62,9 +62,7 @@ async def _tick_reports(redis: Redis) -> None:
     if not parse_enabled(values.get("reports.audit_enabled"), default=False):
         return
     interval_days = parse_interval_days(values.get("reports.audit_interval_days"), default=30)
-    due = await redis.set(
-        "sched:reports.audit_monthly", "1", nx=True, ex=interval_days * 86400
-    )
+    due = await redis.set("sched:reports.audit_monthly", "1", nx=True, ex=interval_days * 86400)
     if not due:
         return
     async with session_factory() as session:
@@ -102,9 +100,7 @@ async def _tick_nightly(redis: Redis) -> None:
         return
     async with session_factory() as session:
         try:
-            job = await enqueue_job(
-                session, job_type="sync.nightly", dedup_key="sync.nightly"
-            )
+            job = await enqueue_job(session, job_type="sync.nightly", dedup_key="sync.nightly")
             logger.info("nightly_sync_enqueued", job_id=str(job.id), date=local_date)
         except Exception as exc:
             logger.error("nightly_sync_failed", error=str(exc))

@@ -31,9 +31,7 @@ EXECUTION_FIELDS: dict[str, FieldDef] = {
     "execution.action_type": FieldDef(
         "tipus_actuacio_execucio", "text", "Execució: tipus d'actuació"
     ),
-    "execution.action_name": FieldDef(
-        "denominacio_actuacio", "text", "Execució: denominació"
-    ),
+    "execution.action_name": FieldDef("denominacio_actuacio", "text", "Execució: denominació"),
     "execution.date": FieldDef("data", "date", "Execució: data"),
     "execution.end_date": FieldDef("data_fi", "date", "Execució: data fi"),
     "execution.amount": FieldDef("import_sense_iva", "amount", "Execució: import (sense IVA)"),
@@ -141,19 +139,14 @@ def execution_values(
     return {
         "file_code": str(record.get("codi_expedient") or "").strip(),
         "lot": str(record.get(src("execution.lot")) or "").strip()[:50] or None,
-        "action_type": str(record.get(src("execution.action_type")) or "").strip()[:200]
-        or None,
+        "action_type": str(record.get(src("execution.action_type")) or "").strip()[:200] or None,
         "action_name": str(record.get(src("execution.action_name")) or "").strip() or None,
         "date": sc.parse_date_value(record.get(src("execution.date"))),
         "end_date": sc.parse_date_value(record.get(src("execution.end_date"))),
         "amount": sc.parse_amount(record.get(src("execution.amount"))),
-        "contractor_name": str(record.get(src("execution.contractor_name")) or "").strip()[
-            :500
-        ]
+        "contractor_name": str(record.get(src("execution.contractor_name")) or "").strip()[:500]
         or None,
-        "contractor_tax_id": str(
-            record.get(src("execution.contractor_tax_id")) or ""
-        ).strip()[:50]
+        "contractor_tax_id": str(record.get(src("execution.contractor_tax_id")) or "").strip()[:50]
         or None,
         "observations": str(record.get(src("execution.observations")) or "").strip() or None,
         "url_json": _url_value(record.get(src("execution.url_json"))),
@@ -189,8 +182,7 @@ async def _upsert_execution(
         # El vincle es refà (l'expedient pot haver arribat després).
         await session.execute(
             text(
-                "UPDATE contract_executions SET contract_id = :c, last_synced_at = :n "
-                "WHERE id = :i"
+                "UPDATE contract_executions SET contract_id = :c, last_synced_at = :n WHERE id = :i"
             ),
             {"c": contract_id, "n": datetime.now(UTC), "i": existing.id},
         )
@@ -238,9 +230,7 @@ async def sync_execution(ctx: JobContext) -> dict[str, Any]:
             raise TypeError("El hub ha resolt un connector inesperat per a 'socrata'")
 
         dataset = connector.config["dataset_execution"]
-        query = (
-            SoqlQuery(dataset).where_ine10("codi_ine10", ine10).order_by("codi_expedient")
-        )
+        query = SoqlQuery(dataset).where_ine10("codi_ine10", ine10).order_by("codi_expedient")
         endpoint = f"{connector.config['base_url']}/resource/{dataset}.json"
 
         async with connector.client() as client:
@@ -345,16 +335,12 @@ async def _enrich_details(force: bool = False) -> dict[str, int]:
                     from app.integrations.pscp.extract import collect_contractor_contacts
                     from app.modules.contractors.service import fill_contact_details
 
-                    await fill_contact_details(
-                        session, collect_contractor_contacts(detail)
-                    )
+                    await fill_contact_details(session, collect_contractor_contacts(detail))
                     await session.commit()
                 fetched += 1
             except Exception as exc:  # una fila amb detall caducat no atura res
                 failed += 1
-                logger.warning(
-                    "execution_detail_failed", execution_id=row.id, error=str(exc)
-                )
+                logger.warning("execution_detail_failed", execution_id=row.id, error=str(exc))
     logger.info("execution_details_enriched", fetched=fetched, failed=failed)
     return {"fetched": fetched, "failed": failed}
 
@@ -405,9 +391,7 @@ async def _upsert_phase_documents(
             document_id, storage_key = existing.id, existing.storage_key
         if download and not storage_key:
             try:
-                content, content_type = await client.download_document(
-                    document["download_url"]
-                )
+                content, content_type = await client.download_document(document["download_url"])
                 from app.core.storage import get_storage
 
                 key = (
@@ -416,10 +400,7 @@ async def _upsert_phase_documents(
                 )
                 await get_storage().put(key, content, content_type)
                 await session.execute(
-                    text(
-                        "UPDATE phase_documents SET storage_key = :k, size = :sz "
-                        "WHERE id = :i"
-                    ),
+                    text("UPDATE phase_documents SET storage_key = :k, size = :sz WHERE id = :i"),
                     {"k": key, "sz": len(content), "i": document_id},
                 )
             except Exception as exc:  # un document caducat no atura res
@@ -448,8 +429,16 @@ async def remap_execution(ctx: JobContext) -> dict[str, Any]:
     updated = 0
     failed = 0
     fields = (
-        "lot", "action_type", "action_name", "date", "end_date", "amount",
-        "contractor_name", "contractor_tax_id", "observations", "url_json",
+        "lot",
+        "action_type",
+        "action_name",
+        "date",
+        "end_date",
+        "amount",
+        "contractor_name",
+        "contractor_tax_id",
+        "observations",
+        "url_json",
     )
     for row_id in ids:
         async with session_factory() as session:
@@ -467,12 +456,13 @@ async def remap_execution(ctx: JobContext) -> dict[str, Any]:
                 result = await session.execute(
                     text(
                         f"UPDATE contract_executions SET {assignments} "  # noqa: S608 — camps fixos
-                        "WHERE id = :i AND (" +
-                        " OR ".join(f"{f} IS DISTINCT FROM :{f}" for f in fields) + ")"
+                        "WHERE id = :i AND ("
+                        + " OR ".join(f"{f} IS DISTINCT FROM :{f}" for f in fields)
+                        + ")"
                     ),
                     {**{f: values[f] for f in fields}, "i": row_id},
                 )
-                if result.rowcount:
+                if int(getattr(result, "rowcount", 0) or 0):
                     updated += 1
                 await session.commit()
             except Exception as exc:

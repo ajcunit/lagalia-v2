@@ -4,6 +4,7 @@ Els articles s'indexen sencers (i es trossegen si són molt llargs) per
 poder citar sempre norma + article.
 """
 
+from collections.abc import AsyncIterator
 from datetime import date, datetime
 from typing import Any
 
@@ -65,8 +66,7 @@ async def index_norm(
     for article in articles:
         content = article["content"]
         chunks = [
-            content[i : i + _MAX_ARTICLE_CHARS]
-            for i in range(0, len(content), _MAX_ARTICLE_CHARS)
+            content[i : i + _MAX_ARTICLE_CHARS] for i in range(0, len(content), _MAX_ARTICLE_CHARS)
         ] or [content]
         for index, chunk in enumerate(chunks):
             pieces.append((article["label"], index, chunk))
@@ -112,18 +112,14 @@ async def sync_boe_norms(ctx: JobContext) -> dict[str, Any]:
             async with session_factory() as session:
                 current = (
                     await session.execute(
-                        text(
-                            "SELECT consolidated_version FROM legal_norms WHERE boe_id = :b"
-                        ),
+                        text("SELECT consolidated_version FROM legal_norms WHERE boe_id = :b"),
                         {"b": boe_id},
                     )
                 ).scalar_one_or_none()
                 version = meta.get("fecha_actualizacion", "")
                 if current == version and not force:
                     await session.execute(
-                        text(
-                            "UPDATE legal_norms SET last_checked_at = now() WHERE boe_id = :b"
-                        ),
+                        text("UPDATE legal_norms SET last_checked_at = now() WHERE boe_id = :b"),
                         {"b": boe_id},
                     )
                     await session.commit()
@@ -232,9 +228,7 @@ LEGAL_REVIEW_PROMPT = (
 )
 
 
-async def fetch_articles_by_label(
-    session: AsyncSession, labels: list[str]
-) -> list[dict[str, Any]]:
+async def fetch_articles_by_label(session: AsyncSession, labels: list[str]) -> list[dict[str, Any]]:
     """Articles concrets pel seu número (p. ex. «118» → «Artículo 118»)."""
     if not labels:
         return []
@@ -283,7 +277,7 @@ async def review_text_events(
     *,
     user_id: int | None = None,
     trace_id: str | None = None,
-):
+) -> AsyncIterator[dict[str, Any]]:
     """Streaming NDJSON de la revisió legal: articles → thinking/delta.
 
     Recuperació en dues vies: els articles que cita el motor determinista

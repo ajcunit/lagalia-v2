@@ -103,8 +103,7 @@ async def _reckless_bids(session: AsyncSession) -> dict[str, Any]:
             func.max(Contract.budget_no_vat) > 0,
             func.count(Contract.award_amount) == func.count(),
             func.sum(Contract.award_amount) > 0,
-            func.sum(Contract.award_amount)
-            <= func.max(Contract.budget_no_vat) * Decimal("0.80"),
+            func.sum(Contract.award_amount) <= func.max(Contract.budget_no_vat) * Decimal("0.80"),
         )
         .subquery()
     )
@@ -147,8 +146,13 @@ async def _critical_renewals(session: AsyncSession, today: date) -> dict[str, An
     ).scalar_one()
     rows = (
         await session.execute(
-            select(Contract.id, Contract.file_code, Contract.subject,
-                   Contract.calculated_end_date, Contract.award_amount)
+            select(
+                Contract.id,
+                Contract.file_code,
+                Contract.subject,
+                Contract.calculated_end_date,
+                Contract.award_amount,
+            )
             .where(conditions)
             .order_by(Contract.calculated_end_date)
             .limit(_LIMIT)
@@ -182,8 +186,13 @@ async def _single_bidder(session: AsyncSession) -> dict[str, Any]:
     ).scalar_one()
     rows = (
         await session.execute(
-            select(Contract.id, Contract.file_code, Contract.subject, Contract.procedure,
-                   Contract.award_amount)
+            select(
+                Contract.id,
+                Contract.file_code,
+                Contract.subject,
+                Contract.procedure,
+                Contract.award_amount,
+            )
             .where(conditions)
             .order_by(Contract.award_amount.desc().nulls_last())
             .limit(_LIMIT)
@@ -205,9 +214,7 @@ async def _single_bidder(session: AsyncSession) -> dict[str, Any]:
 
 
 @router.get("/audit/red-flags", operation_id="getRedFlags")
-async def get_red_flags(
-    session: SessionDep, authz_ctx: RunDep, ctx: ContextDep
-) -> dict[str, Any]:
+async def get_red_flags(session: SessionDep, authz_ctx: RunDep, ctx: ContextDep) -> dict[str, Any]:
     today = datetime.now(UTC).date()
     result = {
         "splitting": await _splitting(session, today),

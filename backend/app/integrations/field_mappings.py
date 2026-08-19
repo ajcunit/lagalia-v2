@@ -120,9 +120,7 @@ async def remap_contracts(ctx: JobContext) -> dict[str, Any]:
                 f"{index + 1}/{len(ids)} contractes re-mapejats",
             )
 
-    logger.info(
-        "remap_contracts_finished", total=len(ids), updated=updated, failed=failed
-    )
+    logger.info("remap_contracts_finished", total=len(ids), updated=updated, failed=failed)
     return {"total": len(ids), "updated": updated, "unchanged": unchanged, "failed": failed}
 
 
@@ -182,9 +180,7 @@ async def remap_rpc(ctx: JobContext) -> dict[str, Any]:
     async with session_factory() as session:
         try:
             extensions = (
-                await session.execute(
-                    text("SELECT id FROM extensions WHERE raw IS NOT NULL")
-                )
+                await session.execute(text("SELECT id FROM extensions WHERE raw IS NOT NULL"))
             ).all()
             for row in extensions:
                 extension = await session.get(Extension, row.id)
@@ -196,9 +192,7 @@ async def remap_rpc(ctx: JobContext) -> dict[str, Any]:
                         setattr(extension, key, value)
                     counters["extensions"] += 1
             modifications = (
-                await session.execute(
-                    text("SELECT id FROM modifications WHERE raw IS NOT NULL")
-                )
+                await session.execute(text("SELECT id FROM modifications WHERE raw IS NOT NULL"))
             ).all()
             for row in modifications:
                 modification = await session.get(Modification, row.id)

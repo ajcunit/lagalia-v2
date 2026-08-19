@@ -226,7 +226,8 @@ def ranking_snapshot(ranking: dict[str, Any] | None) -> dict[str, Any] | None:
         return None
     import json
 
-    return json.loads(json.dumps(ranking, default=str))
+    snapshot: dict[str, Any] = json.loads(json.dumps(ranking, default=str))
+    return snapshot
 
 
 async def _snapshot_group_pairs(
@@ -344,9 +345,7 @@ async def detect_tax_id_duplicates(session: AsyncSession) -> int:
     return created
 
 
-async def fill_contact_details(
-    session: AsyncSession, contacts: list[dict[str, str | None]]
-) -> int:
+async def fill_contact_details(session: AsyncSession, contacts: list[dict[str, str | None]]) -> int:
     """Omple telèfon/correu/tipus d'empresa des dels JSON del portal
     (specs/contractors-ui.md). NOMÉS camps buits: mai trepitja dades
     existents (poden ser correccions manuals)."""
@@ -377,5 +376,5 @@ async def fill_contact_details(
                 "tax_id": tax_id,
             },
         )
-        updated += result.rowcount or 0
+        updated += int(getattr(result, "rowcount", 0) or 0)
     return updated

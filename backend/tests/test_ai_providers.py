@@ -90,10 +90,14 @@ async def test_complete_records_ai_runs(monkeypatch: pytest.MonkeyPatch) -> None
 
     async with session_factory() as session:
         run = (
-            await session.execute(
-                select(AiRun).where(AiRun.provider_profile_id == pid).order_by(AiRun.id.desc())
+            (
+                await session.execute(
+                    select(AiRun).where(AiRun.provider_profile_id == pid).order_by(AiRun.id.desc())
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         assert run is not None and run.status == "success"
         assert run.input_tokens == 10 and run.latency_ms is not None
 
@@ -131,12 +135,16 @@ async def test_ollama_and_gemini_adapters(monkeypatch: pytest.MonkeyPatch) -> No
 
     async with session_factory() as session:
         ollama = AiProviderProfile(
-            name="test-ollama", protocol=AiProtocol.OLLAMA,
-            base_url="http://fake.ollama:11434", default_model="llama3:8b",
+            name="test-ollama",
+            protocol=AiProtocol.OLLAMA,
+            base_url="http://fake.ollama:11434",
+            default_model="llama3:8b",
         )
         gemini = AiProviderProfile(
-            name="test-gemini", protocol=AiProtocol.GEMINI,
-            base_url="https://fake.gemini", default_model="gemini-2.5-flash",
+            name="test-gemini",
+            protocol=AiProtocol.GEMINI,
+            base_url="https://fake.gemini",
+            default_model="gemini-2.5-flash",
             api_key_encrypted=crypto.encrypt_value("g-key"),
         )
         session.add_all([ollama, gemini])

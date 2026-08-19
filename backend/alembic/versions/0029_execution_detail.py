@@ -22,9 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column("contract_executions", sa.Column("suposit_habilitant", sa.Text()))
     op.add_column("contract_executions", sa.Column("documents", JSONB()))
-    op.add_column(
-        "contract_executions", sa.Column("detail_fetched_at", sa.DateTime(timezone=True))
-    )
+    op.add_column("contract_executions", sa.Column("detail_fetched_at", sa.DateTime(timezone=True)))
 
 
 def downgrade() -> None:

@@ -49,8 +49,7 @@ RULES: list[RuleVersion] = [
         effective_from=_LCSP_EFFECTIVE,
         effective_to=None,
         params={"works": 40000, "other": 15000},
-        description="Un expedient tramitat com a menor no pot superar el llindar "
-        "del seu tipus.",
+        description="Un expedient tramitat com a menor no pot superar el llindar del seu tipus.",
     ),
     RuleVersion(
         rule_id="plan.minor_over_threshold",
@@ -84,9 +83,7 @@ def _threshold(version: RuleVersion, contract_type: str | None) -> Decimal:
     return Decimal(str(version.params[key]))
 
 
-def _finding(
-    version: RuleVersion, status: str, detail: str
-) -> dict[str, Any]:
+def _finding(version: RuleVersion, status: str, detail: str) -> dict[str, Any]:
     return {
         "rule_id": version.rule_id,
         "article": version.article,
@@ -96,8 +93,11 @@ def _finding(
 
 
 def check_minor(
-    *, contract_type: str | None, award_amount: Decimal | None,
-    duration_years: int | None, duration_months: int | None,
+    *,
+    contract_type: str | None,
+    award_amount: Decimal | None,
+    duration_years: int | None,
+    duration_months: int | None,
     when: date,
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
@@ -134,8 +134,11 @@ def check_minor(
 
 
 def check_contract(
-    *, procedure: str | None, contract_type: str | None,
-    award_amount: Decimal | None, when: date,
+    *,
+    procedure: str | None,
+    contract_type: str | None,
+    award_amount: Decimal | None,
+    when: date,
 ) -> list[dict[str, Any]]:
     version = rule_for("contract.minor_procedure_amount", when)
     if version is None:
@@ -157,7 +160,10 @@ def check_contract(
 
 
 def check_plan_entry(
-    *, contract_type: str | None, estimated_amount: Decimal | None, fiscal_year: int,
+    *,
+    contract_type: str | None,
+    estimated_amount: Decimal | None,
+    fiscal_year: int,
 ) -> list[dict[str, Any]]:
     version = rule_for("plan.minor_over_threshold", date(fiscal_year, 1, 1))
     if version is None:

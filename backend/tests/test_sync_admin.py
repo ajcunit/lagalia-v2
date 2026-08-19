@@ -54,9 +54,7 @@ async def test_sync_admin_api(api_client, make_user) -> None:  # type: ignore[no
         if ids:
             items = api_client.get(f"/api/v1/sync-runs/{ids[0]}/items", headers=admin)
             assert items.status_code == 200
-        assert (
-            api_client.get("/api/v1/sync-runs/999999999/items", headers=admin).status_code == 404
-        )
+        assert api_client.get("/api/v1/sync-runs/999999999/items", headers=admin).status_code == 404
 
         # employee: sense sync:read ni sync:execute → 403.
         emp = login_headers(api_client, employee.email)

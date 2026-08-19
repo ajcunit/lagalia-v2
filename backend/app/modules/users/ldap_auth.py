@@ -138,9 +138,7 @@ async def try_ldap_login(
         ).all()
     }
     if current != department_ids:
-        await session.execute(
-            delete(user_departments).where(user_departments.c.user_id == user.id)
-        )
+        await session.execute(delete(user_departments).where(user_departments.c.user_id == user.id))
         for department_id in sorted(department_ids):
             await session.execute(
                 insert(user_departments).values(user_id=user.id, department_id=department_id)
@@ -149,5 +147,6 @@ async def try_ldap_login(
 
     # Recàrrega amb departments carregats (el login en depèn).
     refreshed = await repository.get_user_by_email(session, profile_email)
-    assert refreshed is not None  # acabem de crear-lo o trobar-lo
+    if refreshed is None:  # impossible: acabem de crear-lo o trobar-lo
+        raise RuntimeError("usuari LDAP desaparegut després de la provisió")
     return LdapLoginResult(user=refreshed, provisioned=provisioned)

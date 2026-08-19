@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from app.core import authz
 from app.core.db import get_session
@@ -68,7 +69,7 @@ async def list_audit_log(
     occurred_from: Annotated[datetime | None, Query(alias="filter[from]")] = None,
     occurred_to: Annotated[datetime | None, Query(alias="filter[to]")] = None,
 ) -> PagedAuditResponse:
-    conditions = []
+    conditions: list[ColumnElement[bool]] = []
     if action:
         # Prefix, mai LIKE amb entrada crua: escapem els comodins.
         escaped = action.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -91,17 +92,14 @@ async def list_audit_log(
         conditions.append(AuditLogEntry.occurred_at <= occurred_to)
 
     total = (
-        await session.execute(
-            select(func.count()).select_from(AuditLogEntry).where(*conditions)
-        )
+        await session.execute(select(func.count()).select_from(AuditLogEntry).where(*conditions))
     ).scalar_one()
 
     query = (
         select(AuditLogEntry, User.name)
         .join(
             User,
-            (AuditLogEntry.actor_id == User.id)
-            & (AuditLogEntry.actor_type == AuditActorType.USER),
+            (AuditLogEntry.actor_id == User.id) & (AuditLogEntry.actor_type == AuditActorType.USER),
             isouter=True,
         )
         .where(*conditions)
@@ -111,9 +109,7 @@ async def list_audit_log(
     if page_cursor:
         _, last_id = decode_cursor(page_cursor)
         query = query.where(
-            keyset_condition(
-                AuditLogEntry.id, AuditLogEntry.id, last_id, last_id, descending=True
-            )
+            keyset_condition(AuditLogEntry.id, AuditLogEntry.id, last_id, last_id, descending=True)
         )
 
     rows = (await session.execute(query)).all()

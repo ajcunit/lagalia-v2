@@ -261,12 +261,8 @@ def test_doc_type_not_polluted_by_language_keys() -> None:
 
     payload = {
         "publicacio": {
-            "plecAdministratiu": {
-                "ca": [{"id": 1, "titol": "PCA.pdf", "hash": "A", "mida": "10"}]
-            },
-            "plecTecnic": {
-                "ca": [{"id": 2, "titol": "PPT.pdf", "hash": "B", "mida": "20"}]
-            },
+            "plecAdministratiu": {"ca": [{"id": 1, "titol": "PCA.pdf", "hash": "A", "mida": "10"}]},
+            "plecTecnic": {"ca": [{"id": 2, "titol": "PPT.pdf", "hash": "B", "mida": "20"}]},
         }
     }
     documents = extract.collect_documents(payload, "https://x")
@@ -307,9 +303,7 @@ async def test_indexable_phases_filter(api_client, make_user) -> None:  # type: 
     assert response.status_code == 200, response.text
 
     async with session_factory() as session:
-        await session.execute(
-            sql_text("DELETE FROM settings WHERE key = 'rag.indexable_phases'")
-        )
+        await session.execute(sql_text("DELETE FROM settings WHERE key = 'rag.indexable_phases'"))
         await session.commit()
 
 

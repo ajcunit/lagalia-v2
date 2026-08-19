@@ -13,8 +13,9 @@ Create Date: 2026-08-18
 from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "0033"
 down_revision: str | None = "0032"
@@ -64,7 +65,9 @@ def downgrade() -> None:
             ["id"],
             ondelete="CASCADE",
         )
-    op.execute("DELETE FROM contractor_duplicates WHERE contractor_id_1 IS NULL OR contractor_id_2 IS NULL")
+    op.execute(
+        "DELETE FROM contractor_duplicates WHERE contractor_id_1 IS NULL OR contractor_id_2 IS NULL"
+    )
     op.alter_column("contractor_duplicates", "contractor_id_1", nullable=False)
     op.alter_column("contractor_duplicates", "contractor_id_2", nullable=False)
     op.drop_column("contractor_duplicates", "snapshot_2")

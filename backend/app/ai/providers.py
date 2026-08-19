@@ -5,6 +5,7 @@ verificat; tota crida registra una fila a ai_runs.
 """
 
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -165,7 +166,8 @@ async def complete(
         data = response.json()
         if profile.protocol == AiProtocol.CLAUDE:
             content = "".join(
-                block.get("text", "") for block in data.get("content", [])
+                block.get("text", "")
+                for block in data.get("content", [])
                 if block.get("type") == "text"
             )
             usage = data.get("usage", {})
@@ -227,7 +229,7 @@ async def stream(
     user_id: int | None = None,
     trace_id: str | None = None,
     input_summary: str | None = None,
-):
+) -> AsyncIterator[dict[str, str]]:
     """Compleció en streaming: cedeix {"kind": "text"|"thinking", "text": ...}.
 
     Els models raonadors (Qwen, deepseek-r1…) emeten primer el raonament
@@ -242,8 +244,14 @@ async def stream(
         raise ProviderError("el perfil no té model per defecte")
     if profile.protocol == AiProtocol.GEMINI:
         result = await complete(
-            profile, messages, task=task, model=model, max_tokens=max_tokens,
-            user_id=user_id, trace_id=trace_id, input_summary=input_summary,
+            profile,
+            messages,
+            task=task,
+            model=model,
+            max_tokens=max_tokens,
+            user_id=user_id,
+            trace_id=trace_id,
+            input_summary=input_summary,
         )
         yield {"kind": "text", "text": result.content}
         return
@@ -253,15 +261,21 @@ async def stream(
         url = f"{base}/v1/messages"
         system = "\n".join(m["content"] for m in messages if m["role"] == "system") or None
         body: dict[str, Any] = {
-            "model": chosen, "max_tokens": max_tokens, "stream": True,
+            "model": chosen,
+            "max_tokens": max_tokens,
+            "stream": True,
             "messages": [m for m in messages if m["role"] != "system"],
         }
         if system:
             body["system"] = system
     elif profile.protocol == AiProtocol.OLLAMA:
         url = f"{base}/api/chat"
-        body = {"model": chosen, "messages": messages, "stream": True,
-                "options": {"num_predict": max_tokens}}
+        body = {
+            "model": chosen,
+            "messages": messages,
+            "stream": True,
+            "options": {"num_predict": max_tokens},
+        }
     else:
         url = f"{base}/chat/completions"
         body = {"model": chosen, "max_tokens": max_tokens, "messages": messages, "stream": True}
@@ -331,11 +345,17 @@ async def stream(
     async with session_factory() as session:
         session.add(
             AiRun(
-                task=task, provider_profile_id=profile.id, model=chosen,
+                task=task,
+                provider_profile_id=profile.id,
+                model=chosen,
                 input_summary=(input_summary or "")[:500] or None,
-                input_tokens=tokens_in, output_tokens=tokens_out,
-                latency_ms=latency_ms, status=status, error_detail=error_detail,
-                user_id=user_id, trace_id=trace_id,
+                input_tokens=tokens_in,
+                output_tokens=tokens_out,
+                latency_ms=latency_ms,
+                status=status,
+                error_detail=error_detail,
+                user_id=user_id,
+                trace_id=trace_id,
             )
         )
         await session.commit()
@@ -364,7 +384,8 @@ async def embed(
         raise ProviderError(f"el protocol {profile.protocol} no suporta embeddings aquí")
 
     started = time.monotonic()
-    status, error_detail, vectors, tokens_in = "success", None, [], None
+    vectors: list[list[float]] = []
+    status, error_detail, tokens_in = "success", None, None
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT, transport=_transport) as client:
             response = await client.post(url, json=body, headers=_headers(profile))
@@ -386,12 +407,17 @@ async def embed(
     async with session_factory() as session:
         session.add(
             AiRun(
-                task="rag.embed", provider_profile_id=profile.id, model=chosen,
+                task="rag.embed",
+                provider_profile_id=profile.id,
+                model=chosen,
                 input_summary=f"{len(texts)} fragments",
-                input_tokens=tokens_in, output_tokens=None,
+                input_tokens=tokens_in,
+                output_tokens=None,
                 latency_ms=int((time.monotonic() - started) * 1000),
-                status=status, error_detail=error_detail,
-                user_id=user_id, trace_id=trace_id,
+                status=status,
+                error_detail=error_detail,
+                user_id=user_id,
+                trace_id=trace_id,
             )
         )
         await session.commit()

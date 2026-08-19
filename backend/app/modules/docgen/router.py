@@ -3,6 +3,7 @@
 import io
 import json
 import re as _re
+from collections.abc import AsyncIterator
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, UploadFile
@@ -60,9 +61,7 @@ class DraftBody(BaseModel):
 async def _own_project(session: AsyncSession, project_id: int, user_id: int) -> dict[str, Any]:
     row = (
         await session.execute(
-            text(
-                "SELECT id, name, reference_doc_ids, user_id FROM doc_projects WHERE id = :id"
-            ),
+            text("SELECT id, name, reference_doc_ids, user_id FROM doc_projects WHERE id = :id"),
             {"id": project_id},
         )
     ).first()
@@ -75,9 +74,16 @@ async def _audit(
     session: AsyncSession, user_id: int, action: str, resource: str, ctx: RequestContext
 ) -> None:
     await record_audit(
-        session, actor_type=AuditActorType.USER, action=action, success=True,
-        actor_id=user_id, resource_type="doc_project", resource_id=resource,
-        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+        session,
+        actor_type=AuditActorType.USER,
+        action=action,
+        success=True,
+        actor_id=user_id,
+        resource_type="doc_project",
+        resource_id=resource,
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
     )
 
 
@@ -95,8 +101,12 @@ async def _references_detail(session: AsyncSession, ids: list[int]) -> list[dict
     ).all()
     by_id = {r.id: r for r in rows}
     return [
-        {"id": i, "title": by_id[i].title, "doc_type": by_id[i].doc_type,
-         "file_code": by_id[i].file_code}
+        {
+            "id": i,
+            "title": by_id[i].title,
+            "doc_type": by_id[i].doc_type,
+            "file_code": by_id[i].file_code,
+        }
         for i in ids
         if i in by_id
     ]
@@ -137,9 +147,7 @@ async def search_doc_references(
 
 
 @router.get("/doc-projects", operation_id="listDocProjects")
-async def list_projects(
-    session: SessionDep, authz_ctx: UseDep
-) -> dict[str, list[dict[str, Any]]]:
+async def list_projects(session: SessionDep, authz_ctx: UseDep) -> dict[str, list[dict[str, Any]]]:
     rows = (
         await session.execute(
             text(
@@ -151,8 +159,12 @@ async def list_projects(
     ).all()
     return {
         "data": [
-            {"id": r.id, "name": r.name, "references": len(r.reference_doc_ids or []),
-             "created_at": r.created_at}
+            {
+                "id": r.id,
+                "name": r.name,
+                "references": len(r.reference_doc_ids or []),
+                "created_at": r.created_at,
+            }
             for r in rows
         ]
     }
@@ -164,9 +176,7 @@ async def create_project(
 ) -> dict[str, Any]:
     project_id = (
         await session.execute(
-            text(
-                "INSERT INTO doc_projects (user_id, name) VALUES (:u, :n) RETURNING id"
-            ),
+            text("INSERT INTO doc_projects (user_id, name) VALUES (:u, :n) RETURNING id"),
             {"u": authz_ctx.user.id, "n": body.name},
         )
     ).scalar_one()
@@ -181,9 +191,7 @@ async def create_project(
 
 
 @router.get("/doc-projects/{id}", operation_id="getDocProject")
-async def get_project(
-    id: int, session: SessionDep, authz_ctx: UseDep
-) -> dict[str, Any]:
+async def get_project(id: int, session: SessionDep, authz_ctx: UseDep) -> dict[str, Any]:
     project = await _own_project(session, id, authz_ctx.user.id)
     documents = (
         await session.execute(
@@ -224,9 +232,7 @@ async def get_project(
 
 
 @router.delete("/doc-projects/{id}", operation_id="deleteDocProject", status_code=204)
-async def delete_project(
-    id: int, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
-) -> None:
+async def delete_project(id: int, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep) -> None:
     await _own_project(session, id, authz_ctx.user.id)
     await session.execute(text("DELETE FROM doc_projects WHERE id = :id"), {"id": id})
     await _audit(session, authz_ctx.user.id, "docgen.project_deleted", str(id), ctx)
@@ -242,8 +248,7 @@ async def set_references(
         (
             await session.execute(
                 text(
-                    "SELECT id FROM phase_documents WHERE id = ANY(:ids) "
-                    "AND indexed_at IS NOT NULL"
+                    "SELECT id FROM phase_documents WHERE id = ANY(:ids) AND indexed_at IS NOT NULL"
                 ),
                 {"ids": body.document_ids},
             )
@@ -259,14 +264,13 @@ async def set_references(
 
 
 async def _get_sections(session: AsyncSession, project_id: int, doc_type: str) -> list[Any]:
-    return (
+    sections: list[Any] = (
         await session.execute(
-            text(
-                "SELECT sections FROM doc_documents WHERE project_id = :p AND doc_type = :t"
-            ),
+            text("SELECT sections FROM doc_documents WHERE project_id = :p AND doc_type = :t"),
             {"p": project_id, "t": doc_type},
         )
     ).scalar_one()
+    return sections
 
 
 async def _save_sections(
@@ -405,8 +409,12 @@ async def remove_external_reference(
 
 @router.patch("/doc-projects/{id}/documents/{doc_type}", operation_id="saveDocSections")
 async def save_doc_sections(
-    id: int, doc_type: DocType, body: SectionsBody,
-    session: SessionDep, authz_ctx: UseDep, ctx: ContextDep,
+    id: int,
+    doc_type: DocType,
+    body: SectionsBody,
+    session: SessionDep,
+    authz_ctx: UseDep,
+    ctx: ContextDep,
 ) -> dict[str, Any]:
     await _own_project(session, id, authz_ctx.user.id)
     cleaned = [
@@ -416,9 +424,11 @@ async def save_doc_sections(
             "content_md": str(s.get("content_md", ""))[:50000],
             "sources": s.get("sources") or [],
             "fields": [
-                {"label": str(f.get("label", ""))[:120],
-                 "hint": str(f.get("hint", ""))[:300],
-                 "value": str(f.get("value", ""))[:500]}
+                {
+                    "label": str(f.get("label", ""))[:120],
+                    "hint": str(f.get("hint", ""))[:300],
+                    "value": str(f.get("value", ""))[:500],
+                }
                 for f in (s.get("fields") or [])
                 if isinstance(f, dict)
             ][:10],
@@ -446,8 +456,13 @@ async def generate_doc_index(
     except providers.ProviderError as exc:
         raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
     sections = [
-        {"title": t["title"], "instructions": "", "content_md": "", "sources": [],
-         "fields": t.get("fields", [])}
+        {
+            "title": t["title"],
+            "instructions": "",
+            "content_md": "",
+            "sources": [],
+            "fields": t.get("fields", []),
+        }
         for t in titles
     ]
     await _save_sections(session, id, doc_type, sections)
@@ -461,8 +476,13 @@ async def generate_doc_index(
     operation_id="draftDocSectionStream",
 )
 async def draft_section_stream(
-    id: int, doc_type: DocType, section_index: int, body: DraftBody,
-    session: SessionDep, authz_ctx: UseDep, ctx: ContextDep,
+    id: int,
+    doc_type: DocType,
+    section_index: int,
+    body: DraftBody,
+    session: SessionDep,
+    authz_ctx: UseDep,
+    ctx: ContextDep,
 ) -> StreamingResponse:
     await _own_project(session, id, authz_ctx.user.id)
     sections = await _get_sections(session, id, doc_type)
@@ -475,22 +495,24 @@ async def draft_section_stream(
     def _line(payload: dict[str, Any]) -> str:
         return json.dumps(payload, ensure_ascii=False, default=str) + "\n"
 
-    async def generate():
+    async def generate() -> AsyncIterator[str]:
         collected: list[str] = []
         sources: list[dict[str, Any]] = []
         try:
-            draft_fields = (
-                body.fields if body.fields is not None else section.get("fields") or []
-            )
+            draft_fields = body.fields if body.fields is not None else section.get("fields") or []
             improve_text = None
             if body.mode == "improve":
                 improve_text = body.content or str(section.get("content_md", ""))
             async for event in doc_agent.draft_section_events(
-                session, id, doc_type, str(section.get("title", "")),
+                session,
+                id,
+                doc_type,
+                str(section.get("title", "")),
                 body.instructions or str(section.get("instructions", "")) or None,
                 fields=draft_fields,
                 improve_text=improve_text or None,
-                user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
+                user_id=authz_ctx.user.id,
+                trace_id=ctx.trace_id,
             ):
                 if event["type"] == "delta":
                     collected.append(str(event["text"]))
@@ -528,8 +550,11 @@ async def draft_section_stream(
                 },
             )
             await _audit(
-                session, authz_ctx.user.id, "docgen.section_drafted",
-                f"{id}/{doc_type}/{section_index}", ctx,
+                session,
+                authz_ctx.user.id,
+                "docgen.section_drafted",
+                f"{id}/{doc_type}/{section_index}",
+                ctx,
             )
             await session.commit()
             yield _line({"type": "done"})
@@ -595,11 +620,14 @@ async def review_document_stream(
     def line(payload: dict[str, Any]) -> str:
         return json.dumps(payload, ensure_ascii=False, default=str) + "\n"
 
-    async def generate():
+    async def generate() -> AsyncIterator[str]:
         try:
             async for event in doc_agent.review_document_events(
-                session, doc_type, sections,
-                user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
+                session,
+                doc_type,
+                sections,
+                user_id=authz_ctx.user.id,
+                trace_id=ctx.trace_id,
             ):
                 yield line(event)
             yield line({"type": "done"})
@@ -613,9 +641,7 @@ async def review_document_stream(
     )
 
 
-@router.get(
-    "/doc-projects/{id}/documents/{doc_type}/export.docx", operation_id="exportDocDocx"
-)
+@router.get("/doc-projects/{id}/documents/{doc_type}/export.docx", operation_id="exportDocDocx")
 async def export_docx(
     id: int, doc_type: DocType, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
 ) -> Response:

@@ -336,9 +336,7 @@ async def create_ldap_group_mapping(
         department = await session.get(Department, body.department_id)
         if department is None:
             raise Problem(404, "Departament desconegut", "not-found")
-    mapping = LdapGroupMapping(
-        ad_group=ad_group, role=body.role, department_id=body.department_id
-    )
+    mapping = LdapGroupMapping(ad_group=ad_group, role=body.role, department_id=body.department_id)
     session.add(mapping)
     await session.flush()
     await _audit(session, authz_ctx.user.id, "config.ldap_mapping_created", ad_group, ctx)
@@ -501,7 +499,11 @@ async def send_smtp_test_email(
     d'admin, com el healthcheck: síncron i mai tomba l'API."""
     to = authz_ctx.user.email
     try:
+        from app.integrations.smtp.connector import SmtpConnector
+
         connector = await hub.get_connector(session, "smtp")
+        if not isinstance(connector, SmtpConnector):  # defensa de registre
+            raise Problem(500, "El hub ha resolt un connector inesperat per a «smtp»", "internal")
         await connector.send_mail(
             [to],
             "Prova de correu de LAGALia",

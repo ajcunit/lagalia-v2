@@ -1,5 +1,6 @@
 """Gestió de perfils de proveïdor d'IA i execucions (specs/ai-providers.md)."""
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -84,16 +85,21 @@ async def _audit(
     session: AsyncSession, user_id: int, action: str, resource: str, ctx: RequestContext
 ) -> None:
     await record_audit(
-        session, actor_type=AuditActorType.USER, action=action, success=True,
-        actor_id=user_id, resource_type="ai_provider", resource_id=resource,
-        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+        session,
+        actor_type=AuditActorType.USER,
+        action=action,
+        success=True,
+        actor_id=user_id,
+        resource_type="ai_provider",
+        resource_id=resource,
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
     )
 
 
 @router.get("/ai/providers", operation_id="listAiProviders")
-async def list_providers(
-    session: SessionDep, _authz: WriteDep
-) -> dict[str, list[ProfileResponse]]:
+async def list_providers(session: SessionDep, _authz: WriteDep) -> dict[str, list[ProfileResponse]]:
     rows = (
         await session.execute(select(AiProviderProfile).order_by(AiProviderProfile.name))
     ).scalars()
@@ -157,9 +163,7 @@ async def delete_provider(
 
 
 @router.post("/ai/providers/{id}/actions/healthcheck", operation_id="checkAiProviderHealth")
-async def check_provider_health(
-    id: int, session: SessionDep, _authz: WriteDep
-) -> dict[str, Any]:
+async def check_provider_health(id: int, session: SessionDep, _authz: WriteDep) -> dict[str, Any]:
     """Prova de connexió + autodetecció de models; mai tomba l'API."""
     profile = await _get_profile(session, id)
     models: list[str] = []
@@ -233,8 +237,11 @@ async def create_analysis(
     """Agent analista (specs/ai-analyst.md): pregunta → resposta amb dades font."""
     try:
         return await analyst_agent.answer_question(
-            session, body.question, scope=authz_ctx.scope,
-            user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+            session,
+            body.question,
+            scope=authz_ctx.scope,
+            user_id=authz_ctx.user.id,
+            trace_id=ctx.trace_id,
         )
     except providers.ProviderError as exc:
         raise Problem(502, "El proveïdor d'IA no ha respost", "upstream", detail=str(exc)) from None
@@ -252,7 +259,7 @@ async def stream_audit_report(
 ) -> StreamingResponse:
     """Streaming NDJSON de l'informe (07 §1.4): {type: delta|done|error}."""
 
-    async def generate():
+    async def generate() -> AsyncIterator[str]:
         try:
             async for event in audit_agent.stream_report(
                 session,
@@ -281,11 +288,14 @@ async def stream_analysis(
 ) -> StreamingResponse:
     """Streaming NDJSON de l'analista: {type: step|answer|error}."""
 
-    async def generate():
+    async def generate() -> AsyncIterator[str]:
         try:
             async for event in analyst_agent.answer_events(
-                session, body.question, scope=authz_ctx.scope,
-                user_id=authz_ctx.user.id, trace_id=ctx.trace_id
+                session,
+                body.question,
+                scope=authz_ctx.scope,
+                user_id=authz_ctx.user.id,
+                trace_id=ctx.trace_id,
             ):
                 yield _ndjson(event)
         except providers.ProviderError as exc:
@@ -364,18 +374,22 @@ async def subscribe_legal_norm(
         dedup_key="trigger:sync.boe_norms",
     )
     await record_audit(
-        session, actor_type=AuditActorType.USER, action="legal.norm_subscribed",
-        success=True, actor_id=authz_ctx.user.id, resource_type="legal",
-        resource_id=body.boe_id, ip=ctx.ip, user_agent=ctx.user_agent,
+        session,
+        actor_type=AuditActorType.USER,
+        action="legal.norm_subscribed",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type="legal",
+        resource_id=body.boe_id,
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
         trace_id=ctx.trace_id,
     )
     await session.commit()
     return {"boe_id": body.boe_id, "job_id": str(job.id)}
 
 
-@router.delete(
-    "/legal/norms/{boe_id}", operation_id="unsubscribeLegalNorm", status_code=204
-)
+@router.delete("/legal/norms/{boe_id}", operation_id="unsubscribeLegalNorm", status_code=204)
 async def unsubscribe_legal_norm(
     boe_id: Annotated[str, FastapiPath(min_length=10, max_length=30, pattern=r"^BOE-A-\d{4}-\d+$")],
     session: SessionDep,
@@ -397,13 +411,17 @@ async def unsubscribe_legal_norm(
         **(record.config or {}),
         "norm_ids": [n for n in norm_ids if n != boe_id],
     }
-    await session.execute(
-        sql_text("DELETE FROM legal_norms WHERE boe_id = :b"), {"b": boe_id}
-    )
+    await session.execute(sql_text("DELETE FROM legal_norms WHERE boe_id = :b"), {"b": boe_id})
     await record_audit(
-        session, actor_type=AuditActorType.USER, action="legal.norm_unsubscribed",
-        success=True, actor_id=authz_ctx.user.id, resource_type="legal",
-        resource_id=boe_id, ip=ctx.ip, user_agent=ctx.user_agent,
+        session,
+        actor_type=AuditActorType.USER,
+        action="legal.norm_unsubscribed",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type="legal",
+        resource_id=boe_id,
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
         trace_id=ctx.trace_id,
     )
     await session.commit()
@@ -416,8 +434,11 @@ async def sync_legal_norms(
     from app.jobs.service import enqueue_job
 
     job = await enqueue_job(
-        session, job_type="sync.boe_norms", payload={},
-        created_by=authz_ctx.user.id or None, dedup_key="sync.boe_norms",
+        session,
+        job_type="sync.boe_norms",
+        payload={},
+        created_by=authz_ctx.user.id or None,
+        dedup_key="sync.boe_norms",
     )
     await _audit(session, authz_ctx.user.id, "legal.norms_sync", "boe", ctx)
     await session.commit()
@@ -495,8 +516,11 @@ async def trigger_rag_index(
     from app.jobs.service import enqueue_job
 
     job = await enqueue_job(
-        session, job_type="rag.index", payload={},
-        created_by=authz_ctx.user.id or None, dedup_key="rag.index",
+        session,
+        job_type="rag.index",
+        payload={},
+        created_by=authz_ctx.user.id or None,
+        dedup_key="rag.index",
     )
     await _audit(session, authz_ctx.user.id, "rag.index_triggered", "rag", ctx)
     await session.commit()
@@ -517,9 +541,7 @@ async def search_rag(
 
 
 @router.post("/ai/audit/report/send-now", operation_id="sendAuditReportNow")
-async def send_audit_report_now(
-    _authz: AuditRunDep, session: SessionDep
-) -> dict[str, Any]:
+async def send_audit_report_now(_authz: AuditRunDep, session: SessionDep) -> dict[str, Any]:
     """Genera i envia l'informe mensual ara (mateix camí que el job)."""
     from app.ai import scheduled_reports
 
@@ -534,10 +556,7 @@ class TaskConfigBody(BaseModel):
 
 @router.get("/ai/tasks", operation_id="listAiTasks")
 async def list_ai_tasks(session: SessionDep, _authz: WriteDep) -> dict[str, list[dict[str, Any]]]:
-    configs = {
-        c.task: c
-        for c in (await session.execute(select(AiTaskConfig))).scalars()
-    }
+    configs = {c.task: c for c in (await session.execute(select(AiTaskConfig))).scalars()}
     data = []
     for task, description in ai_tasks.KNOWN_TASKS.items():
         config = configs.get(task)

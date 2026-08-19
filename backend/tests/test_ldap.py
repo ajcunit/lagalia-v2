@@ -138,9 +138,7 @@ class FakeConnector:
         return self.profile
 
 
-def _patch_connector(
-    monkeypatch: pytest.MonkeyPatch, connector: FakeConnector | None
-) -> None:
+def _patch_connector(monkeypatch: pytest.MonkeyPatch, connector: FakeConnector | None) -> None:
     async def _fake_resolve(session: Any) -> FakeConnector | None:
         return connector
 
@@ -171,9 +169,7 @@ async def ldap_fixture() -> Any:
             {"g": role_group},
         )
         await conn.execute(
-            text(
-                "INSERT INTO ldap_group_mappings (ad_group, department_id) VALUES (:g, :d)"
-            ),
+            text("INSERT INTO ldap_group_mappings (ad_group, department_id) VALUES (:g, :d)"),
             {"g": dept_group, "d": dept_id},
         )
     email = f"ldap-{uuid4().hex[:10]}@cunit.cat"
@@ -222,9 +218,7 @@ async def test_ldap_login_provisions_role_and_departments(
     async with engine.connect() as conn:
         row = (
             await conn.execute(
-                text(
-                    "SELECT id, role, password_hash FROM users WHERE email = :e"
-                ),
+                text("SELECT id, role, password_hash FROM users WHERE email = :e"),
                 {"e": ldap_fixture["email"]},
             )
         ).one()
@@ -422,7 +416,5 @@ async def test_mapping_rules_crud(api_client: TestClient, make_user: MakeUser) -
     assert listed.status_code == 200
     assert any(row["id"] == mapping_id for row in listed.json()["data"])
 
-    deleted = api_client.delete(
-        f"/api/v1/ldap/group-mappings/{mapping_id}", headers=headers
-    )
+    deleted = api_client.delete(f"/api/v1/ldap/group-mappings/{mapping_id}", headers=headers)
     assert deleted.status_code == 204

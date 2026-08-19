@@ -41,9 +41,7 @@ MAPPABLE_FIELDS: dict[str, FieldDef] = {
     "procedure": FieldDef("procediment", "text", "Procediment"),
     "processing_type": FieldDef("tipus_tramitacio", "text", "Tipus de tramitació"),
     "awarding_body": FieldDef("nom_organ", "text", "Òrgan adjudicador"),
-    "awarding_department": FieldDef(
-        "departament_adjudicador", "text", "Departament adjudicador"
-    ),
+    "awarding_department": FieldDef("departament_adjudicador", "text", "Departament adjudicador"),
     "tender_amount": FieldDef("valor_estimat_contracte", "amount", "Valor estimat (contracte)"),
     "award_amount": FieldDef("import_adjudicacio_sense", "amount", "Import adjudicació"),
     "award_amount_vat": FieldDef(
@@ -228,9 +226,7 @@ _KIND_PARSERS = {
 }
 
 
-def map_contract(
-    record: dict[str, Any], overrides: dict[str, str] | None = None
-) -> dict[str, Any]:
+def map_contract(record: dict[str, Any], overrides: dict[str, str] | None = None) -> dict[str, Any]:
     """Valors de columna de `contracts` segons A1 (sense l'adjudicatari,
     que resol el servei de contractors). `overrides` = camp font manual
     per destí (field_mappings)."""
@@ -248,6 +244,8 @@ def map_contract(
     duration_raw = record.get(src("duration_months"))
     duration_range = parse_duration_range(duration_raw)
     formalized_at = values["formalized_at"]
+    start_date: date | None
+    end_date: date | None
     if duration_range is not None:
         # A1 §3 (ampliació): el rang mana sobre el càlcul formalització+durada.
         start_date, end_date = duration_range

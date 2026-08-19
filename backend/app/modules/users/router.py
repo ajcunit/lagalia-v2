@@ -137,9 +137,9 @@ async def get_my_notices(
     contracts = (
         await session.execute(
             sql_text(
-                "SELECT count(*) FILTER (WHERE c.expiry_warning) AS expiring, "
+                "SELECT count(*) FILTER (WHERE c.expiry_warning) AS expiring, "  # noqa: S608
                 "count(*) FILTER (WHERE c.internal_status = 'pending_review') AS pending "
-                f"FROM contracts c WHERE true{scope_sql}"
+                f"FROM contracts c WHERE true{scope_sql}"  # scope_sql: literal fix
             ),
             params,
         )

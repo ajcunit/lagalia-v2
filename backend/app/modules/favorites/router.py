@@ -158,9 +158,7 @@ async def update_folder(
 
 
 @router.delete("/folders/{id}", operation_id="deleteFolder", status_code=204)
-async def delete_folder(
-    id: int, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
-) -> None:
+async def delete_folder(id: int, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep) -> None:
     folder = await _own_folder(session, id, authz_ctx.user.id)
     await session.delete(folder)
     await _audit(session, authz_ctx.user.id, "favorites.folder_deleted", str(id), ctx)
@@ -177,9 +175,7 @@ async def list_favorites(
             select(Favorite).where(Favorite.folder_id == id).order_by(Favorite.created_at.desc())
         )
     ).scalars()
-    return {
-        "data": [FavoriteResponse.model_validate(f, from_attributes=True) for f in favorites]
-    }
+    return {"data": [FavoriteResponse.model_validate(f, from_attributes=True) for f in favorites]}
 
 
 @router.post("/folders/{id}/favorites", operation_id="addFavorite", status_code=201)
@@ -240,4 +236,3 @@ async def remove_favorite(
     await session.delete(favorite)
     await _audit(session, authz_ctx.user.id, "favorites.removed", favorite.file_code, ctx)
     await session.commit()
-

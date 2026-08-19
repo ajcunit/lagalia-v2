@@ -3,6 +3,8 @@
 import pytest
 
 pytestmark = pytest.mark.anyio
+
+
 def test_sql_select_validation() -> None:
     """Validació dura de la consulta lliure (specs/ai-analyst.md)."""
     import pytest as _pytest
@@ -50,7 +52,7 @@ async def test_sql_select_readonly_and_schema(api_client, make_user) -> None:  #
     async with session_factory() as session:
         rows = await sql_select(
             session,
-            {"sql": f"SELECT file_code, award_amount FROM contracts WHERE file_code = 'SQL/{tag}'"},
+            {"sql": f"SELECT file_code, award_amount FROM contracts WHERE file_code = 'SQL/{tag}'"},  # noqa: S608
         )
         assert rows and str(rows[0]["award_amount"]).startswith("1234")
 
@@ -111,11 +113,15 @@ async def test_tools_respect_departmental_scope(api_client, make_user) -> None: 
             )
         ).scalar_one()
         await session.execute(
-            sql_text("INSERT INTO contract_departments (contract_id, department_id) VALUES (:c, :d)"),
+            sql_text(
+                "INSERT INTO contract_departments (contract_id, department_id) VALUES (:c, :d)"
+            ),
             {"c": mine, "d": dept_a},
         )
         await session.execute(
-            sql_text("INSERT INTO contract_departments (contract_id, department_id) VALUES (:c, :d)"),
+            sql_text(
+                "INSERT INTO contract_departments (contract_id, department_id) VALUES (:c, :d)"
+            ),
             {"c": other, "d": dept_b},
         )
         await session.commit()

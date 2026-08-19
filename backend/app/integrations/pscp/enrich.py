@@ -45,9 +45,7 @@ async def _indexable_phases(session: AsyncSession) -> set[str] | None:
     from app.modules.config.models import Setting
 
     setting = (
-        await session.execute(
-            select(Setting).where(Setting.key == "rag.indexable_phases")
-        )
+        await session.execute(select(Setting).where(Setting.key == "rag.indexable_phases"))
     ).scalar_one_or_none()
     if setting is None or not setting.value:
         return None
@@ -226,8 +224,11 @@ async def enrich_contract(ctx: JobContext) -> dict[str, Any]:
             return {"skipped": True, "reason": "sense phase_urls"}
         async with connector.client() as client:
             result = await _enrich_one(
-                session, client, contract,
-                download_documents=download_documents, overrides=overrides,
+                session,
+                client,
+                contract,
+                download_documents=download_documents,
+                overrides=overrides,
             )
         await session.commit()
     logger.info("enrich_contract_finished", contract_id=contract_id, **result)
@@ -269,8 +270,11 @@ async def enrich_batch(ctx: JobContext) -> dict[str, Any]:
                     try:
                         already = contract.enriched_at is not None
                         await _enrich_one(
-                            session, client, contract,
-                            download_documents=download_documents, overrides=overrides,
+                            session,
+                            client,
+                            contract,
+                            download_documents=download_documents,
+                            overrides=overrides,
                         )
                         await session.commit()
                         counters["updated" if already else "new"] += 1

@@ -27,9 +27,7 @@ async def _run_purge() -> dict[str, Any]:
     async def set_progress(pct: int, message: str | None) -> None:
         pass
 
-    return await retention.purge(
-        JobContext(job_id=uuid4(), payload={}, set_progress=set_progress)
-    )
+    return await retention.purge(JobContext(job_id=uuid4(), payload={}, set_progress=set_progress))
 
 
 async def test_purge_ai_runs_and_audit_trail() -> None:
@@ -39,7 +37,7 @@ async def test_purge_ai_runs_and_audit_trail() -> None:
         # de hash, així que la inserció crua és vàlida.
         await session.execute(
             text(
-                "INSERT INTO ai_runs (task, status, created_at) VALUES "
+                "INSERT INTO ai_runs (task, status, created_at) VALUES "  # noqa: S608
                 f"('purga-{tag}', 'success', now() - interval '700 days'), "
                 f"('purga-{tag}', 'success', now())"
             )
@@ -65,9 +63,7 @@ async def test_purge_ai_runs_and_audit_trail() -> None:
                 )
             )
         ).scalar_one_or_none()
-        await session.execute(
-            text("DELETE FROM ai_runs WHERE task = :t"), {"t": f"purga-{tag}"}
-        )
+        await session.execute(text("DELETE FROM ai_runs WHERE task = :t"), {"t": f"purga-{tag}"})
         await session.commit()
 
     assert remaining == 1  # la caducada fora, la recent intacta

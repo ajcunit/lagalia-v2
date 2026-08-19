@@ -157,9 +157,7 @@ async def _upsert_record(
         existing.last_synced_at = now
         return "unchanged"
 
-    contractor = await resolve_contractor(
-        session, **mapping.contractor_fields(record, overrides)
-    )
+    contractor = await resolve_contractor(session, **mapping.contractor_fields(record, overrides))
     if contractor is not None:
         values["contractor_id"] = contractor.contractor_id
         values["raw_contractor_name"] = contractor.raw_name

@@ -122,9 +122,7 @@ async def test_subscribe_and_unsubscribe_norm(api_client, make_user) -> None:  #
 
     async with session_factory() as session:
         config = (
-            await session.execute(
-                sql_text("SELECT config FROM connectors WHERE slug = 'boe'")
-            )
+            await session.execute(sql_text("SELECT config FROM connectors WHERE slug = 'boe'"))
         ).scalar_one()
     assert "BOE-A-2011-17887" in (config or {}).get("norm_ids", [])
 
@@ -149,29 +147,23 @@ async def test_subscribe_and_unsubscribe_norm(api_client, make_user) -> None:  #
 
     # Baixa: fora de la config i índex esborrat (chunks per CASCADE).
     assert (
-        api_client.delete("/api/v1/legal/norms/BOE-A-2011-17887", headers=admin).status_code
-        == 204
+        api_client.delete("/api/v1/legal/norms/BOE-A-2011-17887", headers=admin).status_code == 204
     )
     async with session_factory() as session:
         config = (
-            await session.execute(
-                sql_text("SELECT config FROM connectors WHERE slug = 'boe'")
-            )
+            await session.execute(sql_text("SELECT config FROM connectors WHERE slug = 'boe'"))
         ).scalar_one()
         remaining = (
             await session.execute(
                 sql_text("SELECT count(*) FROM legal_norms WHERE boe_id = 'BOE-A-2011-17887'")
             )
         ).scalar_one()
-        await session.execute(
-            sql_text("DELETE FROM jobs WHERE type = 'sync.boe_norms'")
-        )
+        await session.execute(sql_text("DELETE FROM jobs WHERE type = 'sync.boe_norms'"))
         await session.commit()
     assert "BOE-A-2011-17887" not in (config or {}).get("norm_ids", [])
     assert remaining == 0
 
     # Norma no subscrita → 404.
     assert (
-        api_client.delete("/api/v1/legal/norms/BOE-A-1999-99999", headers=admin).status_code
-        == 404
+        api_client.delete("/api/v1/legal/norms/BOE-A-1999-99999", headers=admin).status_code == 404
     )

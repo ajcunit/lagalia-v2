@@ -213,15 +213,15 @@ async def search(
     by_id = {row.id: row for row in rows}
     return [
         {
-            "chunk_id": row.id,
-            "content": row.content,
-            "chunk_index": row.chunk_index,
-            "document_title": row.title,
-            "doc_type": row.doc_type,
-            "phase": str(row.phase),
-            "file_code": row.file_code,
-            "contract_id": row.contract_id,
+            "chunk_id": hit.id,
+            "content": hit.content,
+            "chunk_index": hit.chunk_index,
+            "document_title": hit.title,
+            "doc_type": hit.doc_type,
+            "phase": str(hit.phase),
+            "file_code": hit.file_code,
+            "contract_id": hit.contract_id,
         }
         for cid in top_ids
-        if (row := by_id.get(cid)) is not None
+        if (hit := by_id.get(cid)) is not None
     ]

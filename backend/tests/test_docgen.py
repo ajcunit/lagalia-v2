@@ -73,9 +73,7 @@ async def test_docgen_flow(api_client, make_user, monkeypatch: pytest.MonkeyPatc
     async with session_factory() as session:
         enabled_ids = list(
             (
-                await session.execute(
-                    text("SELECT id FROM ai_provider_profiles WHERE enabled")
-                )
+                await session.execute(text("SELECT id FROM ai_provider_profiles WHERE enabled"))
             ).scalars()
         )
         await session.execute(text("UPDATE ai_provider_profiles SET enabled = false"))
@@ -100,8 +98,12 @@ async def test_docgen_flow(api_client, make_user, monkeypatch: pytest.MonkeyPatc
         f"/api/v1/doc-projects/{pid}/documents/PPT",
         json={
             "sections": [
-                {"title": "Objecte", "instructions": "", "content_md": "Text **fort**",
-                 "sources": []}
+                {
+                    "title": "Objecte",
+                    "instructions": "",
+                    "content_md": "Text **fort**",
+                    "sources": [],
+                }
             ]
         },
         headers=mine,
@@ -124,9 +126,9 @@ async def test_concurrent_section_drafts_do_not_clobber(
     redacció ha desat mentre aquesta streamejava (last-writer-wins)."""
     owner = await make_user("employee")
     mine = login_headers(api_client, owner.email)
-    pid = api_client.post(
-        "/api/v1/doc-projects", json={"name": "Concurrent"}, headers=mine
-    ).json()["id"]
+    pid = api_client.post("/api/v1/doc-projects", json={"name": "Concurrent"}, headers=mine).json()[
+        "id"
+    ]
     api_client.patch(
         f"/api/v1/doc-projects/{pid}/documents/PPT",
         json={

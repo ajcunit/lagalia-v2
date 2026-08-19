@@ -7,6 +7,7 @@ historial (analyst_agent.answer_events).
 """
 
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
@@ -30,56 +31,76 @@ _SYSTEM = (
 async def _contract_context(session: AsyncSession, contract_id: int) -> dict[str, Any]:
     """Resum estructurat de l'expedient per al context del model."""
     contract = (
-        await session.execute(
-            text(
-                "SELECT file_code, status, lot, subject, contract_type, procedure, "
-                "processing_type, awarding_department, tender_amount, award_amount, "
-                "award_amount_vat, budget_no_vat, budget_vat, published_at, "
-                "formalized_at, start_date, end_date, calculated_end_date, "
-                "duration_months, cpv_code, cpv_description, received_offers, "
-                "is_harmonized, allows_extensions, allows_modifications "
-                "FROM contracts WHERE id = :i"
-            ),
-            {"i": contract_id},
+        (
+            await session.execute(
+                text(
+                    "SELECT file_code, status, lot, subject, contract_type, procedure, "
+                    "processing_type, awarding_department, tender_amount, award_amount, "
+                    "award_amount_vat, budget_no_vat, budget_vat, published_at, "
+                    "formalized_at, start_date, end_date, calculated_end_date, "
+                    "duration_months, cpv_code, cpv_description, received_offers, "
+                    "is_harmonized, allows_extensions, allows_modifications "
+                    "FROM contracts WHERE id = :i"
+                ),
+                {"i": contract_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     extensions = (
-        await session.execute(
-            text(
-                "SELECT number, start_date, end_date, amount FROM extensions "
-                "WHERE contract_id = :i ORDER BY number"
-            ),
-            {"i": contract_id},
+        (
+            await session.execute(
+                text(
+                    "SELECT number, start_date, end_date, amount FROM extensions "
+                    "WHERE contract_id = :i ORDER BY number"
+                ),
+                {"i": contract_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     modifications = (
-        await session.execute(
-            text(
-                "SELECT number, approved_at, type, amount FROM modifications "
-                "WHERE contract_id = :i ORDER BY number"
-            ),
-            {"i": contract_id},
+        (
+            await session.execute(
+                text(
+                    "SELECT number, approved_at, type, amount FROM modifications "
+                    "WHERE contract_id = :i ORDER BY number"
+                ),
+                {"i": contract_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     criteria = (
-        await session.execute(
-            text(
-                "SELECT position, name, weight FROM award_criteria "
-                "WHERE contract_id = :i ORDER BY position"
-            ),
-            {"i": contract_id},
+        (
+            await session.execute(
+                text(
+                    "SELECT position, name, weight FROM award_criteria "
+                    "WHERE contract_id = :i ORDER BY position"
+                ),
+                {"i": contract_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     committee = (
-        await session.execute(
-            text(
-                "SELECT first_name, last_name, role FROM committee_members "
-                "WHERE contract_id = :i"
-            ),
-            {"i": contract_id},
+        (
+            await session.execute(
+                text(
+                    "SELECT first_name, last_name, role FROM committee_members "
+                    "WHERE contract_id = :i"
+                ),
+                {"i": contract_id},
+            )
         )
-    ).mappings().all()
-    return jsonable_encoder(
+        .mappings()
+        .all()
+    )
+    context: dict[str, Any] = jsonable_encoder(
         {
             "contracte": dict(contract) if contract else {},
             "prorrogues": [dict(r) for r in extensions],
@@ -88,6 +109,7 @@ async def _contract_context(session: AsyncSession, contract_id: int) -> dict[str
             "mesa_contractacio": [dict(r) for r in committee],
         }
     )
+    return context
 
 
 async def _document_ids(
@@ -95,9 +117,7 @@ async def _document_ids(
 ) -> list[int]:
     """Documents indexats de l'expedient; si es demana un document concret,
     només aquell (validat contra el contracte: mai un document d'un altre)."""
-    query = (
-        "SELECT id FROM phase_documents WHERE contract_id = :i AND indexed_at IS NOT NULL"
-    )
+    query = "SELECT id FROM phase_documents WHERE contract_id = :i AND indexed_at IS NOT NULL"
     params: dict[str, int] = {"i": contract_id}
     if document_id is not None:
         query += " AND id = :d"
@@ -124,7 +144,7 @@ async def contract_chat_events(
     document_id: int | None = None,
     user_id: int | None = None,
     trace_id: str | None = None,
-):
+) -> AsyncIterator[dict[str, Any]]:
     """Streaming NDJSON: sources → thinking/delta → (el caller emet done).
 
     `document_id` acota la conversa a UN document de l'expedient: la
@@ -174,8 +194,7 @@ async def contract_chat_events(
             "content": (
                 f"<expedient>\n{json.dumps(context, ensure_ascii=False)}\n</expedient>\n\n"
                 f"<documents>\n{documents_block or '(cap document indexat)'}\n</documents>\n\n"
-                "A partir d'ara respon les preguntes sobre aquest expedient."
-                + focus_note
+                "A partir d'ara respon les preguntes sobre aquest expedient." + focus_note
             ),
         },
         {

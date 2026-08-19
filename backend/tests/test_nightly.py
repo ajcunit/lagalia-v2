@@ -51,9 +51,7 @@ def test_nightly_due_respects_local_time_and_days() -> None:
     # Dia no actiu (dimecres = 3) → no toca encara que l'hora hagi passat.
     assert nightly.nightly_due(after, days_raw="[1, 2]", **common) is False
     # Desactivada → mai.
-    assert (
-        nightly.nightly_due(after, enabled_raw="false", time_raw="02:30", days_raw=None) is False
-    )
+    assert nightly.nightly_due(after, enabled_raw="false", time_raw="02:30", days_raw=None) is False
 
 
 async def test_nightly_chain_runs_in_order_and_survives_failures(

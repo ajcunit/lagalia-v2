@@ -96,7 +96,8 @@ async def test_external_ref_flow_and_isolation(
 
     monkeypatch.setattr(project_refs.hub, "get_connector", fake_get_connector)
     monkeypatch.setattr(
-        project_refs.rag, "extract_text",
+        project_refs.rag,
+        "extract_text",
         lambda content: "Plec extern de vigilància i seguretat d'edificis. " * 30,
     )
 
@@ -142,9 +143,7 @@ async def test_external_ref_flow_and_isolation(
         await session.commit()
 
 
-async def test_upload_local_pdf(
-    api_client, make_user, monkeypatch: pytest.MonkeyPatch
-) -> None:  # type: ignore[no-untyped-def]
+async def test_upload_local_pdf(api_client, make_user, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
     """Pujada d'un PDF propi: validacions, storage directe i indexació sense
     descàrrega (specs/docgen-external-refs.md, ampliació 2026-08-17)."""
     owner = await make_user("employee")
@@ -152,9 +151,9 @@ async def test_upload_local_pdf(
     await _enable_fake_embeddings()
     monkeypatch.setattr(providers, "_transport", _embedding_transport())
 
-    pid = api_client.post(
-        "/api/v1/doc-projects", json={"name": "Pujades"}, headers=mine
-    ).json()["id"]
+    pid = api_client.post("/api/v1/doc-projects", json={"name": "Pujades"}, headers=mine).json()[
+        "id"
+    ]
 
     stored: dict[str, bytes] = {}
 
@@ -201,10 +200,7 @@ async def test_upload_local_pdf(
     async with session_factory() as session:
         row = (
             await session.execute(
-                text(
-                    "SELECT title, source_url, storage_key FROM project_documents "
-                    "WHERE id = :i"
-                ),
+                text("SELECT title, source_url, storage_key FROM project_documents WHERE id = :i"),
                 {"i": ref_id},
             )
         ).first()
@@ -217,7 +213,8 @@ async def test_upload_local_pdf(
 
     monkeypatch.setattr(project_refs.hub, "get_connector", no_connector)
     monkeypatch.setattr(
-        project_refs.rag, "extract_text",
+        project_refs.rag,
+        "extract_text",
         lambda content: "Memòria tècnica pròpia del servei municipal. " * 30,
     )
 

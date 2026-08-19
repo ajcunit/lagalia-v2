@@ -48,7 +48,8 @@ def machine_principal(account: "ServiceAccount") -> User:
         can_plan=False,
     )
     principal.id = 0  # sense identitat d'usuari real
-    principal.is_machine = True
+    # Marca dinàmica de màquina (no és columna del model).
+    principal.is_machine = True  # type: ignore[attr-defined]
     return principal
 
 

@@ -89,9 +89,7 @@ async def index_external(ctx: JobContext) -> dict[str, Any]:
             vectors: list[list[float]] = []
             for start in range(0, len(chunks), _EMBED_BATCH):
                 batch = chunks[start : start + _EMBED_BATCH]
-                vectors.extend(
-                    await providers.embed(resolved.profile, batch, model=resolved.model)
-                )
+                vectors.extend(await providers.embed(resolved.profile, batch, model=resolved.model))
             await session.execute(
                 text("DELETE FROM project_chunks WHERE project_document_id = :id"),
                 {"id": ref_id},
@@ -134,9 +132,7 @@ async def purge_expired(ctx: JobContext) -> dict[str, Any]:
     async with session_factory() as session:
         rows = (
             await session.execute(
-                text(
-                    "SELECT id, storage_key FROM project_documents WHERE expires_at < now()"
-                )
+                text("SELECT id, storage_key FROM project_documents WHERE expires_at < now()")
             )
         ).all()
         for row in rows:

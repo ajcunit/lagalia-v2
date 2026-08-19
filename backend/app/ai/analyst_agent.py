@@ -7,6 +7,7 @@ final arriba token a token a la UI.
 
 import json
 import re
+from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
@@ -48,9 +49,7 @@ def _parse_first_json(content: str) -> Any:
     return value
 
 
-async def _run_tool(
-    session: AsyncSession, action: Any, scope: Any = None
-) -> tuple[str, Any, Any]:
+async def _run_tool(session: AsyncSession, action: Any, scope: Any = None) -> tuple[str, Any, Any]:
     tool_name = str(action.get("tool", "")) if isinstance(action, dict) else ""
     args = action.get("args") or {} if isinstance(action, dict) else {}
     if isinstance(args, dict):
@@ -87,7 +86,7 @@ async def answer_events(
     scope: Any = None,
     user_id: int | None = None,
     trace_id: str | None = None,
-):
+) -> AsyncIterator[dict[str, Any]]:
     """Streaming NDJSON: {"type": "step"|"delta"|"thinking"|"done"}.
 
     Cada iteració LLM s'emet en streaming: si comença per '{' és una crida

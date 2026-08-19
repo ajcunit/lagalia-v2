@@ -82,9 +82,7 @@ async def test_field_mapping_api_and_remap(api_client, make_user) -> None:  # ty
     assert "contractor.name" in rows
 
     # Font sense mapejador → 404; escriptura sense permís → 403.
-    assert (
-        api_client.get("/api/v1/field-mappings/smtp", headers=admin).status_code == 404
-    )
+    assert api_client.get("/api/v1/field-mappings/smtp", headers=admin).status_code == 404
     assert (
         api_client.put(
             "/api/v1/field-mappings/socrata/subject",
@@ -121,9 +119,7 @@ async def test_field_mapping_api_and_remap(api_client, make_user) -> None:  # ty
 
     # L'override persistit surt al llistat i s'aplica al mapeig.
     listing2 = api_client.get("/api/v1/field-mappings/socrata", headers=admin)
-    subject_row = next(
-        r for r in listing2.json()["data"] if r["target_field"] == "subject"
-    )
+    subject_row = next(r for r in listing2.json()["data"] if r["target_field"] == "subject")
     assert subject_row["source_field"] == "denominacio"
     assert subject_row["overridden"] is True
 
@@ -210,29 +206,19 @@ async def test_field_mapping_api_and_remap(api_client, make_user) -> None:  # ty
     queued = api_client.post("/api/v1/field-mappings/socrata/actions/remap", headers=admin)
     assert queued.status_code == 202, queued.text
     assert (
-        api_client.post(
-            "/api/v1/field-mappings/smtp/actions/remap", headers=admin
-        ).status_code
+        api_client.post("/api/v1/field-mappings/smtp/actions/remap", headers=admin).status_code
         == 404
     )
 
-    reset = api_client.delete(
-        "/api/v1/field-mappings/socrata/subject", headers=admin
-    )
+    reset = api_client.delete("/api/v1/field-mappings/socrata/subject", headers=admin)
     assert reset.status_code == 204
     listing3 = api_client.get("/api/v1/field-mappings/socrata", headers=admin)
-    subject_after = next(
-        r for r in listing3.json()["data"] if r["target_field"] == "subject"
-    )
+    subject_after = next(r for r in listing3.json()["data"] if r["target_field"] == "subject")
     assert subject_after["overridden"] is False
 
     async with session_factory() as session:
-        await session.execute(
-            text("DELETE FROM contracts WHERE id = :i"), {"i": contract_id}
-        )
-        await session.execute(
-            text("DELETE FROM jobs WHERE type = 'sync.remap_contracts'")
-        )
+        await session.execute(text("DELETE FROM contracts WHERE id = :i"), {"i": contract_id})
+        await session.execute(text("DELETE FROM jobs WHERE type = 'sync.remap_contracts'"))
         await session.commit()
 
 
@@ -401,9 +387,7 @@ async def test_field_mapping_sources_api(api_client, make_user) -> None:  # type
                 {"i": minor_id},
             )
         ).first()
-        await session.execute(
-            text("DELETE FROM minor_contracts WHERE id = :i"), {"i": minor_id}
-        )
+        await session.execute(text("DELETE FROM minor_contracts WHERE id = :i"), {"i": minor_id})
         await session.execute(
             text("DELETE FROM jobs WHERE type IN ('sync.remap_rpc', 'enrich.batch')")
         )

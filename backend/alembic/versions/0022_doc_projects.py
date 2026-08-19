@@ -31,9 +31,7 @@ def upgrade() -> None:
             index=True,
         ),
         sa.Column("name", sa.String(200), nullable=False),
-        sa.Column(
-            "reference_doc_ids", postgresql.JSONB(), server_default="[]", nullable=False
-        ),
+        sa.Column("reference_doc_ids", postgresql.JSONB(), server_default="[]", nullable=False),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),

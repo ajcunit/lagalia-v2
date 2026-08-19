@@ -114,9 +114,7 @@ async def test_sweep_frees_stale_queued() -> None:
     assert result["swept"] >= 1
     async with session_factory() as session:
         status = (
-            await session.execute(
-                text("SELECT status FROM jobs WHERE id = :i"), {"i": stale_id}
-            )
+            await session.execute(text("SELECT status FROM jobs WHERE id = :i"), {"i": stale_id})
         ).scalar_one()
         await session.execute(text("DELETE FROM jobs WHERE id = :i"), {"i": stale_id})
         await session.commit()
@@ -168,8 +166,7 @@ async def test_requeue_endpoint(api_client, make_user) -> None:  # type: ignore[
 
     # Un job amb èxit no es re-encua.
     assert (
-        api_client.post(f"/api/v1/jobs/{ok_id}/actions/requeue", headers=admin).status_code
-        == 409
+        api_client.post(f"/api/v1/jobs/{ok_id}/actions/requeue", headers=admin).status_code == 409
     )
 
     async with session_factory() as session:

@@ -48,10 +48,7 @@ def _embedding_transport() -> httpx.MockTransport:
         payload = _json.loads(request.read())
         texts = payload["input"]
         # Vector determinista de dimensió 4 segons el contingut.
-        data = [
-            {"embedding": [len(t) % 7 / 10, t.count("neteja") / 2, 0.1, 0.2]}
-            for t in texts
-        ]
+        data = [{"embedding": [len(t) % 7 / 10, t.count("neteja") / 2, 0.1, 0.2]} for t in texts]
         return httpx.Response(200, json={"data": data, "usage": {"prompt_tokens": 1}})
 
     return httpx.MockTransport(handler)
@@ -87,9 +84,11 @@ async def test_index_and_search(monkeypatch: pytest.MonkeyPatch, api_client, mak
         await session.commit()
 
     # Injecta el text directament (sense PDF): monkeypatch d'extract i storage.
-    monkeypatch.setattr(rag, "extract_text", lambda content: (
-        "Plec de prescripcions del servei de neteja d'edificis municipals. " * 40
-    ))
+    monkeypatch.setattr(
+        rag,
+        "extract_text",
+        lambda content: "Plec de prescripcions del servei de neteja d'edificis municipals. " * 40,
+    )
 
     class DummyStorage:
         async def get(self, key: str) -> bytes:

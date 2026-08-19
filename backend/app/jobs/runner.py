@@ -70,8 +70,11 @@ async def execute_job(job_row_id: str) -> None:
             delay = policy.delay_for(attempts)
             await _retry_later(job_id, attempts, policy.max_attempts, delay, exc)
             log.warning(
-                "job_retry_scheduled", attempt=attempts,
-                max_attempts=policy.max_attempts, delay_seconds=delay, error=str(exc),
+                "job_retry_scheduled",
+                attempt=attempts,
+                max_attempts=policy.max_attempts,
+                delay_seconds=delay,
+                error=str(exc),
             )
             return
         terminal = JobStatus.DEAD if policy.max_attempts > 1 else JobStatus.FAILED
@@ -118,13 +121,9 @@ async def _retry_later(
         job.status = JobStatus.QUEUED
         job.error = f"{type(exc).__name__}: {exc}"
         job.progress = 0
-        job.progress_message = (
-            f"reintent {attempt + 1}/{max_attempts} d'aquí a {delay}s"
-        )
+        job.progress_message = f"reintent {attempt + 1}/{max_attempts} d'aquí a {delay}s"
         await session.commit()
     from app.jobs.service import enqueue_arq_retry
 
     await enqueue_arq_retry(job_id, attempt=attempt, delay_seconds=delay)
-    await events.publish_event(
-        job_id, {"status": "queued", "progress": 0, "attempt": attempt + 1}
-    )
+    await events.publish_event(job_id, {"status": "queued", "progress": 0, "attempt": attempt + 1})

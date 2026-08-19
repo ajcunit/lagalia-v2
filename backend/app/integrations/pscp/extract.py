@@ -40,9 +40,7 @@ PSCP_FIELDS: dict[str, PscpField] = {
     "allows_modifications": PscpField(
         f"{_DADES}.preveuenModificacionsAlsPlecs", "raw", "Preveu modificacions", ("licitacio",)
     ),
-    "social_reserve": PscpField(
-        f"{_LOT}.reservaSocial", "bool", "Reserva social", ("licitacio",)
-    ),
+    "social_reserve": PscpField(f"{_LOT}.reservaSocial", "bool", "Reserva social", ("licitacio",)),
     "definitive_guarantee": PscpField(
         f"{_LOT}.garantiaDefinitiva", "text", "Garantia definitiva", ("licitacio",)
     ),
@@ -52,9 +50,7 @@ PSCP_FIELDS: dict[str, PscpField] = {
     "award_amount": PscpField(
         f"{_LOT}.importAdjudicacio", "raw", "Import d'adjudicació", _AWARD_PHASES
     ),
-    "award_date": PscpField(
-        f"{_LOT}.dataAdjudicacio", "raw", "Data d'adjudicació", _AWARD_PHASES
-    ),
+    "award_date": PscpField(f"{_LOT}.dataAdjudicacio", "raw", "Data d'adjudicació", _AWARD_PHASES),
     "winner_name": PscpField(
         f"{_LOT}.empresesAdjudicataries[0].denominacio", "text", "Adjudicatari", _AWARD_PHASES
     ),
@@ -289,9 +285,7 @@ def extract_scalars(
         if phase_name not in definition.phases:
             continue
         path = effective.get(target) or definition.path
-        raw_value = (
-            _find_scalar(phase, path[1:]) if path.startswith("~") else path_get(phase, path)
-        )
+        raw_value = _find_scalar(phase, path[1:]) if path.startswith("~") else path_get(phase, path)
         value = _convert(raw_value, definition.kind)
         if value is not None:
             scalars[target] = value

@@ -45,9 +45,7 @@ async def test_audit_log_api(api_client, make_user) -> None:  # type: ignore[no-
         assert all(e["id"] < min(ids) for e in page2.json()["data"])
 
     # Només admin (A2): employee → 403.
-    denied = api_client.get(
-        "/api/v1/audit-log", headers=login_headers(api_client, employee.email)
-    )
+    denied = api_client.get("/api/v1/audit-log", headers=login_headers(api_client, employee.email))
     assert denied.status_code == 403
 
     # Verificació de la cadena sencera sobre la BD real.

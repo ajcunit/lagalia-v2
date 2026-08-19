@@ -64,9 +64,7 @@ async def test_public_registry_api_guards(api_client, make_user) -> None:  # typ
 
     async with session_factory() as session:
         await hub.ensure_registered(session, "pscp")
-        await session.execute(
-            sql_text("UPDATE connectors SET enabled = true WHERE slug = 'pscp'")
-        )
+        await session.execute(sql_text("UPDATE connectors SET enabled = true WHERE slug = 'pscp'"))
         await session.commit()
 
     # Fase amb URL fora del domini del connector pscp → 422 (anti-SSRF), sense xarxa.
@@ -136,23 +134,43 @@ async def test_contractor_analysis_endpoint(
             select = params["$select"]
             if "$group" not in params:
                 if "expedients_formalitzats" in select:
-                    return [{"expedients_formalitzats": "8", "import_total": "100000",
-                             "import_mitja": "12500"}]
-                return [{"expedients": "12", "organs": "3",
-                         "primera": "2020-01-01T00:00:00.000",
-                         "darrera": "2026-06-01T00:00:00.000"}]
+                    return [
+                        {
+                            "expedients_formalitzats": "8",
+                            "import_total": "100000",
+                            "import_mitja": "12500",
+                        }
+                    ]
+                return [
+                    {
+                        "expedients": "12",
+                        "organs": "3",
+                        "primera": "2020-01-01T00:00:00.000",
+                        "darrera": "2026-06-01T00:00:00.000",
+                    }
+                ]
             if "nom_organ" in select and "import_total" in select:
-                return [{"nom_organ": "Ajuntament de Cunit",
-                         "expedients_formalitzats": "6",
-                         "import_total": "60000", "import_mitja": "10000"}]
+                return [
+                    {
+                        "nom_organ": "Ajuntament de Cunit",
+                        "expedients_formalitzats": "6",
+                        "import_total": "60000",
+                        "import_mitja": "10000",
+                    }
+                ]
             if "nom_organ" in select:
                 return [
                     {"nom_organ": "Ajuntament de Cunit", "expedients": "9"},
                     {"nom_organ": "Ajuntament de Calafell", "expedients": "3"},
                 ]
             if "import_total" in select:
-                return [{"tipus_contracte": "Serveis", "expedients_formalitzats": "8",
-                         "import_total": "100000"}]
+                return [
+                    {
+                        "tipus_contracte": "Serveis",
+                        "expedients_formalitzats": "8",
+                        "import_total": "100000",
+                    }
+                ]
             return [{"tipus_contracte": "Serveis", "expedients": "12"}]
 
     class FakeConnector:
@@ -165,9 +183,7 @@ async def test_contractor_analysis_endpoint(
     from app.modules.public_registry import router as pr_router
 
     fake = FakeConnector()
-    fake.__class__ = type(
-        "FakeSocrata", (SocrataConnector,), {"client": FakeConnector.client}
-    )
+    fake.__class__ = type("FakeSocrata", (SocrataConnector,), {"client": FakeConnector.client})
     fake.config = FakeConnector.config
 
     async def fake_get_connector(session, slug):  # type: ignore[no-untyped-def]

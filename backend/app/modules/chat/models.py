@@ -2,6 +2,7 @@
 
 import enum
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Identity, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -48,9 +49,7 @@ class ChatThread(Base):
         BigInteger, ForeignKey("contracts.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str | None] = mapped_column(String(200))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -65,7 +64,5 @@ class ChatMessage(Base):
     )
     role: Mapped[ChatRole] = mapped_column(_ROLE)
     content: Mapped[str] = mapped_column(Text)
-    sources: Mapped[list | None] = mapped_column(JSONB)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    sources: Mapped[list[Any] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

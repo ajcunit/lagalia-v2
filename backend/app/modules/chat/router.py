@@ -5,6 +5,7 @@ abast departamental aplicat al contracte en crear el fil i a cada stream.
 """
 
 import json
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
@@ -106,9 +107,7 @@ async def list_threads(
         .scalars()
         .all()
     )
-    return {
-        "data": [ThreadResponse.model_validate(t, from_attributes=True) for t in threads]
-    }
+    return {"data": [ThreadResponse.model_validate(t, from_attributes=True) for t in threads]}
 
 
 @router.post("/chat/threads", operation_id="createChatThread", status_code=201)
@@ -129,18 +128,23 @@ async def create_thread(
     session.add(thread)
     await session.flush()
     await record_audit(
-        session, actor_type=AuditActorType.USER, action="chat.thread_created", success=True,
-        actor_id=authz_ctx.user.id, resource_type="chat", resource_id=str(thread.id),
-        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+        session,
+        actor_type=AuditActorType.USER,
+        action="chat.thread_created",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type="chat",
+        resource_id=str(thread.id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
     )
     await session.commit()
     return ThreadResponse.model_validate(thread, from_attributes=True)
 
 
 @router.get("/chat/threads/{id}", operation_id="getChatThread")
-async def get_thread(
-    id: int, session: SessionDep, authz_ctx: UseDep
-) -> dict[str, Any]:
+async def get_thread(id: int, session: SessionDep, authz_ctx: UseDep) -> dict[str, Any]:
     thread = await _own_thread(session, id, authz_ctx.user.id)
     messages = (
         (
@@ -155,22 +159,25 @@ async def get_thread(
     )
     return {
         "thread": ThreadResponse.model_validate(thread, from_attributes=True),
-        "messages": [
-            MessageResponse.model_validate(m, from_attributes=True) for m in messages
-        ],
+        "messages": [MessageResponse.model_validate(m, from_attributes=True) for m in messages],
     }
 
 
 @router.delete("/chat/threads/{id}", operation_id="deleteChatThread", status_code=204)
-async def delete_thread(
-    id: int, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep
-) -> None:
+async def delete_thread(id: int, session: SessionDep, authz_ctx: UseDep, ctx: ContextDep) -> None:
     thread = await _own_thread(session, id, authz_ctx.user.id)
     await session.delete(thread)
     await record_audit(
-        session, actor_type=AuditActorType.USER, action="chat.thread_deleted", success=True,
-        actor_id=authz_ctx.user.id, resource_type="chat", resource_id=str(id),
-        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+        session,
+        actor_type=AuditActorType.USER,
+        action="chat.thread_deleted",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type="chat",
+        resource_id=str(id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
     )
     await session.commit()
 
@@ -199,28 +206,33 @@ async def stream_message(
         .scalars()
         .all()
     )
-    history = [
-        {"role": m.role.value, "content": m.content} for m in reversed(history_rows)
-    ]
+    history = [{"role": m.role.value, "content": m.content} for m in reversed(history_rows)]
 
     def line(payload: dict[str, Any]) -> str:
         return json.dumps(payload, ensure_ascii=False, default=str) + "\n"
 
-    async def generate():
+    async def generate() -> AsyncIterator[str]:
         collected: list[str] = []
         sources: list[Any] | None = None
         try:
             if thread.scope == ChatScope.CONTRACT:
                 events = chat_agent.contract_chat_events(
-                    session, thread.contract_id or 0, body.content,
-                    history=history, document_id=body.document_id,
-                    user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
+                    session,
+                    thread.contract_id or 0,
+                    body.content,
+                    history=history,
+                    document_id=body.document_id,
+                    user_id=authz_ctx.user.id,
+                    trace_id=ctx.trace_id,
                 )
             else:
                 events = analyst_agent.answer_events(
-                    session, body.content,
-                    history=history, scope=authz_ctx.scope,
-                    user_id=authz_ctx.user.id, trace_id=ctx.trace_id,
+                    session,
+                    body.content,
+                    history=history,
+                    scope=authz_ctx.scope,
+                    user_id=authz_ctx.user.id,
+                    trace_id=ctx.trace_id,
                 )
             async for event in events:
                 if event["type"] == "delta":
@@ -231,9 +243,7 @@ async def stream_message(
                     yield line(event)
 
             # Persistència del parell pregunta/resposta al final de l'stream.
-            session.add(
-                ChatMessage(thread_id=thread.id, role=ChatRole.USER, content=body.content)
-            )
+            session.add(ChatMessage(thread_id=thread.id, role=ChatRole.USER, content=body.content))
             session.add(
                 ChatMessage(
                     thread_id=thread.id,
@@ -246,9 +256,16 @@ async def stream_message(
                 thread.title = body.content[:200]
             thread.updated_at = datetime.now(UTC)
             await record_audit(
-                session, actor_type=AuditActorType.USER, action="chat.message", success=True,
-                actor_id=authz_ctx.user.id, resource_type="chat", resource_id=str(thread.id),
-                ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+                session,
+                actor_type=AuditActorType.USER,
+                action="chat.message",
+                success=True,
+                actor_id=authz_ctx.user.id,
+                resource_type="chat",
+                resource_id=str(thread.id),
+                ip=ctx.ip,
+                user_agent=ctx.user_agent,
+                trace_id=ctx.trace_id,
             )
             await session.commit()
             yield line({"type": "done"})

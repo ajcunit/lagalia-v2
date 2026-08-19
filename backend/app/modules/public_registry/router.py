@@ -69,9 +69,7 @@ class PhaseResponse(BaseModel):
     criteria: list[dict[str, Any]]
 
 
-def _card(
-    record: dict[str, Any], overrides: dict[str, str] | None = None
-) -> PublicContractCard:
+def _card(record: dict[str, Any], overrides: dict[str, str] | None = None) -> PublicContractCard:
     mapped = map_contract(record, overrides)
     contractor = contractor_fields(record, overrides)
     return PublicContractCard(

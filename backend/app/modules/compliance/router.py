@@ -3,6 +3,7 @@
 Determinista i auditable: persisteix cada revisió a compliance_reviews.
 """
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
@@ -139,7 +140,7 @@ def _legal_review_response(
     def line(payload: dict[str, Any]) -> str:
         return _json.dumps(payload, ensure_ascii=False, default=str) + "\n"
 
-    async def generate():
+    async def generate() -> AsyncIterator[str]:
         collected: list[str] = []
         articles: list[dict[str, Any]] = []
         try:
@@ -161,9 +162,15 @@ def _legal_review_response(
             ]
             await _persist(session, subject_type, subject_id or 0, findings, authz_ctx.user.id)
             await record_audit(
-                session, actor_type=AuditActorType.USER, action=audit_action,
-                success=True, actor_id=authz_ctx.user.id, resource_type=subject_type,
-                resource_id=str(subject_id or ""), ip=ctx.ip, user_agent=ctx.user_agent,
+                session,
+                actor_type=AuditActorType.USER,
+                action=audit_action,
+                success=True,
+                actor_id=authz_ctx.user.id,
+                resource_type=subject_type,
+                resource_id=str(subject_id or ""),
+                ip=ctx.ip,
+                user_agent=ctx.user_agent,
                 trace_id=ctx.trace_id,
             )
             await session.commit()
@@ -185,9 +192,13 @@ async def review_text(
     body: ReviewTextBody, session: SessionDep, authz_ctx: RunDep, ctx: ContextDep
 ) -> StreamingResponse:
     return _legal_review_response(
-        session, body.text,
-        subject_type=body.subject_type, subject_id=body.subject_id,
-        authz_ctx=authz_ctx, ctx=ctx, audit_action="compliance.review_text",
+        session,
+        body.text,
+        subject_type=body.subject_type,
+        subject_id=body.subject_id,
+        authz_ctx=authz_ctx,
+        ctx=ctx,
+        audit_action="compliance.review_text",
     )
 
 
@@ -205,9 +216,7 @@ async def review_document(
     """
     row = (
         await session.execute(
-            text(
-                "SELECT contract_id, storage_key FROM phase_documents WHERE id = :id"
-            ),
+            text("SELECT contract_id, storage_key FROM phase_documents WHERE id = :id"),
             {"id": document_id},
         )
     ).first()
@@ -239,9 +248,13 @@ async def review_document(
     if len(extracted.strip()) < 50:
         raise Problem(422, "El document no conté text extraïble", "validation")
     return _legal_review_response(
-        session, extracted,
-        subject_type="document", subject_id=document_id,
-        authz_ctx=authz_ctx, ctx=ctx, audit_action="compliance.review_document",
+        session,
+        extracted,
+        subject_type="document",
+        subject_id=document_id,
+        authz_ctx=authz_ctx,
+        ctx=ctx,
+        audit_action="compliance.review_document",
     )
 
 
@@ -271,9 +284,15 @@ async def run_check(
         session, body.subject_type, body.subject_id, findings, authz_ctx.user.id
     )
     await record_audit(
-        session, actor_type=AuditActorType.USER, action="compliance.check", success=True,
-        actor_id=authz_ctx.user.id, resource_type=body.subject_type,
-        resource_id=str(body.subject_id), ip=ctx.ip, user_agent=ctx.user_agent,
+        session,
+        actor_type=AuditActorType.USER,
+        action="compliance.check",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type=body.subject_type,
+        resource_id=str(body.subject_id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
         trace_id=ctx.trace_id,
     )
     await session.commit()
@@ -312,9 +331,16 @@ async def run_plan_check(
             }
         )
     await record_audit(
-        session, actor_type=AuditActorType.USER, action="compliance.check_plan", success=True,
-        actor_id=authz_ctx.user.id, resource_type="plan", resource_id=str(body.fiscal_year),
-        ip=ctx.ip, user_agent=ctx.user_agent, trace_id=ctx.trace_id,
+        session,
+        actor_type=AuditActorType.USER,
+        action="compliance.check_plan",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type="plan",
+        resource_id=str(body.fiscal_year),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
     )
     await session.commit()
     return {"data": results}

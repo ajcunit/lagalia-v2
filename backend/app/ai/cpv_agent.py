@@ -17,8 +17,30 @@ _ADMIN_PREFIX_RE = re.compile(
     r"^(contracte|contractació|servei|expedient)\s+(de|del|d')\s+", re.IGNORECASE
 )
 _STOPWORDS = {
-    "de", "del", "la", "el", "els", "les", "i", "a", "al", "als", "per", "amb", "en",
-    "un", "una", "uns", "unes", "que", "dels", "d", "l", "o", "u", "es",
+    "de",
+    "del",
+    "la",
+    "el",
+    "els",
+    "les",
+    "i",
+    "a",
+    "al",
+    "als",
+    "per",
+    "amb",
+    "en",
+    "un",
+    "una",
+    "uns",
+    "unes",
+    "que",
+    "dels",
+    "d",
+    "l",
+    "o",
+    "u",
+    "es",
 }
 _TYPE_KEYWORDS = {
     "obra": ["obra", "obres", "construcció", "reforma", "urbanització", "enderroc", "pavimentació"],
@@ -53,8 +75,7 @@ def clean_description(value: str) -> str:
 def detect_type(value: str) -> str | None:
     lowered = value.lower()
     scores = {
-        kind: sum(1 for word in words if word in lowered)
-        for kind, words in _TYPE_KEYWORDS.items()
+        kind: sum(1 for word in words if word in lowered) for kind, words in _TYPE_KEYWORDS.items()
     }
     best = max(scores, key=lambda k: scores[k])
     return best if scores[best] > 0 else None
@@ -84,9 +105,7 @@ def strip_json(content: str) -> str:
     return content.strip()
 
 
-async def _extract(
-    session: AsyncSession, description: str, **run_kw: Any
-) -> dict[str, Any]:
+async def _extract(session: AsyncSession, description: str, **run_kw: Any) -> dict[str, Any]:
     resolved = await tasks.resolve(session, "cpv.extract")
     try:
         result = await providers.complete(
@@ -117,9 +136,7 @@ async def retrieve_candidates(
 ) -> list[dict[str, Any]]:
     """Recuperació lèxica puntuada (taula de punts d'A3 §3.4)."""
     keywords = keywords_of(description)
-    hint_keywords = [
-        str(k).lower() for k in llm_hints.get("keywords", []) if isinstance(k, str)
-    ]
+    hint_keywords = [str(k).lower() for k in llm_hints.get("keywords", []) if isinstance(k, str)]
     all_keywords = list(dict.fromkeys(keywords + [k for k in hint_keywords if k]))[:12]
     stems = [stem_ca(k) for k in all_keywords]
     divisions = [str(d)[:2] for d in llm_hints.get("divisions", []) if str(d)[:2].isdigit()]
@@ -154,7 +171,7 @@ async def retrieve_candidates(
 
     # Parelles de mots consecutius.
     for first, second in zip(stems, stems[1:], strict=False):
-        rows = (
+        pair_count = (
             await session.execute(
                 select(func.count())
                 .select_from(text("cpv_codes"))
@@ -162,7 +179,7 @@ async def retrieve_candidates(
                 .params(a=f"%{first}%", b=f"%{second}%")
             )
         ).scalar_one()
-        if rows:
+        if pair_count:
             pair_rows = (
                 await session.execute(
                     text(
@@ -177,14 +194,14 @@ async def retrieve_candidates(
 
     # Codis i divisions del LLM; prefix del tipus detectat.
     for code in codes:
-        row = (
+        cpv_row = (
             await session.execute(
                 text("SELECT code, description FROM cpv_codes WHERE code LIKE :p LIMIT 1"),
                 {"p": f"{code[:8]}%"},
             )
         ).first()
-        if row:
-            add(row.code, row.description, 10.0)
+        if cpv_row:
+            add(cpv_row.code, cpv_row.description, 10.0)
     prefixes = [(d, 5.0) for d in divisions]
     type_prefix = _TYPE_PREFIX.get(contract_type or "")
     if type_prefix:
@@ -207,7 +224,7 @@ async def suggest(
 ) -> dict[str, Any]:
     description = clean_description(raw_text)
     contract_type = detect_type(description)
-    run_kw = {"user_id": user_id, "trace_id": trace_id}
+    run_kw: dict[str, Any] = {"user_id": user_id, "trace_id": trace_id}
 
     hints = await _extract(session, description, **run_kw)
     candidates = await retrieve_candidates(session, description, hints, contract_type)
@@ -233,8 +250,7 @@ async def suggest(
                 {
                     "role": "user",
                     "content": (
-                        f"Contract description: {description}\n\n"
-                        f"Candidates:\n{candidate_lines}"
+                        f"Contract description: {description}\n\nCandidates:\n{candidate_lines}"
                     ),
                 },
             ],
