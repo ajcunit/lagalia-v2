@@ -63,11 +63,11 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** afegir els tres paràmetres a `app/core/config.py` i aplicar-los amb `enforce_rate_limit` als endpoints corresponents (API general per identitat, endpoints d'IA, llançament de sincronitzacions), amb test de límit assolit → 429.
 - **Specs afectades:** [06-seguretat.md](06-seguretat.md) §5.
 
-### B-020 · Connectar el frontend a la xarxa del Traefik en lloc de publicar un port
+### B-020 · Limitar l'accés al port publicat del frontend al servidor del Traefik
 - **Prioritat:** P2 · **Estat:** Proposta · **Mida:** S
-- **Descripció:** al desplegament de test (specs/deployment.md), Caddy publica el port 5173 al host perquè és el que ataca el Traefik existent. Aquest port és accessible des de la LAN: qui hi arribi saltant-se el Traefik pot falsificar `X-Forwarded-For` i, per tant, la IP registrada a l'auditoria i el bucket del límit de login.
-- **Com desenvolupar-la:** treure la publicació de ports i connectar el servei `frontend` a la xarxa externa del Traefik amb etiquetes (`traefik.enable`, `traefik.http.routers...`), de manera que només el Traefik hi arribi. Cal saber el nom de la xarxa i dels entrypoints del Traefik municipal.
-- **Specs afectades:** [deployment.md](../specs/deployment.md).
+- **Descripció:** al desplegament de test (specs/deployment.md), Caddy publica el port 5173 a totes les interfícies perquè **el Traefik és a un altre servidor** i l'ha d'atacar per xarxa. Per tant qualsevol màquina de la LAN hi arriba directament, saltant-se el Traefik, i pot falsificar `X-Forwarded-For` (la IP de l'auditoria i el bucket del límit de login). El tràfic entre els dos servidors, a més, va en HTTP pla.
+- **Com desenvolupar-la:** regla de tallafocs que només permeti el port 5173 des de la IP del servidor del Traefik. ⚠️ Amb Docker no serveix `ufw` a seques: els ports publicats se salten les regles d'INPUT (Docker escriu a les seves pròpies cadenes d'iptables), cal la cadena `DOCKER-USER`. Alternativa complementària: TLS també entre els dos servidors (Caddy amb certificat intern i el Traefik confiant-hi).
+- **Specs afectades:** [deployment.md](../specs/deployment.md), [06-seguretat.md](06-seguretat.md) §5.
 
 ---
 

@@ -41,9 +41,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 
 ### Darrere d'un proxy que ja existeix (cas de Cunit)
 
-L'Ajuntament ja té un **Traefik** que serveix
-`https://lagalia-contractacio.ajcunit.local` cap al port 5173 del host. En
-aquest cas el TLS **no** el fa Caddy:
+L'Ajuntament ja té un **Traefik en un altre servidor** que serveix
+`https://lagalia-contractacio.ajcunit.local` cap al port 5173 d'aquest host.
+El TLS **no** el fa Caddy:
 
 ```
 SITE_ADDRESS=:80      # HTTP pla; el TLS és del Traefik
@@ -59,10 +59,15 @@ el client real: auditoria i límit de login correctes al llarg de tota la
 cadena. Verificat en local amb una capçalera simulada
 (`client_ip` als registres de Caddy = la IP injectada).
 
-> ⚠️ El port publicat és accessible des de la LAN, així que qui hi arribi
-> saltant-se el Traefik podria falsificar `X-Forwarded-For`. Enduriment
-> pendent (BACKLOG B-020): connectar el contenidor a la xarxa del Traefik
-> amb etiquetes en lloc de publicar un port del host.
+Com que el Traefik és **a un altre servidor**, el port s'ha de publicar a
+totes les interfícies (no val `127.0.0.1`, ni connectar el contenidor a la
+seva xarxa Docker).
+
+> ⚠️ Conseqüència: qualsevol màquina de la LAN pot atacar el port
+> directament, saltant-se el Traefik, i falsificar `X-Forwarded-For` (IP de
+> l'auditoria i bucket del límit de login). El tràfic entre servidors va en
+> HTTP pla. Enduriment pendent (BACKLOG B-020): regla de tallafocs a la
+> cadena `DOCKER-USER` que només permeti el 5173 des de la IP del Traefik.
 
 ### Capçaleres de seguretat
 
