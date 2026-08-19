@@ -74,7 +74,11 @@ _prepare_test_database()
 
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402
+from typing import TYPE_CHECKING  # noqa: E402
 from uuid import uuid4  # noqa: E402
+
+if TYPE_CHECKING:
+    from app.jobs.registry import JobContext
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -191,3 +195,28 @@ def login_headers(client: TestClient, email: str) -> dict[str, str]:
     response = client.post("/api/v1/auth/login", json={"email": email, "password": TEST_PASSWORD})
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+async def make_job_context(job_type: str, payload: "dict | None" = None) -> "JobContext":
+    """Context amb una fila `jobs` real al darrere, com fa el runner.
+
+    Els handlers que creen una `sync_run` hi vinculen `ctx.job_id` (FK,
+    B-021): un UUID inventat violaria la clau forana. La importació de
+    `app.jobs.tasks` registra tots els handlers, com fa el worker: sense
+    això, el `finish_run` del handler no pot encuar `webhooks.dispatch`
+    quan el fitxer de test corre aïllat.
+    """
+    import app.jobs.tasks  # noqa: F401 — registra tots els handlers
+    from app.core.db import session_factory
+    from app.jobs.models import Job, JobStatus
+    from app.jobs.registry import JobContext
+
+    async def _noop(_pct: int, _msg: str | None = None) -> None:
+        return None
+
+    async with session_factory() as session:
+        row = Job(type=job_type, payload=payload, status=JobStatus.RUNNING)
+        session.add(row)
+        await session.commit()
+        job_id = row.id
+    return JobContext(job_id=job_id, payload=payload, set_progress=_noop)

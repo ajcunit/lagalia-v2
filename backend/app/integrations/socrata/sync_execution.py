@@ -214,7 +214,7 @@ async def sync_execution(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))
     ine10 = await sc.required_ine10()
-    run_id = await sc.create_run(SyncKind.EXECUTION, trigger)
+    run_id = await sc.create_run(SyncKind.EXECUTION, trigger, job_id=ctx.job_id)
     counters = {"new": 0, "updated": 0, "unchanged": 0, "unmatched": 0, "failed": 0}
     processed = 0
     endpoint = None

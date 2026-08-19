@@ -40,7 +40,11 @@ async def heartbeat(ctx: JobContext) -> dict[str, Any]:
 async def sweep_stale_jobs(ctx: JobContext) -> dict[str, Any]:
     """Escombrat B-009: jobs `queued` estancats (mai arrencats en 30 min)
     passen a `failed` i alliberen el seu dedup_key. Cas real: un worker antic
-    sense el handler deixava el job zombi i bloquejava tots els encuaments."""
+    sense el handler deixava el job zombi i bloquejava tots els encuaments.
+
+    B-021: tanca també les execucions de sincronització que van quedar
+    «executant» perquè el seu job va morir sense poder-les tancar
+    (cancel·lació, temps exhaurit, worker reiniciat)."""
     from sqlalchemy import text
 
     from app.core.db import session_factory
@@ -55,5 +59,23 @@ async def sweep_stale_jobs(ctx: JobContext) -> dict[str, Any]:
                 "AND type <> 'jobs.sweep'"
             )
         )
+        # Amb vincle: el job ja és en un estat terminal, o ha desaparegut.
+        # Sense vincle (execucions d'abans del vincle): per antiguitat.
+        orphans = await session.execute(
+            text(
+                "UPDATE sync_runs r SET status = 'failed', finished_at = now(), "
+                "error_summary = jsonb_build_object('error', CAST(:reason AS text)) "
+                "WHERE r.status = 'running' AND ("
+                "  (r.job_id IS NOT NULL AND NOT EXISTS ("
+                "     SELECT 1 FROM jobs j WHERE j.id = r.job_id"
+                "      AND j.status IN ('queued', 'running')))"
+                "  OR (r.job_id IS NULL AND r.started_at < now() - interval '24 hours')"
+                ")"
+            ),
+            {"reason": "interrompuda: el treball que l'executava ja no és viu (B-021)"},
+        )
         await session.commit()
-    return {"swept": int(getattr(result, "rowcount", 0) or 0)}
+    return {
+        "swept": int(getattr(result, "rowcount", 0) or 0),
+        "runs_closed": int(getattr(orphans, "rowcount", 0) or 0),
+    }

@@ -86,7 +86,7 @@ Com v1: `department_id`, `rule_type department|body|keyword|cpv|amount`, `source
 
 ## 4. Sincronització i jobs
 
-- `sync_runs`: `kind` enum `contracts|minor|cpv|extensions|enrichment`, `trigger manual|scheduled|api`, `started_at`, `finished_at`, `status running|success|failed|partial`, comptadors (`new`, `updated`, `unchanged`, `total_source`), `endpoint`, `error_summary JSONB`.
+- `sync_runs`: `kind` enum `contracts|minor|cpv|extensions|enrichment`, `trigger manual|scheduled|api`, `job_id FK jobs SET NULL` (migració 0035: permet a l'escombrat tancar l'execució si el job mor sense fer-ho, B-021), `started_at`, `finished_at`, `status running|success|failed|partial`, comptadors (`new`, `updated`, `unchanged`, `total_source`), `endpoint`, `error_summary JSONB`.
 - `sync_item_logs`: detall per registre problemàtic (`sync_run_id`, `file_code`, `outcome`, `message`).
 - `jobs`: registre genèric de la cua (`id UUID`, `type`, `payload JSONB`, `status queued|running|success|failed|cancelled`, `progress`, `progress_message`, `result JSONB`, `dedup_key`, `attempts`, timestamps, `created_by`).
 - `job_events`: opcional per a traça fina.

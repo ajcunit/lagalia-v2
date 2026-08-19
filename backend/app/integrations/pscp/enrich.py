@@ -242,7 +242,11 @@ async def enrich_batch(ctx: JobContext) -> dict[str, Any]:
     download_documents = bool(payload.get("download_documents", True))
     limit = payload.get("limit")
 
-    run_id = await sc.create_run(SyncKind.ENRICHMENT, SyncTrigger(payload.get("trigger", "manual")))
+    run_id = await sc.create_run(
+        SyncKind.ENRICHMENT,
+        SyncTrigger(payload.get("trigger", "manual")),
+        job_id=ctx.job_id,
+    )
     counters = {"new": 0, "updated": 0, "unchanged": 0, "failed": 0}
 
     connector = await _pscp_connector()

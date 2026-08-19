@@ -17,7 +17,6 @@ from app.integrations import hub
 from app.integrations.socrata.client import SocrataClient
 from app.integrations.socrata.connector import SocrataConnector
 from app.integrations.socrata.sync import sync_contracts
-from app.jobs.registry import JobContext
 
 INE10 = "4305160009"
 
@@ -174,11 +173,10 @@ def _record(tag: str, *, code: str, subject: str, **extra: Any) -> dict[str, Any
 
 
 async def _run_sync(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    async def _noop_progress(_pct: int, _msg: str | None = None) -> None:
-        return None
+    from tests.conftest import make_job_context
 
-    ctx = JobContext(job_id=uuid4(), payload=payload, set_progress=_noop_progress)
-    result = await sync_contracts(ctx)
+    # Fila `jobs` real: la sync_run que crea el handler hi vincula el job_id.
+    result = await sync_contracts(await make_job_context("sync.contracts", payload))
     assert result is not None
     return result
 

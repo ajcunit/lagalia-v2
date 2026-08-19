@@ -1,6 +1,7 @@
 """Registre de sincronitzacions i de connectors (docs/04-model-de-dades.md §4 i §8)."""
 
 import enum
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -15,11 +16,15 @@ from sqlalchemy import (
     LargeBinary,
     String,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 from app.core.models import TimestampMixin
+
+# La FK sync_runs.job_id → jobs.id exigeix que el mapper de Job estigui
+# registrat allà on es toquen les sincronitzacions.
+from app.jobs import models as _jobs_models  # noqa: F401  # isort: skip
 
 
 class ConnectorMode(enum.StrEnum):
@@ -95,6 +100,11 @@ class SyncRun(Base, TimestampMixin):
     )
     trigger: Mapped[SyncTrigger] = mapped_column(
         Enum(SyncTrigger, name="sync_trigger", values_callable=lambda e: [m.value for m in e])
+    )
+    # El job que l'executa: permet a l'escombrat veure que ha mort i tancar
+    # l'execució, que si no es quedaria «executant» per sempre (B-021).
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("jobs.id", ondelete="SET NULL"), index=True
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

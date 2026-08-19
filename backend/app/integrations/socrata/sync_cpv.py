@@ -53,7 +53,7 @@ def levels_from_row(record: dict[str, Any]) -> list[dict[str, Any]]:
 async def sync_cpv(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))
-    run_id = await sc.create_run(SyncKind.CPV, trigger)
+    run_id = await sc.create_run(SyncKind.CPV, trigger, job_id=ctx.job_id)
     counters = {"new": 0, "updated": 0, "unchanged": 0, "failed": 0}
     total_rows = 0
 

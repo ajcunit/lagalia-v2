@@ -188,3 +188,61 @@ def test_worker_timeout_survives_long_running_jobs() -> None:
     arq_default = inspect.signature(Worker.__init__).parameters["job_timeout"].default
     assert WorkerSettings.job_timeout > arq_default
     assert WorkerSettings.job_timeout >= 3600, "un job llarg de veritat ha de poder durar hores"
+
+
+async def test_sweep_closes_orphaned_sync_runs() -> None:
+    """B-021: el job mor sense tancar l'execució i la pantalla de
+    sincronització la mostrava «executant» per sempre."""
+    from datetime import UTC, datetime
+
+    from app.integrations.models import SyncKind, SyncRun, SyncStatus, SyncTrigger
+    from app.jobs.tasks import sweep_stale_jobs
+
+    async def _noop(_progress: int, _message: str | None = None) -> None:
+        return None
+
+    async with session_factory() as session:
+        dead = Job(type="sync.contracts", status=JobStatus.CANCELLED)
+        alive = Job(type="sync.contracts", status=JobStatus.RUNNING)
+        session.add_all([dead, alive])
+        await session.flush()
+        orphan = SyncRun(
+            kind=SyncKind.CONTRACTS,
+            trigger=SyncTrigger.MANUAL,
+            status=SyncStatus.RUNNING,
+            started_at=datetime.now(UTC),
+            job_id=dead.id,
+        )
+        working = SyncRun(
+            kind=SyncKind.CONTRACTS,
+            trigger=SyncTrigger.MANUAL,
+            status=SyncStatus.RUNNING,
+            started_at=datetime.now(UTC),
+            job_id=alive.id,
+        )
+        session.add_all([orphan, working])
+        await session.commit()
+        orphan_id, working_id = orphan.id, working.id
+        dead_job_id, alive_job_id = dead.id, alive.id
+
+    result = await sweep_stale_jobs(
+        JobContext(job_id=uuid_module.uuid4(), payload=None, set_progress=_noop)
+    )
+    assert result["runs_closed"] >= 1
+
+    async with session_factory() as session:
+        closed = await session.get(SyncRun, orphan_id)
+        still_running = await session.get(SyncRun, working_id)
+        assert closed is not None and closed.status == SyncStatus.FAILED
+        assert closed.finished_at is not None
+        assert "B-021" in str(closed.error_summary)
+        # Una execució amb el job viu no es toca.
+        assert still_running is not None and still_running.status == SyncStatus.RUNNING
+
+        await session.execute(
+            text("DELETE FROM sync_runs WHERE id IN (:a, :b)"), {"a": orphan_id, "b": working_id}
+        )
+        await session.execute(
+            text("DELETE FROM jobs WHERE id IN (:a, :b)"), {"a": dead_job_id, "b": alive_job_id}
+        )
+        await session.commit()

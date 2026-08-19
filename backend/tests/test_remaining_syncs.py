@@ -187,10 +187,10 @@ async def _run(
     handler: "Callable[[JobContext], Awaitable[dict[str, Any] | None]]",
     payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    async def _noop(_pct: int, _msg: str | None = None) -> None:
-        return None
+    from tests.conftest import make_job_context
 
-    result = await handler(JobContext(job_id=uuid4(), payload=payload, set_progress=_noop))
+    # Fila `jobs` real: la sync_run que crea el handler hi vincula el job_id.
+    result = await handler(await make_job_context("test.sync", payload))
     assert result is not None
     return result
 

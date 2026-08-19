@@ -230,7 +230,7 @@ async def sync_extensions(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))
     ine10 = await sc.required_ine10()
-    run_id = await sc.create_run(SyncKind.EXTENSIONS, trigger)
+    run_id = await sc.create_run(SyncKind.EXTENSIONS, trigger, job_id=ctx.job_id)
     counters = {"new": 0, "updated": 0, "unchanged": 0, "unmatched": 0, "failed": 0}
     rows: list[dict[str, Any]] = []
 
@@ -383,7 +383,7 @@ async def sync_minor_contracts(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload or {}
     trigger = SyncTrigger(payload.get("trigger", "manual"))
     ine10 = await sc.required_ine10()
-    run_id = await sc.create_run(SyncKind.MINOR, trigger)
+    run_id = await sc.create_run(SyncKind.MINOR, trigger, job_id=ctx.job_id)
     counters = {"new": 0, "updated": 0, "unchanged": 0, "failed": 0}
     rows: list[dict[str, Any]] = []
 

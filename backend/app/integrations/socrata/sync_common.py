@@ -1,6 +1,7 @@
 """Peces compartides dels jobs de sync Socrata."""
 
 import unicodedata
+import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -67,9 +68,13 @@ async def required_ine10() -> str:
     return str(setting.value)
 
 
-async def create_run(kind: SyncKind, trigger: SyncTrigger) -> int:
+async def create_run(
+    kind: SyncKind, trigger: SyncTrigger, *, job_id: uuid.UUID | None = None
+) -> int:
+    """`job_id` lliga l'execució al treball que la fa: sense el vincle,
+    una execució tallada a mig fer es queda «executant» per sempre (B-021)."""
     async with session_factory() as session:
-        run = SyncRun(kind=kind, trigger=trigger, started_at=datetime.now(UTC))
+        run = SyncRun(kind=kind, trigger=trigger, started_at=datetime.now(UTC), job_id=job_id)
         session.add(run)
         await session.commit()
         return run.id

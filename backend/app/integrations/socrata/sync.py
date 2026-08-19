@@ -213,7 +213,12 @@ async def sync_contracts(ctx: JobContext) -> dict[str, Any]:
     async with session_factory() as session:
         ine10 = await _ine10(session)
         last_success = None if full else await _last_success_started_at(session)
-        run = SyncRun(kind=SyncKind.CONTRACTS, trigger=trigger, started_at=datetime.now(UTC))
+        run = SyncRun(
+            kind=SyncKind.CONTRACTS,
+            trigger=trigger,
+            started_at=datetime.now(UTC),
+            job_id=ctx.job_id,
+        )
         session.add(run)
         await session.commit()
         run_id = run.id
