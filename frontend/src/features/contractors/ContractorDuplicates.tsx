@@ -16,9 +16,9 @@ import {
   type ContractorDuplicateGroup,
 } from "./queries";
 
-const TABS = ["pending", "merged", "rejected"] as const;
+type Tab = "pending" | "merged" | "rejected";
 
-function tabLabel(tab: (typeof TABS)[number]): string {
+function tabLabel(tab: Tab): string {
   switch (tab) {
     case "merged":
       return t("duplicates.tab.merged");
@@ -125,7 +125,7 @@ function Group(props: { group: ContractorDuplicateGroup }) {
 }
 
 export function ContractorDuplicates() {
-  const [tab, setTab] = useState<(typeof TABS)[number]>("pending");
+  const [tab, setTab] = useState<Tab>("pending");
   const groups = useDuplicateGroups();
   const duplicates = useContractorDuplicates(tab);
   const resolve = useResolveGroup();
@@ -144,7 +144,7 @@ export function ContractorDuplicates() {
             { key: "rejected", label: tabLabel("rejected"), icon: XCircle },
           ]}
           active={tab}
-          onSelect={(key) => setTab(key as (typeof TABS)[number])}
+          onSelect={(key) => setTab(key as Tab)}
         />
       </div>
 

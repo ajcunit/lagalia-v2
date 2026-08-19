@@ -8,7 +8,7 @@ import { useTasks } from "../features/tasks/queries";
 import { LayoutDashboard } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { t } from "../i18n";
-import { useView } from "../view/ViewProvider";
+import { useView } from "../view/useView";
 import { formatCurrency, formatDate } from "../lib/format";
 
 function KpiCard(props: { label: string; value: string; to: string }) {

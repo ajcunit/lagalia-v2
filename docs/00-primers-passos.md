@@ -80,3 +80,32 @@ Del [BACKLOG.md](BACKLOG.md), les que bloquegen:
 - [ ] CI: contract testing, lint de seguretat i comprovació spec↔codi, tot verd
 - [ ] Un intent de login fallit apareix a `audit_log`
 - [ ] La SPA es veu correctament en tema clar i fosc, navegable per teclat
+
+## 7. Desplegament al servidor (test/producció)
+
+El `docker-compose.yml` és **de desenvolupament**: publica la BD, Redis i
+MinIO al host per poder-hi entrar des del portàtil. En un servidor això
+xoca amb els serveis que ja hi corren (error típic de Portainer:
+`Bind for 127.0.0.1:5432 failed: port is already allocated`) i, a més,
+exposa la base de dades sense necessitat.
+
+Per al servidor, afegeix sempre l'override de producció:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  --profile app up -d --build
+```
+
+Amb l'override, la infraestructura **no publica cap port**: l'API, el
+worker i el scheduler hi arriben per la xarxa interna del compose. Només
+queden publicats l'API i el frontend, i lligats a `127.0.0.1` perquè hi
+arribi el reverse proxy amb TLS (Caddy/Nginx) i ningú més.
+
+A Portainer: al stack, «Compose path» ha d'incloure els dos fitxers
+(o enganxa el contingut combinat) i les variables d'entorn del `.env`
+van a la secció **Environment variables** del stack.
+
+Si algun port publicat encara xoca (per exemple el 8000 ja ocupat),
+canvia'l amb variables sense tocar el compose: `API_PORT`,
+`FRONTEND_PORT` i, si mai els publiques, `POSTGRES_PORT`, `REDIS_PORT`,
+`S3_PORT`, `S3_CONSOLE_PORT`.

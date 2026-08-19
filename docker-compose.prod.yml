@@ -1,0 +1,32 @@
+# Superposició de producció/test al servidor:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     --profile app up -d --build
+#
+# Diferència clau amb el compose de desenvolupament: la infraestructura
+# (BD, Redis, MinIO) NO publica cap port al host — els serveis s'hi
+# connecten per la xarxa interna del compose. Això evita xocs amb altres
+# stacks del servidor (p. ex. un PostgreSQL o un MinIO ja existents) i
+# treu superfície d'atac: la BD no s'exposa mai fora del host.
+#
+# Només queden publicats l'API i el frontend, que han d'anar darrere del
+# reverse proxy amb TLS. Si el proxy corre en un altre stack, connecta'l
+# a aquesta xarxa i pots treure també aquestes publicacions.
+
+services:
+  db:
+    ports: !override []
+
+  redis:
+    ports: !override []
+
+  storage:
+    ports: !override []
+
+  api:
+    ports: !override
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+
+  frontend:
+    ports: !override
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:5173"

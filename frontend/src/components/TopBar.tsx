@@ -6,7 +6,7 @@ import { AlertTriangle, CalendarCheck, Eye, FileWarning, ListChecks } from "luci
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { t } from "../i18n";
-import { useView } from "../view/ViewProvider";
+import { useView } from "../view/useView";
 
 /** Barra superior (specs/view-selector.md): selector de vista (tot l'ens /
  *  els meus departaments / un departament) + indicadors d'avisos. */

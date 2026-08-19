@@ -6,7 +6,7 @@ import { Badge, Button, EmptyState, Skeleton, Switch } from "../../components/ui
 import { FileText } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { t } from "../../i18n";
-import { useView } from "../../view/ViewProvider";
+import { useView } from "../../view/useView";
 import { formatCurrency, formatDate } from "../../lib/format";
 import {
   downloadExport,

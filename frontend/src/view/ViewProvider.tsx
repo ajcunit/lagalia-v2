@@ -1,18 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { useAuth } from "../auth/AuthProvider";
-
-/** Vista global de dades (specs/view-selector.md): "all" (tot l'ens, si el
- *  rol ho permet), "user" (els meus departaments) o "dept:<id>" (un de
- *  concret). El servidor SEMPRE revalida: això només tria què es demana. */
-export type ViewValue = string;
-
-interface ViewContextValue {
-  view: ViewValue;
-  setView: (view: ViewValue) => void;
-}
-
-const ViewContext = createContext<ViewContextValue | undefined>(undefined);
+import { ViewContext, type ViewValue } from "./context";
 
 function storageKey(userId: number | undefined): string {
   return `lagalia.view.${userId ?? "anon"}`;
@@ -55,8 +44,3 @@ export function ViewProvider(props: { children: ReactNode }) {
   return <ViewContext.Provider value={value}>{props.children}</ViewContext.Provider>;
 }
 
-export function useView(): ViewContextValue {
-  const context = useContext(ViewContext);
-  if (context === undefined) throw new Error("useView requereix ViewProvider");
-  return context;
-}
