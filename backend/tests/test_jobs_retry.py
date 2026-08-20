@@ -246,3 +246,62 @@ async def test_sweep_closes_orphaned_sync_runs() -> None:
             text("DELETE FROM jobs WHERE id IN (:a, :b)"), {"a": dead_job_id, "b": alive_job_id}
         )
         await session.commit()
+
+
+async def test_sweep_fails_zombie_running_jobs() -> None:
+    """Un job «running» més vell que el job_timeout és mort segur: el worker
+    va caure sense tancar-lo. Bloquejava el dedup_key i no es podia rellançar."""
+    from app.core.config import settings
+    from app.jobs.tasks import sweep_stale_jobs
+
+    async def _noop(_progress: int, _message: str | None = None) -> None:
+        return None
+
+    stale_secs = settings.jobs_timeout_seconds + 3600
+    async with session_factory() as session:
+        zombie_id = (
+            await session.execute(
+                text(
+                    "INSERT INTO jobs (id, type, status, started_at, dedup_key) "
+                    "VALUES (:i, 'enrich.batch', 'running', "
+                    "now() - make_interval(secs => :s), :d) RETURNING id"
+                ),
+                {
+                    "i": uuid_module.uuid4(),
+                    "s": stale_secs,
+                    "d": f"test-zombie-{uuid_module.uuid4().hex[:8]}",
+                },
+            )
+        ).scalar_one()
+        fresh_id = (
+            await session.execute(
+                text(
+                    "INSERT INTO jobs (id, type, status, started_at) "
+                    "VALUES (:i, 'enrich.batch', 'running', now()) RETURNING id"
+                ),
+                {"i": uuid_module.uuid4()},
+            )
+        ).scalar_one()
+        await session.commit()
+
+    result = await sweep_stale_jobs(
+        JobContext(job_id=uuid_module.uuid4(), payload=None, set_progress=_noop)
+    )
+    assert result["zombies_failed"] >= 1
+
+    async with session_factory() as session:
+        rows = dict(
+            (
+                await session.execute(
+                    text("SELECT id, status FROM jobs WHERE id IN (:a, :b)"),
+                    {"a": zombie_id, "b": fresh_id},
+                )
+            ).all()
+        )
+        await session.execute(
+            text("DELETE FROM jobs WHERE id IN (:a, :b)"), {"a": zombie_id, "b": fresh_id}
+        )
+        await session.commit()
+    assert rows[zombie_id] == "failed"
+    # Un job en marxa de veritat (dins del límit) no es toca.
+    assert rows[fresh_id] == "running"

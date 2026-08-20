@@ -47,6 +47,7 @@ async def sweep_stale_jobs(ctx: JobContext) -> dict[str, Any]:
     (cancel·lació, temps exhaurit, worker reiniciat)."""
     from sqlalchemy import text
 
+    from app.core.config import settings
     from app.core.db import session_factory
 
     async with session_factory() as session:
@@ -58,6 +59,21 @@ async def sweep_stale_jobs(ctx: JobContext) -> dict[str, Any]:
                 "AND created_at < now() - interval '30 minutes' "
                 "AND type <> 'jobs.sweep'"
             )
+        )
+        # Un job «running» més vell que el temps límit del worker és
+        # provadament mort: arq no deixa córrer res més enllà de
+        # job_timeout, o sigui que si la fila continua així és que el
+        # worker va morir (SIGKILL, OOM, redeploy) sense poder-la tancar.
+        # Cas real: bloquejava el dedup_key i no es podia rellançar res.
+        zombies = await session.execute(
+            text(
+                "UPDATE jobs SET status = 'failed', finished_at = now(), "
+                "error = 'interromput: el worker va morir sense tancar el treball' "
+                "WHERE status = 'running' "
+                "AND started_at < now() - make_interval(secs => :deadline) "
+                "AND type <> 'jobs.sweep'"
+            ),
+            {"deadline": settings.jobs_timeout_seconds + 1800},
         )
         # Amb vincle: el job ja és en un estat terminal, o ha desaparegut.
         # Sense vincle (execucions d'abans del vincle): per antiguitat.
@@ -77,5 +93,6 @@ async def sweep_stale_jobs(ctx: JobContext) -> dict[str, Any]:
         await session.commit()
     return {
         "swept": int(getattr(result, "rowcount", 0) or 0),
+        "zombies_failed": int(getattr(zombies, "rowcount", 0) or 0),
         "runs_closed": int(getattr(orphans, "rowcount", 0) or 0),
     }

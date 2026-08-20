@@ -64,6 +64,14 @@ Cap (el component `JobProgress` arriba amb les primeres pantalles de sync de la 
   `queued` mai arrencats en 30 minuts passen a `failed` amb error explicatiu
   i alliberen el `dedup_key` (cas real: worker antic sense el handler
   deixava el job zombi bloquejant tots els encuaments).
+- **Escombrat de zombis**: un job `running` amb `started_at` més vell que
+  `JOBS_TIMEOUT_SECONDS` + 30 min és provadament mort — arq no deixa córrer
+  res més enllà del `job_timeout`, o sigui que si la fila continua així el
+  worker va morir (SIGKILL, OOM, redeploy) sense poder-la tancar. Passa a
+  `failed` i allibera el `dedup_key` (cas real: un `enrich.batch` zombi
+  impedia rellançar l'enriquiment amb «ja n'hi ha un en marxa»). El
+  cancel·lar manual no cobreix aquest cas: per a un job `running` és un
+  abort de millor esforç cap a un worker que ja no escolta.
 - **Administracio**: `GET /jobs?status=&limit=` (sync:read) i
   `POST /jobs/{id}/actions/requeue` (sync:execute; nomes dead/failed/
   cancelled, 409 altrament; reinicia intents i re-encua; auditat
