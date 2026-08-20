@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../api/client";
 import type { components } from "../../api/generated/schema";
@@ -47,6 +47,7 @@ import {
   useContractExtensions,
   useContractHistory,
   useContractModifications,
+  useDepartmentOptions,
   useDismissExpiry,
   useEnrichContract,
   useFinishContract,
@@ -281,6 +282,8 @@ export function ContractDetail() {
   const [tab, setTab] = useState("resum");
   const canEdit = actions.includes("contracts:update");
   const canEditWarning = canEdit || actions.includes("contracts:update_warning");
+  const canAssign = actions.includes("contracts:assign");
+  const departmentOptions = useDepartmentOptions();
   const disabledModules = permissions?.disabled_modules ?? [];
   const [editing, setEditing] = useState(false);
 
@@ -436,6 +439,7 @@ export function ContractDetail() {
               contractId={id}
               contract={data}
               full={canEdit}
+              canAssign={canAssign}
               onClose={() => setEditing(false)}
             />
           ) : (
@@ -496,6 +500,21 @@ export function ContractDetail() {
               <InfoPair label={t("contract.field.type")} value={data.contract_type} />
               <InfoPair label={t("contract.field.processing")} value={data.processing_type} />
               <InfoPair label={t("contract.field.source")} value={data.source} />
+              <InfoPair
+                label={t("contract.field.departments")}
+                value={
+                  (data.department_ids ?? [])
+                    .map(
+                      (deptId) =>
+                        departmentOptions.data?.find((d) => d.id === deptId)?.name ?? `#${deptId}`,
+                    )
+                    .join(", ") || null
+                }
+              />
+              <InfoPair
+                label={t("contract.field.managers")}
+                value={(data.managers ?? []).map((m) => m.name).join(", ") || null}
+              />
               <h4 className="mt-4 text-xs font-semibold uppercase tracking-wide text-accent">
                 {t("contract.section.dates")}
               </h4>
@@ -934,10 +953,25 @@ function EditContractPanel(props: {
   contractId: number;
   contract: ContractData;
   full: boolean;
+  canAssign: boolean;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const c = props.contract;
+  // Assignació (specs/contract-assignment.md): estat final de les llistes.
+  const departments = useDepartmentOptions();
+  const userOptions = useQuery({
+    queryKey: ["user-options"],
+    enabled: props.canAssign,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/users/options");
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+  const [departmentIds, setDepartmentIds] = useState<number[]>(c.department_ids ?? []);
+  const [managerIds, setManagerIds] = useState<number[]>((c.managers ?? []).map((m) => m.id));
   const [form, setForm] = useState({
     subject: c.subject ?? "",
     start_date: c.start_date ?? "",
@@ -990,7 +1024,24 @@ function EditContractPanel(props: {
         // queda fixat com a esmena manual.
         if (String(value ?? "") !== String(original[key] ?? "")) body[key] = value;
       }
-      if (Object.keys(body).length === 0) return false;
+      // Assignació: només si les llistes han canviat de veritat.
+      const sortedIds = (ids: number[]) => [...ids].sort((a, b) => a - b).join(",");
+      const assignmentChanged =
+        props.canAssign &&
+        (sortedIds(departmentIds) !== sortedIds(c.department_ids ?? []) ||
+          sortedIds(managerIds) !== sortedIds((c.managers ?? []).map((m) => m.id)));
+
+      let didSave = false;
+      if (assignmentChanged) {
+        const { error: assignErr } = await api.PUT("/contracts/{id}/assignments", {
+          params: { path: { id: props.contractId } },
+          body: { department_ids: departmentIds, manager_ids: managerIds },
+        });
+        if (assignErr !== undefined) throw assignErr;
+        didSave = true;
+      }
+
+      if (Object.keys(body).length === 0) return didSave;
       const { error: err } = await api.PATCH("/contracts/{id}", {
         params: { path: { id: props.contractId } },
         body,
@@ -1059,6 +1110,64 @@ function EditContractPanel(props: {
           t("contract.edit.warningHint"),
         )}
       </div>
+      {props.canAssign && (
+        <div className="mt-4 border-t border-line pt-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-accent">
+            {t("contract.edit.assignTitle")}
+          </h4>
+          <p className="mt-1 text-xs text-muted">{t("contract.edit.assignHint")}</p>
+          <div className="mt-2 grid gap-4 sm:grid-cols-2">
+            <fieldset>
+              <legend className="text-xs text-muted">{t("contract.field.departments")}</legend>
+              <div className="mt-1 max-h-44 space-y-1 overflow-y-auto rounded-md border border-line bg-surface p-2">
+                {(departments.data ?? []).map((dept) => (
+                  <label key={dept.id} className="flex items-center gap-2 text-sm text-ink">
+                    <input
+                      type="checkbox"
+                      checked={departmentIds.includes(dept.id)}
+                      onChange={(e) =>
+                        setDepartmentIds(
+                          e.target.checked
+                            ? [...departmentIds, dept.id]
+                            : departmentIds.filter((v) => v !== dept.id),
+                        )
+                      }
+                    />
+                    {dept.name}
+                  </label>
+                ))}
+                {(departments.data ?? []).length === 0 && (
+                  <p className="text-xs text-muted">{t("contract.edit.noDepartments")}</p>
+                )}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="text-xs text-muted">{t("contract.field.managers")}</legend>
+              <div className="mt-1 max-h-44 space-y-1 overflow-y-auto rounded-md border border-line bg-surface p-2">
+                {(userOptions.data ?? []).map((user) => (
+                  <label key={user.id} className="flex items-center gap-2 text-sm text-ink">
+                    <input
+                      type="checkbox"
+                      checked={managerIds.includes(user.id)}
+                      onChange={(e) =>
+                        setManagerIds(
+                          e.target.checked
+                            ? [...managerIds, user.id]
+                            : managerIds.filter((v) => v !== user.id),
+                        )
+                      }
+                    />
+                    {user.name}
+                  </label>
+                ))}
+                {(userOptions.data ?? []).length === 0 && (
+                  <p className="text-xs text-muted">{t("contract.edit.noManagers")}</p>
+                )}
+              </div>
+            </fieldset>
+          </div>
+        </div>
+      )}
       {error !== null && <p className="mt-2 text-sm text-danger">{error}</p>}
       <div className="mt-4 flex gap-2">
         <Button tone="accent" disabled={save.isPending} onClick={() => save.mutate()}>

@@ -18,7 +18,7 @@ from app.modules.users.dependencies import (
     get_current_session,
     get_request_context,
 )
-from app.modules.users.models import UserRole
+from app.modules.users.models import User, UserRole
 from app.modules.users.schemas import (
     LoginRequest,
     MeUpdate,
@@ -198,6 +198,32 @@ async def list_users(
         data=[UserResponse.from_user(u) for u in users],
         meta=PageMeta(total=total, next_cursor=next_cursor),
     )
+
+
+class UserOption(BaseModel):
+    """Opció per als selectors d'assignació: només id i nom, mai cap altra
+    dada (rol, correu, DNI). La gestió d'usuaris completa continua sent
+    exclusiva d'admin (users:read)."""
+
+    id: int
+    name: str
+
+
+# Declarat ABANS de /users/{id}: si no, «options» intentaria casar com a id.
+@router.get("/users/options", tags=["users"], operation_id="listUserOptions")
+async def list_user_options(
+    session: SessionDep,
+    _authz: Annotated[authz.AuthzContext, Depends(authz.Authorize("contracts:assign"))],
+) -> dict[str, list[UserOption]]:
+    """Usuaris actius per assignar com a responsables (contract-assignment)."""
+    from sqlalchemy import select
+
+    rows = (
+        await session.execute(
+            select(User.id, User.name).where(User.active.is_(True)).order_by(User.name)
+        )
+    ).all()
+    return {"data": [UserOption(id=row.id, name=row.name) for row in rows]}
 
 
 @router.post("/users", tags=["users"], operation_id="createUser", status_code=201)

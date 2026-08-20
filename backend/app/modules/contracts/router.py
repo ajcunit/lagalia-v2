@@ -19,6 +19,7 @@ from app.modules.audit.service import record_audit
 from app.modules.contracts import repository, service
 from app.modules.contracts.models import InternalStatus
 from app.modules.contracts.schemas import (
+    AssignmentUpdate,
     AwardCriterionResponse,
     BulkAssignRequest,
     BulkAssignResult,
@@ -186,6 +187,23 @@ async def update_contract(
     ctx: ContextDep,
 ) -> ContractDetail:
     contract = await service.update_contract(session, id, body, current.user, ctx)
+    return ContractDetail.build(
+        contract,
+        await repository.siblings(session, contract),
+        await repository.counters(session, contract.id),
+    )
+
+
+@router.put("/contracts/{id}/assignments", operation_id="assignContract")
+async def assign_contract(
+    id: ResourceId,
+    body: AssignmentUpdate,
+    session: SessionDep,
+    current: Annotated[CurrentSession, Depends(get_current_session)],
+    ctx: ContextDep,
+) -> ContractDetail:
+    """Departaments i responsables del contracte (specs/contract-assignment.md)."""
+    contract = await service.assign_contract(session, id, body, current.user, ctx)
     return ContractDetail.build(
         contract,
         await repository.siblings(session, contract),

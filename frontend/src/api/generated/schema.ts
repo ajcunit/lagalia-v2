@@ -352,6 +352,28 @@ export interface paths {
         patch: operations["updateContract"];
         trace?: never;
     };
+    "/contracts/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Departaments i responsables del contracte
+         * @description Assignació individual (specs/contract-assignment.md): les dues
+         *     llistes se substitueixen senceres — el cos és l'estat final.
+         *     Historial per camp canviat i auditoria `contracts.assign`.
+         */
+        put: operations["assignContract"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contracts/{id}/history": {
         parameters: {
             query?: never;
@@ -2369,6 +2391,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usuaris actius per als selectors d'assignació
+         * @description Només id i nom (mai rol, correu ni cap altra dada): els selectors de
+         *     responsables (specs/contract-assignment.md) necessiten anomenar
+         *     usuaris sense obrir la gestió completa, que continua sent d'admin.
+         */
+        get: operations["listUserOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users": {
         parameters: {
             query?: never;
@@ -3038,6 +3082,12 @@ export interface components {
             last_synced_at?: string | null;
             /** @description Lots germans (mateix expedient). */
             siblings?: components["schemas"]["ContractSummary"][];
+            /** @description Responsables assignats (només id i nom). */
+            managers?: {
+                /** Format: int64 */
+                id: number;
+                name: string;
+            }[];
             counters: {
                 extensions: number;
                 modifications: number;
@@ -4239,6 +4289,39 @@ export interface operations {
         };
         responses: {
             /** @description Contracte actualitzat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Contract"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    assignContract: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    department_ids: number[];
+                    manager_ids: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description Contracte amb l'assignació aplicada */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8374,6 +8457,34 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+        };
+    };
+    listUserOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usuaris actius, ordenats per nom */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            /** Format: int64 */
+                            id: number;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     listUsers: {
