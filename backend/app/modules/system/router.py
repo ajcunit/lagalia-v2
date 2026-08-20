@@ -80,9 +80,13 @@ class SystemStatusResponse(BaseModel):
     resources: ResourcesSummary
 
 
-@router.get("/health/ready", operation_id="getReadiness")
+@router.get("/health/ready", operation_id="getReadiness", response_model_exclude_none=True)
 async def get_readiness(session: SessionDep, _authz: ReadDep) -> ReadinessResponse:
-    """Readiness del contracte de fase 0: només infraestructura, en viu."""
+    """Readiness del contracte de fase 0: només infraestructura, en viu.
+
+    Els camps absents s'ometen (mai null): el contracte original els
+    declara opcionals però no nul·lables, i tornar-hi null seria un canvi
+    incompatible (ho vigila l'oasdiff del CI)."""
     database = await checks.check_database(session)
     redis_check, _scheduler, _memory = await checks.redis_checks()
     storage = await checks.check_storage()

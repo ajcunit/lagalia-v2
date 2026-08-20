@@ -3664,10 +3664,10 @@ export interface operations {
                             name: string;
                             /** @enum {string} */
                             status: "ok" | "degraded" | "failing";
-                            detail?: string | null;
-                            latency_ms?: number | null;
+                            detail?: string;
+                            latency_ms?: number;
                             /** Format: date-time */
-                            checked_at?: string | null;
+                            checked_at?: string;
                         }[];
                     };
                 };

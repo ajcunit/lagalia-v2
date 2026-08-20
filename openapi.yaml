@@ -131,9 +131,9 @@ paths:
                       properties:
                         name: { type: string, examples: ["database", "redis", "storage"] }
                         status: { type: string, enum: [ok, degraded, failing] }
-                        detail: { type: [string, "null"] }
-                        latency_ms: { type: [integer, "null"] }
-                        checked_at: { type: [string, "null"], format: date-time }
+                        detail: { type: string }
+                        latency_ms: { type: integer }
+                        checked_at: { type: string, format: date-time }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
