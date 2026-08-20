@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity } from "lucide-react";
+import { Activity, BarChart3, Database, HeartPulse, Inbox, RefreshCw } from "lucide-react";
 
 import { api } from "../../api/client";
 import { PageHeader } from "../../components/PageHeader";
+import { SheetTabs } from "../../components/contractSheet";
 import { Badge, DefinitionList, EmptyState, SectionCard, Skeleton } from "../../components/ui";
 import { t } from "../../i18n";
 import { formatBytes, formatDateTime } from "../../lib/format";
@@ -88,9 +90,11 @@ function syncStatusLabel(status: string): string {
   }
 }
 
-/** Estat del sistema (specs/system-status.md, B-022) + ús (B-010). Targetes
- *  a tot l'ample i apilades, mai en graella; refresc automàtic. */
+/** Estat del sistema (specs/system-status.md, B-022) + ús (B-010). Pestanyes
+ *  amb icona; dins de cada una, targetes a tot l'ample (mai graella). */
 export function SystemStatus() {
+  const [tab, setTab] = useState("serveis");
+
   const status = useQuery({
     queryKey: ["system-status"],
     refetchInterval: 15_000,
@@ -117,13 +121,18 @@ export function SystemStatus() {
 
   return (
     <div>
-      <PageHeader icon={Activity} title={t("system.title")} subtitle={t("system.subtitle")} />
+      <PageHeader
+        backTo="/admin"
+        icon={Activity}
+        title={t("system.title")}
+        subtitle={t("system.subtitle")}
+      />
 
       {status.isLoading && <Skeleton rows={10} />}
 
       {data && (
-        <div className="mt-5 space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <Badge tone={STATUS_TONE[data.status]}>
               {data.status === "ok"
                 ? t("system.overall.ok")
@@ -136,204 +145,239 @@ export function SystemStatus() {
             </span>
           </div>
 
-          <SectionCard title={t("system.services.title")}>
-            <ul className="divide-y divide-line">
-              {data.services.map((service) => (
-                <li key={service.name} className="flex flex-wrap items-center gap-3 py-2.5">
-                  <span
-                    aria-hidden
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[service.status]}`}
-                  />
-                  <span className="min-w-44 font-medium text-ink">
-                    {serviceLabel(service.name)}
-                  </span>
-                  <Badge tone={STATUS_TONE[service.status]}>{statusLabel(service.status)}</Badge>
-                  <span className="text-sm text-muted">
-                    {service.detail ??
-                      (service.latency_ms != null
-                        ? `${t("system.services.latency")} ${service.latency_ms} ms`
-                        : "")}
-                  </span>
-                  {service.checked_at && (
-                    <span className="ml-auto text-xs text-muted">
-                      {formatDateTime(service.checked_at)}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-
-          <SectionCard title={t("system.jobs.title")}>
-            <DefinitionList
-              items={[
-                { label: t("system.jobs.queued"), value: data.jobs.queued },
-                { label: t("system.jobs.running"), value: data.jobs.running },
-                { label: t("system.jobs.dead"), value: data.jobs.dead },
-                { label: t("system.jobs.failed24h"), value: data.jobs.failed_24h },
-                { label: t("system.webhooks.pending"), value: data.webhooks.pending },
-                { label: t("system.webhooks.failed24h"), value: data.webhooks.failed_24h },
+          <div className="mt-4">
+            <SheetTabs
+              tabs={[
+                { key: "serveis", label: t("system.tab.services"), icon: HeartPulse },
+                {
+                  key: "treballs",
+                  label: t("system.tab.jobs"),
+                  icon: Inbox,
+                  count: data.jobs.running,
+                },
+                { key: "sincronitzacions", label: t("system.tab.syncs"), icon: RefreshCw },
+                { key: "recursos", label: t("system.tab.resources"), icon: Database },
+                { key: "us", label: t("system.tab.usage"), icon: BarChart3 },
               ]}
+              active={tab}
+              onSelect={setTab}
             />
-            {data.jobs.running_jobs.length === 0 ? (
-              <p className="mt-3 text-sm text-muted">{t("system.jobs.none")}</p>
-            ) : (
-              <ul className="mt-4 space-y-3">
-                {data.jobs.running_jobs.map((job) => (
-                  <li key={job.id}>
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-mono text-sm text-ink">{job.type}</span>
-                      <span className="text-xs text-muted">
-                        {job.progress_message ?? `${job.progress}%`}
-                        {job.started_at ? ` · ${formatDateTime(job.started_at)}` : ""}
-                      </span>
-                    </div>
-                    <div
-                      role="progressbar"
-                      aria-valuenow={job.progress}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-sunken"
-                    >
-                      <div
-                        className="h-full rounded-full bg-accent transition-all"
-                        style={{ width: `${job.progress}%` }}
+          </div>
+
+          <div className="mt-4 space-y-4">
+            {tab === "serveis" && (
+              <SectionCard title={t("system.services.title")}>
+                <ul className="divide-y divide-line">
+                  {data.services.map((service) => (
+                    <li key={service.name} className="flex flex-wrap items-center gap-3 py-2.5">
+                      <span
+                        aria-hidden
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[service.status]}`}
                       />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      <span className="min-w-44 font-medium text-ink">
+                        {serviceLabel(service.name)}
+                      </span>
+                      <Badge tone={STATUS_TONE[service.status]}>
+                        {statusLabel(service.status)}
+                      </Badge>
+                      <span className="text-sm text-muted">
+                        {service.detail ??
+                          (service.latency_ms != null
+                            ? `${t("system.services.latency")} ${service.latency_ms} ms`
+                            : "")}
+                      </span>
+                      {service.checked_at && (
+                        <span className="ml-auto text-xs text-muted">
+                          {formatDateTime(service.checked_at)}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </SectionCard>
             )}
-          </SectionCard>
 
-          <SectionCard title={t("system.syncs.title")}>
-            {data.syncs.length === 0 ? (
-              <p className="text-sm text-muted">{t("system.syncs.none")}</p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {data.syncs.map((run) => (
-                  <li key={run.kind} className="flex flex-wrap items-center gap-3 py-2.5">
-                    <span className="min-w-44 font-medium text-ink">
-                      {syncKindLabel(run.kind)}
-                    </span>
-                    <Badge tone={syncStatusTone(run.status)}>{syncStatusLabel(run.status)}</Badge>
-                    <span className="ml-auto text-xs text-muted">
-                      {formatDateTime(run.finished_at ?? run.started_at)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            {tab === "treballs" && (
+              <SectionCard title={t("system.jobs.title")}>
+                <DefinitionList
+                  items={[
+                    { label: t("system.jobs.queued"), value: data.jobs.queued },
+                    { label: t("system.jobs.running"), value: data.jobs.running },
+                    { label: t("system.jobs.dead"), value: data.jobs.dead },
+                    { label: t("system.jobs.failed24h"), value: data.jobs.failed_24h },
+                    { label: t("system.webhooks.pending"), value: data.webhooks.pending },
+                    { label: t("system.webhooks.failed24h"), value: data.webhooks.failed_24h },
+                  ]}
+                />
+                {data.jobs.running_jobs.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted">{t("system.jobs.none")}</p>
+                ) : (
+                  <ul className="mt-4 space-y-3">
+                    {data.jobs.running_jobs.map((job) => (
+                      <li key={job.id}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="font-mono text-sm text-ink">{job.type}</span>
+                          <span className="text-xs text-muted">
+                            {job.progress_message ?? `${job.progress}%`}
+                            {job.started_at ? ` · ${formatDateTime(job.started_at)}` : ""}
+                          </span>
+                        </div>
+                        <div
+                          role="progressbar"
+                          aria-valuenow={job.progress}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-sunken"
+                        >
+                          <div
+                            className="h-full rounded-full bg-accent transition-all"
+                            style={{ width: `${job.progress}%` }}
+                          />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </SectionCard>
             )}
-          </SectionCard>
 
-          <SectionCard title={t("system.resources.title")}>
-            <DefinitionList
-              items={[
-                {
-                  label: t("system.resources.database"),
-                  value: formatBytes(data.resources.database_bytes),
-                },
-                {
-                  label: t("system.resources.redisMemory"),
-                  value: formatBytes(data.resources.redis_memory_bytes),
-                },
-                { label: t("system.resources.queueDepth"), value: data.resources.queue_depth },
-                {
-                  label: t("system.resources.storageObjects"),
-                  value:
-                    data.resources.storage_objects != null
-                      ? `${data.resources.storage_objects}${data.resources.storage_truncated ? ` (${t("system.resources.storageTruncated")})` : ""}`
-                      : "—",
-                },
-                {
-                  label: t("system.resources.storageBytes"),
-                  value: `${formatBytes(data.resources.storage_bytes)}${
-                    data.resources.storage_measured_at
-                      ? ` · ${t("system.resources.measuredAt")} ${formatDateTime(data.resources.storage_measured_at)}`
-                      : ""
-                  }`,
-                },
-              ]}
-            />
-          </SectionCard>
+            {tab === "sincronitzacions" && (
+              <SectionCard title={t("system.syncs.title")}>
+                {data.syncs.length === 0 ? (
+                  <p className="text-sm text-muted">{t("system.syncs.none")}</p>
+                ) : (
+                  <ul className="divide-y divide-line">
+                    {data.syncs.map((run) => (
+                      <li key={run.kind} className="flex flex-wrap items-center gap-3 py-2.5">
+                        <span className="min-w-44 font-medium text-ink">
+                          {syncKindLabel(run.kind)}
+                        </span>
+                        <Badge tone={syncStatusTone(run.status)}>
+                          {syncStatusLabel(run.status)}
+                        </Badge>
+                        <span className="ml-auto text-xs text-muted">
+                          {formatDateTime(run.finished_at ?? run.started_at)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </SectionCard>
+            )}
 
-          <SectionCard title={t("system.usage.title")}>
-            {usage.data === undefined ? (
-              <Skeleton rows={4} />
-            ) : (
-              <>
+            {tab === "recursos" && (
+              <SectionCard title={t("system.resources.title")}>
                 <DefinitionList
                   items={[
                     {
-                      label: t("system.usage.activeSessions"),
-                      value: usage.data.active_sessions,
-                    },
-                    { label: t("system.usage.activeUsers"), value: usage.data.active_users },
-                    {
-                      label: t("system.usage.requests7d"),
-                      value: usage.data.days.reduce((total, day) => total + day.requests, 0),
+                      label: t("system.resources.database"),
+                      value: formatBytes(data.resources.database_bytes),
                     },
                     {
-                      label: t("system.usage.errors7d"),
-                      value: usage.data.days.reduce((total, day) => total + day.errors, 0),
+                      label: t("system.resources.redisMemory"),
+                      value: formatBytes(data.resources.redis_memory_bytes),
+                    },
+                    { label: t("system.resources.queueDepth"), value: data.resources.queue_depth },
+                    {
+                      label: t("system.resources.storageObjects"),
+                      value:
+                        data.resources.storage_objects != null
+                          ? `${data.resources.storage_objects}${data.resources.storage_truncated ? ` (${t("system.resources.storageTruncated")})` : ""}`
+                          : "—",
+                    },
+                    {
+                      label: t("system.resources.storageBytes"),
+                      value: `${formatBytes(data.resources.storage_bytes)}${
+                        data.resources.storage_measured_at
+                          ? ` · ${t("system.resources.measuredAt")} ${formatDateTime(data.resources.storage_measured_at)}`
+                          : ""
+                      }`,
                     },
                   ]}
                 />
-                {usage.data.top_endpoints.length === 0 ? (
-                  <p className="mt-3 text-sm text-muted">{t("system.usage.none")}</p>
+              </SectionCard>
+            )}
+
+            {tab === "us" && (
+              <SectionCard title={t("system.usage.title")}>
+                {usage.data === undefined ? (
+                  <Skeleton rows={4} />
                 ) : (
-                  <div className="mt-4 space-y-4">
-                    <div>
-                      <h3 className="text-xs font-semibold text-muted uppercase">
-                        {t("system.usage.topEndpoints")}
-                      </h3>
-                      <ul className="mt-2 divide-y divide-line">
-                        {usage.data.top_endpoints.map((endpoint) => (
-                          <li
-                            key={endpoint.endpoint}
-                            className="flex flex-wrap items-center gap-3 py-1.5"
-                          >
-                            <span className="font-mono text-sm text-ink">
-                              {endpoint.endpoint}
-                            </span>
-                            <span className="ml-auto text-xs text-muted">
-                              {endpoint.requests} {t("system.usage.requests")}
-                              {endpoint.errors > 0
-                                ? ` · ${endpoint.errors} ${t("system.usage.errors")}`
-                                : ""}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    {usage.data.top_users.length > 0 && (
-                      <div>
-                        <h3 className="text-xs font-semibold text-muted uppercase">
-                          {t("system.usage.topUsers")}
-                        </h3>
-                        <ul className="mt-2 divide-y divide-line">
-                          {usage.data.top_users.map((user) => (
-                            <li
-                              key={user.user_id}
-                              className="flex flex-wrap items-center gap-3 py-1.5"
-                            >
-                              <span className="text-sm text-ink">
-                                {user.name ?? `#${user.user_id}`}
-                              </span>
-                              <span className="ml-auto text-xs text-muted">
-                                {user.requests} {t("system.usage.requests")}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                  <>
+                    <DefinitionList
+                      items={[
+                        {
+                          label: t("system.usage.activeSessions"),
+                          value: usage.data.active_sessions,
+                        },
+                        { label: t("system.usage.activeUsers"), value: usage.data.active_users },
+                        {
+                          label: t("system.usage.requests7d"),
+                          value: usage.data.days.reduce((total, day) => total + day.requests, 0),
+                        },
+                        {
+                          label: t("system.usage.errors7d"),
+                          value: usage.data.days.reduce((total, day) => total + day.errors, 0),
+                        },
+                      ]}
+                    />
+                    {usage.data.top_endpoints.length === 0 ? (
+                      <p className="mt-3 text-sm text-muted">{t("system.usage.none")}</p>
+                    ) : (
+                      <div className="mt-4 space-y-4">
+                        <div>
+                          <h3 className="text-xs font-semibold text-muted uppercase">
+                            {t("system.usage.topEndpoints")}
+                          </h3>
+                          <ul className="mt-2 divide-y divide-line">
+                            {usage.data.top_endpoints.map((endpoint) => (
+                              <li
+                                key={endpoint.endpoint}
+                                className="flex flex-wrap items-center gap-3 py-1.5"
+                              >
+                                <span className="font-mono text-sm text-ink">
+                                  {endpoint.endpoint}
+                                </span>
+                                <span className="ml-auto text-xs text-muted">
+                                  {endpoint.requests} {t("system.usage.requests")}
+                                  {endpoint.errors > 0
+                                    ? ` · ${endpoint.errors} ${t("system.usage.errors")}`
+                                    : ""}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        {usage.data.top_users.length > 0 && (
+                          <div>
+                            <h3 className="text-xs font-semibold text-muted uppercase">
+                              {t("system.usage.topUsers")}
+                            </h3>
+                            <ul className="mt-2 divide-y divide-line">
+                              {usage.data.top_users.map((user) => (
+                                <li
+                                  key={user.user_id}
+                                  className="flex flex-wrap items-center gap-3 py-1.5"
+                                >
+                                  <span className="text-sm text-ink">
+                                    {user.name ?? `#${user.user_id}`}
+                                  </span>
+                                  <span className="ml-auto text-xs text-muted">
+                                    {user.requests} {t("system.usage.requests")}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
-              </>
+              </SectionCard>
             )}
-          </SectionCard>
-        </div>
+          </div>
+        </>
       )}
 
       {status.isError && (
