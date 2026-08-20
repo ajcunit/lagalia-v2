@@ -18,6 +18,7 @@ import { MinorDetail } from "./features/minors/MinorDetail";
 import { MinorsList } from "./features/minors/MinorsList";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { ConfigAdmin } from "./features/config/ConfigAdmin";
+import { SystemStatus } from "./features/system/SystemStatus";
 import { ServiceAccountsAdmin } from "./features/service_accounts/ServiceAccountsAdmin";
 import { WebhooksAdmin } from "./features/webhooks/WebhooksAdmin";
 import { Dashboard } from "./routes/Dashboard";
@@ -84,6 +85,7 @@ export function App() {
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/generator" element={<DocGenerator />} />
               <Route path="/admin" element={<AdminHub />} />
+              <Route path="/admin/system" element={<SystemStatus />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/departments" element={<DepartmentsAdmin />} />
               <Route path="/admin/webhooks" element={<WebhooksAdmin />} />

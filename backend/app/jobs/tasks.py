@@ -25,6 +25,7 @@ import app.jobs.retention  # noqa: F401 — registra retention.purge
 import app.modules.contractors.jobs  # noqa: F401 — registra contractors.consolidate
 import app.modules.contracts.alerts  # noqa: F401 — registra alerts.recompute
 import app.modules.contracts.exports  # noqa: F401 — registra export.contracts
+import app.modules.system.jobs  # noqa: F401 — registra system.status_snapshot
 import app.modules.tasks.reminders  # noqa: F401 — registra tasks.reminders
 import app.modules.webhooks.jobs  # noqa: F401 — registra webhooks.dispatch
 from app.jobs.registry import JobContext, job

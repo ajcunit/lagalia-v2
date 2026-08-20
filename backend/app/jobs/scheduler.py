@@ -26,6 +26,13 @@ _STANDBY_SECONDS = 15
 
 
 async def _tick(redis: Redis) -> None:
+    # Prova de vida per al dashboard d'estat (specs/system-status.md): el
+    # scheduler es demostra viu per l'edat d'aquest tick, no pel procés.
+    from datetime import UTC, datetime
+
+    from app.modules.system.service import SCHEDULER_TICK_KEY
+
+    await redis.set(SCHEDULER_TICK_KEY, datetime.now(UTC).isoformat())
     for item in SCHEDULE:
         # SET NX amb caducitat = interval: com a molt un encuament per finestra.
         due = await redis.set(f"sched:{item.job_type}", "1", nx=True, ex=item.interval_seconds)

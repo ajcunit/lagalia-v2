@@ -131,9 +131,54 @@ paths:
                       properties:
                         name: { type: string, examples: ["database", "redis", "storage"] }
                         status: { type: string, enum: [ok, degraded, failing] }
-                        detail: { type: string }
-                        latency_ms: { type: integer }
+                        detail: { type: [string, "null"] }
+                        latency_ms: { type: [integer, "null"] }
+                        checked_at: { type: [string, "null"], format: date-time }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /system/status:
+    get:
+      tags: [system]
+      operationId: getSystemStatus
+      summary: Dashboard d'estat del sistema (B-022)
+      description: |
+        Salut per servei provada amb feina real (el worker per l'edat de
+        l'últim heartbeat executat, el scheduler pel seu últim tick),
+        treballs en curs, sincronitzacions, webhooks i consums de recursos.
+        Els connectors externs surten de l'última passada del job de fons
+        `system.status_snapshot`, mai de crides dins de la request.
+      x-required-scopes: [system:read]
+      responses:
+        "200":
+          description: Estat agregat del sistema
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SystemStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /system/usage:
+    get:
+      tags: [system]
+      operationId: getSystemUsage
+      summary: Ús de la plataforma (B-010)
+      description: |
+        Comptadors diaris (Redis, 40 dies de retenció): peticions i errors
+        per plantilla d'endpoint i per usuari, més sessions actives.
+      x-required-scopes: [system:read]
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 40, default: 7 }
+      responses:
+        "200":
+          description: Agregats d'ús del període
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SystemUsage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   # ───────────────────────────── setup ─────────────────────────────
   /setup/status:
@@ -5438,6 +5483,121 @@ components:
         created_at: { type: string, format: date-time }
         started_at: { type: [string, "null"], format: date-time }
         finished_at: { type: [string, "null"], format: date-time }
+
+    ServiceCheck:
+      type: object
+      description: Estat d'un servei o connector al dashboard (B-022).
+      required: [name, status]
+      properties:
+        name:
+          type: string
+          examples: ["database", "redis", "storage", "worker", "scheduler", "connector:socrata"]
+        status: { type: string, enum: [ok, degraded, failing] }
+        detail: { type: [string, "null"] }
+        latency_ms: { type: [integer, "null"] }
+        checked_at: { type: [string, "null"], format: date-time }
+
+    SystemStatus:
+      type: object
+      description: |
+        Estat agregat del sistema (specs/system-status.md). L'estat global
+        el mana la plataforma (BD, Redis, storage, worker, scheduler); un
+        connector extern caigut surt a la llista però no el tomba.
+      required: [generated_at, status, services, jobs, syncs, webhooks, resources]
+      properties:
+        generated_at: { type: string, format: date-time }
+        status: { type: string, enum: [ok, degraded, failing] }
+        services:
+          type: array
+          items: { $ref: "#/components/schemas/ServiceCheck" }
+        jobs:
+          type: object
+          required: [queued, running, dead, failed_24h, running_jobs]
+          properties:
+            queued: { type: integer }
+            running: { type: integer }
+            dead: { type: integer }
+            failed_24h: { type: integer }
+            running_jobs:
+              type: array
+              items:
+                type: object
+                required: [id, type, progress]
+                properties:
+                  id: { type: string, format: uuid }
+                  type: { type: string }
+                  progress: { type: integer, minimum: 0, maximum: 100 }
+                  progress_message: { type: [string, "null"] }
+                  started_at: { type: [string, "null"], format: date-time }
+        syncs:
+          type: array
+          items:
+            type: object
+            required: [kind, status]
+            properties:
+              kind: { type: string }
+              status: { type: string }
+              started_at: { type: [string, "null"], format: date-time }
+              finished_at: { type: [string, "null"], format: date-time }
+        webhooks:
+          type: object
+          required: [pending, failed_24h]
+          properties:
+            pending: { type: integer }
+            failed_24h: { type: integer }
+        resources:
+          type: object
+          required: [queue_depth]
+          properties:
+            database_bytes: { type: [integer, "null"] }
+            redis_memory_bytes: { type: [integer, "null"] }
+            queue_depth: { type: integer }
+            storage_objects: { type: [integer, "null"] }
+            storage_bytes: { type: [integer, "null"] }
+            storage_truncated: { type: [boolean, "null"] }
+            storage_measured_at: { type: [string, "null"], format: date-time }
+
+    SystemUsage:
+      type: object
+      description: |
+        Ús de la plataforma (specs/usage-tracking.md, B-010). Comptadors per
+        plantilla de ruta — mai paths crus amb identificadors.
+      required: [days, top_endpoints, top_users, active_sessions, active_users]
+      properties:
+        days:
+          type: array
+          description: Sèrie diària, més recent primer.
+          items:
+            type: object
+            required: [day, requests, errors]
+            properties:
+              day: { type: string, format: date }
+              requests: { type: integer }
+              errors: { type: integer }
+        top_endpoints:
+          type: array
+          items:
+            type: object
+            required: [endpoint, requests, errors]
+            properties:
+              endpoint: { type: string, examples: ["GET /contracts"] }
+              requests: { type: integer }
+              errors: { type: integer }
+        top_users:
+          type: array
+          items:
+            type: object
+            required: [user_id, requests]
+            properties:
+              user_id: { type: integer, format: int64 }
+              name: { type: [string, "null"] }
+              requests: { type: integer }
+        active_sessions:
+          type: integer
+          description: Refresh tokens vius (no revocats i no caducats).
+        active_users:
+          type: integer
+          description: Usuaris diferents amb alguna sessió activa.
 
     TokenPair:
       type: object
