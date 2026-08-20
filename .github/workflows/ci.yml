@@ -58,11 +58,17 @@ jobs:
       - name: Lint del contracte
         run: npx --yes @redocly/cli@latest lint openapi.yaml
 
+      # oasdiff és un binari de Go, NO un paquet npm: amb npx no arrenca.
+      - uses: actions/setup-go@v5
+        if: github.event_name == 'pull_request'
+        with:
+          go-version: "1.22"
+          cache: false
       - name: Canvis incompatibles respecte de main
         if: github.event_name == 'pull_request'
         run: |
           git show "origin/${{ github.base_ref }}:openapi.yaml" > /tmp/base-openapi.yaml 2>/dev/null || exit 0
-          npx --yes oasdiff@latest breaking /tmp/base-openapi.yaml openapi.yaml --fail-on ERR
+          go run github.com/oasdiff/oasdiff@latest breaking /tmp/base-openapi.yaml openapi.yaml --fail-on ERR
 
   # ───────────────────────────────────────────────────────────────
   security:
@@ -70,6 +76,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks escaneja el rang de commits de la PR: amb un clone
+          # superficial peta amb «failed to scan Git repository».
+          fetch-depth: 0
 
       - name: Prohibicions explícites del projecte (CLAUDE.md)
         run: |
