@@ -22,6 +22,7 @@ import app.integrations.socrata.sync_execution  # noqa: F401 — registra sync.e
 import app.integrations.socrata.sync_rpc  # noqa: F401 — registra extensions i menors
 import app.jobs.nightly  # noqa: F401 — registra sync.nightly
 import app.jobs.retention  # noqa: F401 — registra retention.purge
+import app.modules.bpm.jobs  # noqa: F401 — registra bpm.scan
 import app.modules.contractors.jobs  # noqa: F401 — registra contractors.consolidate
 import app.modules.contracts.alerts  # noqa: F401 — registra alerts.recompute
 import app.modules.contracts.exports  # noqa: F401 — registra export.contracts

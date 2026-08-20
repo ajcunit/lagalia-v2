@@ -1909,6 +1909,95 @@ export interface paths {
         patch: operations["updateServiceAccount"];
         trace?: never;
     };
+    "/bpm/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Processos BPM definits */
+        get: operations["listBpmWorkflows"];
+        put?: never;
+        /** Crea un procés amb els seus passos */
+        post: operations["createBpmWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bpm/workflows/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Edita un procés (substitueix la llista de passos) */
+        put: operations["updateBpmWorkflow"];
+        post?: never;
+        /** Esborra un procés (i les seves instàncies) */
+        delete: operations["deleteBpmWorkflow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bpm/workflows/{id}/actions/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Arrenca manualment el procés sobre un contracte */
+        post: operations["startBpmInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bpm/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Instàncies de processos (filtre per procés o contracte) */
+        get: operations["listBpmInstances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bpm/instances/{id}/actions/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel·la una instància en marxa */
+        post: operations["cancelBpmInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks": {
         parameters: {
             query?: never;
@@ -2401,8 +2490,10 @@ export interface paths {
         /**
          * Usuaris actius per als selectors d'assignació
          * @description Només id i nom (mai rol, correu ni cap altra dada): els selectors de
-         *     responsables (specs/contract-assignment.md) necessiten anomenar
-         *     usuaris sense obrir la gestió completa, que continua sent d'admin.
+         *     responsables de contracte (specs/contract-assignment.md) i
+         *     d'assignats de tasques necessiten anomenar usuaris sense obrir la
+         *     gestió completa, que continua sent d'admin. Porta tasks:write, el
+         *     conjunt més ampli de rols que assigna.
          */
         get: operations["listUserOptions"];
         put?: never;
@@ -3458,6 +3549,78 @@ export interface components {
                 /** Format: date-time */
                 storage_measured_at?: string | null;
             };
+        };
+        BpmStepInput: {
+            title: string;
+            description?: string | null;
+            /**
+             * @default other
+             * @enum {string}
+             */
+            task_type: "review" | "extension" | "settlement" | "guarantee_return" | "report" | "meeting" | "other";
+            /**
+             * @default normal
+             * @enum {string}
+             */
+            priority: "low" | "normal" | "high";
+            /**
+             * @description Dies des del disparador (primer pas) o des de la compleció de l'anterior.
+             * @default 0
+             */
+            offset_days: number;
+            /** @enum {string} */
+            assignee_kind: "user" | "department" | "role";
+            /** Format: int64 */
+            assignee_user_id?: number | null;
+            /** Format: int64 */
+            assignee_department_id?: number | null;
+            assignee_role?: components["schemas"]["Role"] | null;
+        };
+        BpmStep: components["schemas"]["BpmStepInput"] & {
+            /** Format: int64 */
+            id: number;
+            position: number;
+        };
+        BpmWorkflowInput: {
+            name: string;
+            description?: string | null;
+            /** @enum {string} */
+            trigger: "contract_created" | "status_reached" | "manual";
+            /** @description Estat de la font que dispara el procés (obligatori per a status_reached). */
+            trigger_status?: string | null;
+            /** @default true */
+            active: boolean;
+            steps: components["schemas"]["BpmStepInput"][];
+        };
+        BpmWorkflow: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            description?: string | null;
+            /** @enum {string} */
+            trigger: "contract_created" | "status_reached" | "manual";
+            trigger_status?: string | null;
+            active: boolean;
+            steps: components["schemas"]["BpmStep"][];
+            /** Format: date-time */
+            created_at: string;
+        };
+        BpmInstance: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            workflow_id: number;
+            /** Format: int64 */
+            contract_id: number;
+            /** @enum {string} */
+            status: "running" | "done" | "cancelled";
+            current_position: number;
+            /** Format: int64 */
+            current_task_id?: number | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
         };
         /**
          * @description Ús de la plataforma (specs/usage-tracking.md, B-010). Comptadors per
@@ -7548,6 +7711,191 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
+        };
+    };
+    listBpmWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Processos amb els seus passos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["BpmWorkflow"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createBpmWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BpmWorkflowInput"];
+            };
+        };
+        responses: {
+            /** @description Procés creat */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BpmWorkflow"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    updateBpmWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BpmWorkflowInput"];
+            };
+        };
+        responses: {
+            /** @description Procés actualitzat */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BpmWorkflow"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+        };
+    };
+    deleteBpmWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Esborrat */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startBpmInstance: {
+        parameters: {
+            query: {
+                contract_id: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instància oberta amb la primera tasca creada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BpmInstance"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listBpmInstances: {
+        parameters: {
+            query?: {
+                workflow_id?: number;
+                contract_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instàncies, més recents primer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["BpmInstance"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    cancelBpmInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instància cancel·lada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BpmInstance"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listWebhooks: {
