@@ -85,6 +85,7 @@ def get_request_context(request: Request) -> RequestContext:
 
 
 async def get_current_session(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CurrentSession:
@@ -98,4 +99,7 @@ async def get_current_session(
     user = await repository.get_user_by_id(session, claims.user_id)
     if user is None or not user.active:
         raise unauthorized()
+    # Identitat per als comptadors d'ús (B-010): el middleware la llegeix
+    # després de la resposta; només l'id, mai cap altra dada.
+    request.state.user_id = user.id
     return CurrentSession(user=user, session_id=claims.session_id)

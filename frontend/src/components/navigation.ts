@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   ArrowLeftRight,
   BarChart3,
   Bot,
@@ -79,6 +80,13 @@ export interface AdminTile {
 
 /** Targetes del hub de configuració (/admin). */
 export const ADMIN_TILES: AdminTile[] = [
+  {
+    to: "/admin/system",
+    labelKey: "nav.systemStatus",
+    descriptionKey: "adminHub.systemStatus",
+    icon: Activity,
+    action: "system:read",
+  },
   {
     to: "/admin/users",
     labelKey: "nav.users",

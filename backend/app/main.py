@@ -29,6 +29,7 @@ from app.modules.public_registry.router import router as public_registry_router
 from app.modules.service_accounts.router import router as service_accounts_router
 from app.modules.setup.router import router as setup_router
 from app.modules.sync.router import router as sync_router
+from app.modules.system.router import router as system_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
 from app.modules.webhooks.router import router as webhooks_router
@@ -86,6 +87,28 @@ async def trace_requests(
 
 
 @app.middleware("http")
+async def track_api_usage(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Comptadors d'ús (specs/usage-tracking.md, B-010): per plantilla de
+    ruta resolta, mai el path cru. Un error de Redis no trenca la request."""
+    response = await call_next(request)
+    route = getattr(request.scope.get("route"), "path", None)
+    if isinstance(route, str) and request.url.path.startswith("/api/"):
+        from app.core.usage import record_request
+
+        # El path de la ruta inclosa via include_router NO porta el prefix
+        # /api/v1 (la declarada directament sí): es normalitza sense prefix.
+        await record_request(
+            request.method,
+            route.removeprefix("/api/v1"),
+            response.status_code,
+            getattr(request.state, "user_id", None),
+        )
+    return response
+
+
+@app.middleware("http")
 async def enforce_module_flags(request: Request, call_next):  # type: ignore[no-untyped-def]
     """Mòduls activables (specs/module-flags.md): un sol punt de tall."""
     from app.core import modules as module_flags
@@ -122,6 +145,7 @@ api.include_router(service_accounts_router)
 api.include_router(config_router)
 api.include_router(audit_router)
 api.include_router(sync_router)
+api.include_router(system_router)
 api.include_router(public_registry_router)
 api.include_router(favorites_router)
 api.include_router(help_router)

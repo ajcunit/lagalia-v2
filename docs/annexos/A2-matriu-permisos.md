@@ -51,6 +51,8 @@ Flags independents del rol: `permiso_auditoria` → `can_audit`; `permiso_pla_co
 | Red flags i assistent IA | ✔ | ✔ si `can_audit` | ✔ si `can_audit` | ✔ si `can_audit` |
 | **Auditoria de seguretat** (nova v2) |
 | Consultar `audit_log` | ✔ | — | — | — |
+| **Sistema** (nou v2) |
+| Estat del sistema, readiness i ús de la plataforma (`system:read`) | ✔ | — | — | — |
 | **Tasques** (nou v2) |
 | Veure | ✔ | ✔ | ✔ᴰ | ✔ᴰ (assignades) |
 | Crear/editar sobre contractes del seu àmbit | ✔ | ✔ | ✔ᴰ | — |

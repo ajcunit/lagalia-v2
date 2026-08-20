@@ -34,12 +34,6 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 - **Com desenvolupar-la:** fitxer de hashos empaquetat amb la imatge o taula carregada per job; comprovació local a `app/core/security.py`.
 - **Specs afectades:** [users-departments.md](../specs/users-departments.md), [06-seguretat.md](06-seguretat.md).
 
-### B-010 · Seguiment d'ús de la plataforma (connexions, API, connectors, cues)
-- **Prioritat:** P2 · **Estat:** Proposta · **Mida:** M
-- **Descripció:** petició d'usuari (2026-08-12): un seguiment operatiu de què passa a la plataforma — connexions/sessions actives, ús de l'API (crides per identitat/endpoint/dia, ràtios d'error, rate limits assolits), crides a connectors externs (latència, errors, quota — ja previst a [08-hub-integracions.md](08-hub-integracions.md) §1) i estat de les cues (jobs encuats/en execució/fallits, temps d'espera). Part de la matèria primera ja existeix (`audit_log`, `jobs`, `sync_runs`, logs estructurats amb `trace_id`); falta agregar-la i exposar-la.
-- **Com desenvolupar-la:** dues capes complementàries: (1) mètriques OpenTelemetry/Prometheus previstes a [03-arquitectura.md](03-arquitectura.md) §3 (comptadors per endpoint, connector i cua) per a Grafana; (2) un endpoint d'administració de resum (`/admin/usage`?) i pantalla a la zona d'Administració que consumeixi agregats de BD per a qui no tingui Grafana. Decidir retenció d'agregats (taula de comptadors diaris vs. només mètriques efímeres).
-- **Specs afectades:** [03-arquitectura.md](03-arquitectura.md) §6, [08-hub-integracions.md](08-hub-integracions.md) §1, [10-ui.md](10-ui.md) §4 (zona Administració); spec de feature nova quan es triï.
-
 ### B-012 · Feedback del resultat dels jobs llançats des de la fitxa
 - **Prioritat:** P2 · **Estat:** Parcialment resolta (sondeig implementat; queda la versió SSE) · **Mida:** S
 - **Descripció:** el botó «Enriqueix» de la fitxa encua el job i avisa que està encuat, però l'usuari no sap si ha acabat, si ha fallat (p. ex. fases caducades a la font) ni quan cal recarregar. Detectat en ús real (2026-08-12): dos jobs fallits invisibles per a l'usuari.
@@ -71,15 +65,20 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 
 ---
 
+## Tancades
+
 ### B-022 · Dashboard d'estat del sistema i observabilitat per a administradors
-- **Prioritat:** P1 · **Estat:** Proposta · **Mida:** L
+- **Prioritat:** P1 · **Estat:** Tancada (PR [#1](https://github.com/ajcunit/lagalia-v2/pull/1), specs/system-status.md) · **Mida:** L
 - **Descripció:** l'administrador no té manera de saber des de la mateixa aplicació si el sistema és viu de veritat: un servei pot estar «running» al contenidor però no funcionar (cas real: l'API en crash-loop es veia igual que una API sana des de Portainer). Cal una pantalla d'administració amb: **salut per servei** (API, worker, scheduler, BD, Redis, MinIO, i cada connector actiu) amb comprovacions reals i no només «el procés existeix» — p. ex. el worker demostra que és viu executant un heartbeat recent, el scheduler pel seu últim tick; **tasques en execució** (jobs en curs amb progrés, encuats, morts a la DLQ, i accions de cancel·lar/re-encuar); **consums de recursos** (mida de la BD i creixement, espai del bucket MinIO, memòria/CPU si són accessibles, latid de Redis, fondària de la cua); i **observabilitat** (errors recents agregats per tipus, últims sync_runs fallats, webhooks pendents de reintent, temps de resposta de l'API). Amb avisos visibles quan alguna cosa porta massa temps aturada.
 - **Com desenvolupar-la:** ja hi ha peces que només cal exposar: `system.heartbeat` (cada 5 min, demostra worker+scheduler+cua), `GET /health`, la taula `jobs` (en curs/DLQ), `sync_runs`, i `webhook_deliveries`. Nou endpoint agregador `GET /admin/system-status` (permís nou `system:read`, només admin) que comprovi cada servei amb un ping real (SELECT 1, PING de Redis, HeadBucket de MinIO) i retorni l'edat de l'últim heartbeat i tick; pantalla nova a Configuració → Estat del sistema amb refresc periòdic. Les mètriques de CPU/memòria dels contenidors no són visibles des de dins sense muntar el socket de Docker (mai!): limitar-se al que la BD/Redis/MinIO reporten per consulta. Targetes a tot l'ample, apilades (mai en graella).
 - **Specs afectades:** [admin-ui.md](../specs/admin-ui.md) (nova secció o spec pròpia system-status.md), [jobs-queue.md](../specs/jobs-queue.md), [config-ui.md](../specs/config-ui.md), [06-seguretat.md](06-seguretat.md) (permís nou a la matriu A2).
 
----
+### B-010 · Seguiment d'ús de la plataforma (connexions, API, connectors, cues)
+- **Prioritat:** P2 · **Estat:** Tancada en la seva capa d'agregats (PR [#1](https://github.com/ajcunit/lagalia-v2/pull/1), specs/usage-tracking.md); la capa OpenTelemetry/Prometheus i la instrumentació per connector queden com a evolució · **Mida:** M
+- **Descripció:** petició d'usuari (2026-08-12): un seguiment operatiu de què passa a la plataforma — connexions/sessions actives, ús de l'API (crides per identitat/endpoint/dia, ràtios d'error, rate limits assolits), crides a connectors externs (latència, errors, quota — ja previst a [08-hub-integracions.md](08-hub-integracions.md) §1) i estat de les cues (jobs encuats/en execució/fallits, temps d'espera). Part de la matèria primera ja existeix (`audit_log`, `jobs`, `sync_runs`, logs estructurats amb `trace_id`); falta agregar-la i exposar-la.
+- **Com desenvolupar-la:** dues capes complementàries: (1) mètriques OpenTelemetry/Prometheus previstes a [03-arquitectura.md](03-arquitectura.md) §3 (comptadors per endpoint, connector i cua) per a Grafana; (2) un endpoint d'administració de resum (`/admin/usage`?) i pantalla a la zona d'Administració que consumeixi agregats de BD per a qui no tingui Grafana. Decidir retenció d'agregats (taula de comptadors diaris vs. només mètriques efímeres).
+- **Specs afectades:** [03-arquitectura.md](03-arquitectura.md) §6, [08-hub-integracions.md](08-hub-integracions.md) §1, [10-ui.md](10-ui.md) §4 (zona Administració); spec de feature nova quan es triï.
 
-## Tancades
 
 ### B-021 · Una execució de sync tallada a mig fer queda per sempre com a «executant»
 - **Prioritat:** P2 · **Estat:** Feta (migració 0035 + escombrat jobs.sweep) · **Mida:** S

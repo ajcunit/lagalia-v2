@@ -41,6 +41,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard d'estat del sistema (B-022)
+         * @description Salut per servei provada amb feina real (el worker per l'edat de
+         *     l'últim heartbeat executat, el scheduler pel seu últim tick),
+         *     treballs en curs, sincronitzacions, webhooks i consums de recursos.
+         *     Els connectors externs surten de l'última passada del job de fons
+         *     `system.status_snapshot`, mai de crides dins de la request.
+         */
+        get: operations["getSystemStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ús de la plataforma (B-010)
+         * @description Comptadors diaris (Redis, 40 dies de retenció): peticions i errors
+         *     per plantilla d'endpoint i per usuari, més sessions actives.
+         */
+        get: operations["getSystemUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/setup/status": {
         parameters: {
             query?: never;
@@ -3274,6 +3319,117 @@ export interface components {
             /** Format: date-time */
             finished_at?: string | null;
         };
+        /** @description Estat d'un servei o connector al dashboard (B-022). */
+        ServiceCheck: {
+            /**
+             * @example database
+             * @example redis
+             * @example storage
+             * @example worker
+             * @example scheduler
+             * @example connector:socrata
+             */
+            name: string;
+            /** @enum {string} */
+            status: "ok" | "degraded" | "failing";
+            detail?: string | null;
+            latency_ms?: number | null;
+            /** Format: date-time */
+            checked_at?: string | null;
+        };
+        /**
+         * @description Estat agregat del sistema (specs/system-status.md). L'estat global
+         *     el mana la plataforma (BD, Redis, storage, worker, scheduler); un
+         *     connector extern caigut surt a la llista però no el tomba.
+         */
+        SystemStatus: {
+            /** Format: date-time */
+            generated_at: string;
+            /** @enum {string} */
+            status: "ok" | "degraded" | "failing";
+            services: components["schemas"]["ServiceCheck"][];
+            jobs: {
+                queued: number;
+                running: number;
+                dead: number;
+                failed_24h: number;
+                running_jobs: {
+                    /** Format: uuid */
+                    id: string;
+                    type: string;
+                    progress: number;
+                    progress_message?: string | null;
+                    /** Format: date-time */
+                    started_at?: string | null;
+                }[];
+            };
+            syncs: {
+                kind: string;
+                status: string;
+                /** Format: date-time */
+                started_at?: string | null;
+                /** Format: date-time */
+                finished_at?: string | null;
+            }[];
+            webhooks: {
+                pending: number;
+                failed_24h: number;
+            };
+            resources: {
+                database_bytes?: number | null;
+                redis_memory_bytes?: number | null;
+                queue_depth: number;
+                storage_objects?: number | null;
+                storage_bytes?: number | null;
+                storage_truncated?: boolean | null;
+                /** Format: date-time */
+                storage_measured_at?: string | null;
+            };
+        };
+        /**
+         * @description Ús de la plataforma (specs/usage-tracking.md, B-010). Comptadors per
+         *     plantilla de ruta — mai paths crus amb identificadors.
+         */
+        SystemUsage: {
+            /** @description Sèrie diària, més recent primer. */
+            days: {
+                /** Format: date */
+                day: string;
+                requests: number;
+                errors: number;
+            }[];
+            top_endpoints: {
+                /** @example GET /contracts */
+                endpoint: string;
+                requests: number;
+                errors: number;
+            }[];
+            /** @description Mòduls més usats, mapats amb la mateixa taula que el tall de mòduls desactivats. */
+            top_modules: {
+                /** @example tasks */
+                module: string;
+                /** @example Tasques i calendari */
+                label: string;
+                requests: number;
+            }[];
+            /**
+             * @description Qui s'ha connectat i què genera: última connexió amb èxit
+             *     (audit_log) i peticions del període. Ordenat per activitat.
+             */
+            users: {
+                /** Format: int64 */
+                user_id: number;
+                name?: string | null;
+                /** Format: date-time */
+                last_login_at?: string | null;
+                last_login_ip?: string | null;
+                requests: number;
+            }[];
+            /** @description Refresh tokens vius (no revocats i no caducats). */
+            active_sessions: number;
+            /** @description Usuaris diferents amb alguna sessió activa. */
+            active_users: number;
+        };
         TokenPair: {
             access_token: string;
             refresh_token: string;
@@ -3510,11 +3666,60 @@ export interface operations {
                             status: "ok" | "degraded" | "failing";
                             detail?: string;
                             latency_ms?: number;
+                            /** Format: date-time */
+                            checked_at?: string;
                         }[];
                     };
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getSystemStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estat agregat del sistema */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getSystemUsage: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agregats d'ús del període */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemUsage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getSetupStatus: {

@@ -55,4 +55,11 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=300,
         dedup_key="webhooks.dispatch",
     ),
+    # Estat del sistema (B-022): healthchecks dels connectors habilitats i
+    # mesura de l'storage — el que no pot anar dins d'una request.
+    ScheduledJob(
+        job_type="system.status_snapshot",
+        interval_seconds=900,
+        dedup_key="system.status_snapshot",
+    ),
 ]

@@ -9,7 +9,7 @@ import enum
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -291,6 +291,7 @@ class Authorize:
 
     async def __call__(
         self,
+        request: Request,
         session: Annotated[AsyncSession, Depends(get_session)],
         ctx: Annotated[RequestContext, Depends(get_request_context)],
         credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
@@ -327,7 +328,7 @@ class Authorize:
                 scope=ScopeInfo(type="all"),
             )
 
-        current = await get_current_session(credentials, session)
+        current = await get_current_session(request, credentials, session)
         return await self.check(current, session, ctx)
 
     async def check(
