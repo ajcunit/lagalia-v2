@@ -942,6 +942,36 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /contracts/{id}/documents/{document_id}/content:
+    get:
+      tags: [contracts]
+      operationId: getContractDocumentContent
+      summary: Còpia local d'un document per al visor intern
+      description: |
+        Contingut de la còpia local (specs/pdf-viewer.md). Autenticació
+        estàndard per capçalera — cap token per query string. Només els PDF
+        se serveixen inline; la resta, com a adjunt. Cada visualització
+        queda auditada.
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: document_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "200":
+          description: Contingut del document
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /contracts/{id}/executions:
     get:
       tags: [contracts]

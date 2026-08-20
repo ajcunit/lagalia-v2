@@ -359,6 +359,62 @@ async def get_contract_documents(
     return {"data": [PhaseDocumentResponse.from_document(d) for d in documents]}
 
 
+@router.get(
+    "/contracts/{id}/documents/{document_id}/content",
+    operation_id="getContractDocumentContent",
+)
+async def get_contract_document_content(
+    id: ResourceId,
+    document_id: Annotated[int, Path(ge=1)],
+    session: SessionDep,
+    authz_ctx: ReadDep,
+    ctx: ContextDep,
+) -> Response:
+    """Còpia local d'un document per al visor intern (specs/pdf-viewer.md).
+
+    Autenticació per capçalera (cap token per query string): el visor baixa
+    el contingut amb fetch i el mostra en un object URL. Només els PDF se
+    serveixen inline; qualsevol altre contingut va com a adjunt — mai
+    s'executa res de la font al navegador."""
+    from app.core.storage import safe_name
+    from app.modules.contracts.models import PhaseDocument
+
+    await service.get_scoped_contract(session, id, authz_ctx.user, authz_ctx.scope)
+    document = await session.get(PhaseDocument, document_id)
+    if document is None or document.contract_id != id:
+        raise Problem(404, "Document no trobat", "not-found")
+    if document.storage_key is None:
+        raise Problem(409, "El document no té còpia local", "no-local-copy")
+
+    content = await get_storage().get(document.storage_key)
+    is_pdf = content[:5] == b"%PDF-"
+    filename = safe_name(document.title or f"document-{document_id}")
+    disposition = "inline" if is_pdf else "attachment"
+
+    await record_audit(
+        session,
+        actor_type=AuditActorType.USER,
+        action="contracts.document_view",
+        success=True,
+        actor_id=authz_ctx.user.id,
+        resource_type="phase_document",
+        resource_id=str(document_id),
+        ip=ctx.ip,
+        user_agent=ctx.user_agent,
+        trace_id=ctx.trace_id,
+    )
+    await session.commit()
+    return Response(
+        content=content,
+        media_type="application/pdf" if is_pdf else "application/octet-stream",
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{filename}"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 @router.get("/contracts/{id}/executions", operation_id="getContractExecutions")
 async def get_contract_executions(
     id: ResourceId, session: SessionDep, authz_ctx: ReadDep

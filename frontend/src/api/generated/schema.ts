@@ -598,6 +598,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contracts/{id}/documents/{document_id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Còpia local d'un document per al visor intern
+         * @description Contingut de la còpia local (specs/pdf-viewer.md). Autenticació
+         *     estàndard per capçalera — cap token per query string. Només els PDF
+         *     se serveixen inline; la resta, com a adjunt. Cada visualització
+         *     queda auditada.
+         */
+        get: operations["getContractDocumentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contracts/{id}/executions": {
         parameters: {
             query?: never;
@@ -4614,6 +4637,34 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getContractDocumentContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+                document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contingut del document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "application/octet-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getContractExecutions: {

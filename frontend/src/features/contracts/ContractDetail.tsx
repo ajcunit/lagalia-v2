@@ -24,6 +24,7 @@ import {
 import {
   Activity,
   Building2,
+  Eye,
   Folder,
   FolderOpen,
   History,
@@ -32,6 +33,7 @@ import {
   MessageSquare,
   Scale,
 } from "lucide-react";
+import { PdfViewerModal } from "../../components/PdfViewer";
 
 import { ChatView } from "../chat/ChatView";
 import { useContractor } from "../contractors/queries";
@@ -70,7 +72,10 @@ function DocumentsSection(props: {
   documents: PhaseDoc[];
   canReview: boolean;
   fileCode: string;
+  contractId: number;
 }) {
+  // Visor intern (specs/pdf-viewer.md): document obert al modal, si n'hi ha.
+  const [viewing, setViewing] = useState<PhaseDoc | null>(null);
   const [reviewing, setReviewing] = useState<{ id: number; title: string } | null>(null);
   const [reviewText, setReviewText] = useState("");
   const [articles, setArticles] = useState<{ article?: string; url?: string }[]>([]);
@@ -157,7 +162,17 @@ function DocumentsSection(props: {
                         <td className="py-1.5 pr-2 text-right tabular-nums text-muted">
                           {formatBytes(doc.size)}
                         </td>
-                        <td className="w-28 py-1.5 pl-2 text-right">
+                        <td className="w-40 py-1.5 pl-2 text-right">
+                          {doc.has_copy && (
+                            <button
+                              type="button"
+                              className="mr-2 text-xs text-accent underline-offset-2 hover:underline"
+                              onClick={() => setViewing(doc)}
+                            >
+                              <Eye className="mr-1 inline h-3 w-3 -translate-y-px" aria-hidden />
+                              {t("contract.documents.view")}
+                            </button>
+                          )}
                           {doc.download_url && (
                             <AddToProject
                               title={doc.title ?? String(doc.id)}
@@ -234,6 +249,14 @@ function DocumentsSection(props: {
           )}
           <p className="mt-1 text-xs text-muted">{t("docgen.legalDisclaimer")}</p>
         </div>
+      )}
+
+      {viewing && (
+        <PdfViewerModal
+          title={viewing.title ?? String(viewing.id)}
+          contentUrl={`/api/v1/contracts/${props.contractId}/documents/${viewing.id}/content`}
+          onClose={() => setViewing(null)}
+        />
       )}
     </SectionCard>
   );
@@ -679,6 +702,7 @@ export function ContractDetail() {
               actions.includes("compliance:run") && !disabledModules.includes("compliance")
             }
             fileCode={data.file_code}
+            contractId={data.id}
           />
         </div>
       )}
