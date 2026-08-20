@@ -15,7 +15,7 @@ Regles verificables:
 - **Registre**: un middleware compta cada request de `/api/*` a Redis per **plantilla de ruta resolta** (p. ex. `GET /contracts/{id}`), mai el path cru — cardinalitat continguda i cap identificador de recurs als comptadors. Tres hashos per dia UTC: peticions per endpoint, errors (status ≥ 400) per endpoint i peticions per usuari (només l'id). **TTL de 40 dies**: la retenció és automàtica, sense taula ni migració.
 - El registre **mai trenca una request**: qualsevol error de Redis s'engoleix i queda al log (`usage_tracking_failed`).
 - La identitat surt de la sessió autenticada (`request.state.user_id`, el posa `get_current_session`); les requests anònimes compten a l'endpoint però no a cap usuari.
-- **`GET /system/usage?days=`** (`system:read`, 1–40, 7 per defecte): sèrie diària (peticions/errors), top 15 endpoints amb errors, top 15 usuaris amb nom resolt, i **sessions actives** (refresh tokens no revocats i no caducats) + usuaris diferents amb sessió.
+- **`GET /system/usage?days=`** (`system:read`, 1–40, 7 per defecte): sèrie diària (peticions/errors), top 15 endpoints amb errors, **mòduls més usats** (cada plantilla d'endpoint mapada amb la mateixa taula que el tall de mòduls desactivats, `core/modules.py`), **usuaris** (fins a 50: unió de qui s'ha connectat mai — última connexió amb èxit i la seva IP, de l'`audit_log` — i qui genera peticions al període, ordenat per activitat), i **sessions actives** (refresh tokens no revocats i no caducats) + usuaris diferents amb sessió.
 - Decisió de retenció (pregunta oberta del backlog): **agregats efímers a Redis**; la capa de mètriques OpenTelemetry/Prometheus de docs/03 §3 queda al backlog com a evolució per a qui tingui Grafana.
 
 ## Canvis d'API
@@ -33,7 +33,7 @@ Cap: comptadors a Redis amb TTL. Cap dada personal nova — l'id d'usuari ja exi
 
 ## UI
 
-Secció «Ús de la plataforma» a Configuració → Estat del sistema: sessions actives, totals del període, endpoints més usats i usuaris més actius. A tot l'ample, apilada amb la resta.
+A Configuració → Estat del sistema (pestanyes amb icona): pestanya **Ús** amb totals del període, mòduls més usats i endpoints més usats; pestanya **Usuaris** amb sessions actives i la taula de qui s'ha connectat (última connexió, IP, peticions del període).
 
 ## Fora d'abast
 

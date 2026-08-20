@@ -258,21 +258,34 @@ class EndpointUsage(BaseModel):
     errors: int
 
 
-class UserUsage(BaseModel):
+class UserActivity(BaseModel):
+    """Qui s'ha connectat i què genera: última connexió de l'audit_log
+    (auth.login amb èxit) + peticions del període (comptadors B-010)."""
+
     user_id: int
     name: str | None
+    last_login_at: datetime | None
+    last_login_ip: str | None
+    requests: int
+
+
+class ModuleUsage(BaseModel):
+    module: str
+    label: str
     requests: int
 
 
 class SystemUsageResponse(BaseModel):
     days: list[UsageDaySummary]
     top_endpoints: list[EndpointUsage]
-    top_users: list[UserUsage]
+    top_modules: list[ModuleUsage]
+    users: list[UserActivity]
     active_sessions: int
     active_users: int
 
 
 TOP_LIMIT = 15
+USERS_LIMIT = 50
 
 
 @router.get("/system/usage", operation_id="getSystemUsage")
@@ -303,19 +316,58 @@ async def get_system_usage(
         )[:TOP_LIMIT]
     ]
 
-    top_user_ids = sorted(user_totals.items(), key=lambda item: item[1], reverse=True)[:TOP_LIMIT]
+    # Mòduls més usats: cada plantilla d'endpoint mapa al seu mòdul amb la
+    # mateixa taula que el tall de mòduls desactivats (core/modules.py).
+    from app.core.modules import MODULES, module_for_path
+
+    module_totals: dict[str, int] = {}
+    for endpoint, count in endpoint_totals.items():
+        _method, _, path = endpoint.partition(" ")
+        module = module_for_path(f"/api/v1{path}")
+        if module is not None:
+            module_totals[module] = module_totals.get(module, 0) + count
+    top_modules = [
+        ModuleUsage(module=module, label=MODULES[module], requests=count)
+        for module, count in sorted(module_totals.items(), key=lambda item: item[1], reverse=True)
+    ]
+
+    # Qui s'ha connectat: última connexió amb èxit de l'audit_log + les
+    # peticions del període. Unió d'ambdues fonts, mai només una.
+    logins = (
+        await session.execute(
+            text(
+                "SELECT DISTINCT ON (actor_id) actor_id, occurred_at, host(ip) AS ip "
+                "FROM audit_log "
+                "WHERE action = 'auth.login' AND success AND actor_id IS NOT NULL "
+                "ORDER BY actor_id, occurred_at DESC"
+            )
+        )
+    ).all()
+    last_login = {int(row.actor_id): (row.occurred_at, row.ip) for row in logins}
+
+    usage_by_id = {int(raw): count for raw, count in user_totals.items() if raw.isdigit()}
+    user_ids = set(last_login) | set(usage_by_id)
     names: dict[int, str] = {}
-    valid_ids = [int(raw) for raw, _ in top_user_ids if raw.isdigit()]
-    if valid_ids:
+    if user_ids:
         rows = (
-            await session.execute(select(User.id, User.name).where(User.id.in_(valid_ids)))
+            await session.execute(select(User.id, User.name).where(User.id.in_(user_ids)))
         ).all()
         names = {row.id: row.name for row in rows}
-    top_users = [
-        UserUsage(user_id=int(raw), name=names.get(int(raw)), requests=count)
-        for raw, count in top_user_ids
-        if raw.isdigit()
-    ]
+    epoch = datetime.min.replace(tzinfo=UTC)
+    users = sorted(
+        (
+            UserActivity(
+                user_id=user_id,
+                name=names.get(user_id),
+                last_login_at=last_login.get(user_id, (None, None))[0],
+                last_login_ip=last_login.get(user_id, (None, None))[1],
+                requests=usage_by_id.get(user_id, 0),
+            )
+            for user_id in user_ids
+        ),
+        key=lambda u: (u.requests, u.last_login_at or epoch),
+        reverse=True,
+    )[:USERS_LIMIT]
 
     active_sessions = (
         await session.execute(
@@ -340,7 +392,8 @@ async def get_system_usage(
             for e in series
         ],
         top_endpoints=top_endpoints,
-        top_users=top_users,
+        top_modules=top_modules,
+        users=users,
         active_sessions=int(active_sessions),
         active_users=int(active_users),
     )

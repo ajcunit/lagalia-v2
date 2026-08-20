@@ -127,11 +127,17 @@ async def test_system_usage_counts_requests_and_sessions(api_client, make_user) 
     assert body["days"][0]["requests"] >= 1
     assert body["active_sessions"] >= 1
     assert body["active_users"] >= 1
-    # Els «top» són top-15: dins de la bateria completa hi competeixen tots
-    # els tests, així que només se'n comprova la forma, no la pertinença.
-    assert body["top_users"], "cap usuari comptabilitzat"
+    # Els «top» són limitats: dins de la bateria completa hi competeixen
+    # tots els tests, així que se'n comprova la forma, no la pertinença.
+    assert body["users"], "cap usuari comptabilitzat"
     assert body["top_endpoints"], "cap endpoint comptabilitzat"
     assert all(e["requests"] >= e["errors"] for e in body["top_endpoints"])
+    # L'admin acaba d'iniciar sessió: la seva última connexió hi ha de ser
+    # (l'escriu l'audit_log del login). La IP és NULL als tests: la del
+    # TestClient («testclient») no és una INET vàlida.
+    me = next((u for u in body["users"] if u["user_id"] == admin.id), None)
+    if me is not None:
+        assert me["last_login_at"] is not None
 
 
 async def test_system_usage_denied_to_non_admin(api_client, make_user) -> None:  # type: ignore[no-untyped-def]

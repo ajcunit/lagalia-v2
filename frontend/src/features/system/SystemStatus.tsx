@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, BarChart3, Database, HeartPulse, Inbox, RefreshCw } from "lucide-react";
+import {
+  Activity,
+  BarChart3,
+  Database,
+  HeartPulse,
+  Inbox,
+  RefreshCw,
+  Users,
+} from "lucide-react";
 
 import { api } from "../../api/client";
 import { PageHeader } from "../../components/PageHeader";
@@ -158,6 +166,7 @@ export function SystemStatus() {
                 { key: "sincronitzacions", label: t("system.tab.syncs"), icon: RefreshCw },
                 { key: "recursos", label: t("system.tab.resources"), icon: Database },
                 { key: "us", label: t("system.tab.usage"), icon: BarChart3 },
+                { key: "usuaris", label: t("system.tab.users"), icon: Users },
               ]}
               active={tab}
               onSelect={setTab}
@@ -307,11 +316,6 @@ export function SystemStatus() {
                     <DefinitionList
                       items={[
                         {
-                          label: t("system.usage.activeSessions"),
-                          value: usage.data.active_sessions,
-                        },
-                        { label: t("system.usage.activeUsers"), value: usage.data.active_users },
-                        {
                           label: t("system.usage.requests7d"),
                           value: usage.data.days.reduce((total, day) => total + day.requests, 0),
                         },
@@ -325,6 +329,28 @@ export function SystemStatus() {
                       <p className="mt-3 text-sm text-muted">{t("system.usage.none")}</p>
                     ) : (
                       <div className="mt-4 space-y-4">
+                        {usage.data.top_modules.length > 0 && (
+                          <div>
+                            <h3 className="text-xs font-semibold text-muted uppercase">
+                              {t("system.usage.topModules")}
+                            </h3>
+                            <ul className="mt-2 divide-y divide-line">
+                              {usage.data.top_modules.map((module) => (
+                                <li
+                                  key={module.module}
+                                  className="flex flex-wrap items-center gap-3 py-1.5"
+                                >
+                                  <span className="text-sm font-medium text-ink">
+                                    {module.label}
+                                  </span>
+                                  <span className="ml-auto text-xs text-muted">
+                                    {module.requests} {t("system.usage.requests")}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <div>
                           <h3 className="text-xs font-semibold text-muted uppercase">
                             {t("system.usage.topEndpoints")}
@@ -348,28 +374,70 @@ export function SystemStatus() {
                             ))}
                           </ul>
                         </div>
-                        {usage.data.top_users.length > 0 && (
-                          <div>
-                            <h3 className="text-xs font-semibold text-muted uppercase">
-                              {t("system.usage.topUsers")}
-                            </h3>
-                            <ul className="mt-2 divide-y divide-line">
-                              {usage.data.top_users.map((user) => (
-                                <li
-                                  key={user.user_id}
-                                  className="flex flex-wrap items-center gap-3 py-1.5"
-                                >
-                                  <span className="text-sm text-ink">
-                                    {user.name ?? `#${user.user_id}`}
-                                  </span>
-                                  <span className="ml-auto text-xs text-muted">
-                                    {user.requests} {t("system.usage.requests")}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </SectionCard>
+            )}
+
+            {tab === "usuaris" && (
+              <SectionCard title={t("system.users.title")}>
+                {usage.data === undefined ? (
+                  <Skeleton rows={4} />
+                ) : (
+                  <>
+                    <DefinitionList
+                      items={[
+                        {
+                          label: t("system.usage.activeSessions"),
+                          value: usage.data.active_sessions,
+                        },
+                        { label: t("system.usage.activeUsers"), value: usage.data.active_users },
+                      ]}
+                    />
+                    {usage.data.users.length === 0 ? (
+                      <p className="mt-3 text-sm text-muted">{t("system.users.none")}</p>
+                    ) : (
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-line text-left text-xs text-muted">
+                              <th scope="col" className="px-3 py-2 font-medium">
+                                {t("system.tab.users")}
+                              </th>
+                              <th scope="col" className="px-3 py-2 font-medium">
+                                {t("system.users.lastLogin")}
+                              </th>
+                              <th scope="col" className="px-3 py-2 font-medium">
+                                {t("system.users.lastIp")}
+                              </th>
+                              <th scope="col" className="px-3 py-2 text-right font-medium">
+                                {t("system.users.requests7d")}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {usage.data.users.map((user) => (
+                              <tr key={user.user_id} className="border-b border-line">
+                                <td className="px-3 py-2 font-medium text-ink">
+                                  {user.name ?? `#${user.user_id}`}
+                                </td>
+                                <td className="px-3 py-2 text-muted">
+                                  {user.last_login_at
+                                    ? formatDateTime(user.last_login_at)
+                                    : t("system.users.neverConnected")}
+                                </td>
+                                <td className="px-3 py-2 font-mono text-xs text-muted">
+                                  {user.last_login_ip ?? "—"}
+                                </td>
+                                <td className="px-3 py-2 text-right text-muted">
+                                  {user.requests}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </>

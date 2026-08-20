@@ -3404,10 +3404,25 @@ export interface components {
                 requests: number;
                 errors: number;
             }[];
-            top_users: {
+            /** @description Mòduls més usats, mapats amb la mateixa taula que el tall de mòduls desactivats. */
+            top_modules: {
+                /** @example tasks */
+                module: string;
+                /** @example Tasques i calendari */
+                label: string;
+                requests: number;
+            }[];
+            /**
+             * @description Qui s'ha connectat i què genera: última connexió amb èxit
+             *     (audit_log) i peticions del període. Ordenat per activitat.
+             */
+            users: {
                 /** Format: int64 */
                 user_id: number;
                 name?: string | null;
+                /** Format: date-time */
+                last_login_at?: string | null;
+                last_login_ip?: string | null;
                 requests: number;
             }[];
             /** @description Refresh tokens vius (no revocats i no caducats). */

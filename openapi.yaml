@@ -5562,7 +5562,7 @@ components:
       description: |
         Ús de la plataforma (specs/usage-tracking.md, B-010). Comptadors per
         plantilla de ruta — mai paths crus amb identificadors.
-      required: [days, top_endpoints, top_users, active_sessions, active_users]
+      required: [days, top_endpoints, top_modules, users, active_sessions, active_users]
       properties:
         days:
           type: array
@@ -5583,14 +5583,29 @@ components:
               endpoint: { type: string, examples: ["GET /contracts"] }
               requests: { type: integer }
               errors: { type: integer }
-        top_users:
+        top_modules:
           type: array
+          description: Mòduls més usats, mapats amb la mateixa taula que el tall de mòduls desactivats.
+          items:
+            type: object
+            required: [module, label, requests]
+            properties:
+              module: { type: string, examples: ["tasks"] }
+              label: { type: string, examples: ["Tasques i calendari"] }
+              requests: { type: integer }
+        users:
+          type: array
+          description: |
+            Qui s'ha connectat i què genera: última connexió amb èxit
+            (audit_log) i peticions del període. Ordenat per activitat.
           items:
             type: object
             required: [user_id, requests]
             properties:
               user_id: { type: integer, format: int64 }
               name: { type: [string, "null"] }
+              last_login_at: { type: [string, "null"], format: date-time }
+              last_login_ip: { type: [string, "null"] }
               requests: { type: integer }
         active_sessions:
           type: integer
