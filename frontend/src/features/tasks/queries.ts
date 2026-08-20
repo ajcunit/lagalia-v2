@@ -68,6 +68,30 @@ export function useCreateTask() {
   });
 }
 
+export function useDeleteTask() {
+  const invalidate = useInvalidateTasks();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await api.DELETE("/tasks/{id}", { params: { path: { id } } });
+      if (error !== undefined) throw error;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useUserOptions(enabled: boolean) {
+  return useQuery({
+    queryKey: ["user-options"],
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/users/options");
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+}
+
 export function useTaskAction() {
   const invalidate = useInvalidateTasks();
   return useMutation({

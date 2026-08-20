@@ -16,7 +16,7 @@ Regles verificables:
 - Departament inexistent o usuari inexistent/inactiu → 422. Contracte inexistent → 404.
 - Per cada llista que canvia de veritat: entrada d'**historial** (camp `departments` amb codis, camp `managers` amb noms, abans/després) i una entrada d'**auditoria** `contracts.assign` amb els camps canviats. Sense canvis reals, ni historial ni auditoria.
 - El detall del contracte exposa **`managers`** (id i nom, res més); `department_ids` ja hi era.
-- **`GET /users/options`** (`contracts:assign`): usuaris actius amb **només id i nom** — el selector de responsables necessita anomenar usuaris sense obrir la gestió d'usuaris, que continua sent exclusiva d'admin (`users:read`). Cap rol nou a la matriu: la mateixa concessió governa l'assignació i el selector.
+- **`GET /users/options`** (`tasks:write`): usuaris actius amb **només id i nom** — els selectors d'assignació (responsables de contracte i assignats de tasques, specs/tasks-ui.md) necessiten anomenar usuaris sense obrir la gestió d'usuaris, que continua sent exclusiva d'admin (`users:read`). La porta és `tasks:write` perquè és el conjunt més ampli de rols que assigna (admin, RC, resp. de departament); els qui assignen contractes (admin, RC) també la tenen.
 
 ## Canvis d'API
 

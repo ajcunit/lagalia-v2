@@ -4229,9 +4229,11 @@ paths:
       summary: Usuaris actius per als selectors d'assignació
       description: |
         Només id i nom (mai rol, correu ni cap altra dada): els selectors de
-        responsables (specs/contract-assignment.md) necessiten anomenar
-        usuaris sense obrir la gestió completa, que continua sent d'admin.
-      x-required-scopes: [contracts:assign]
+        responsables de contracte (specs/contract-assignment.md) i
+        d'assignats de tasques necessiten anomenar usuaris sense obrir la
+        gestió completa, que continua sent d'admin. Porta tasks:write, el
+        conjunt més ampli de rols que assigna.
+      x-required-scopes: [tasks:write]
       responses:
         "200":
           description: Usuaris actius, ordenats per nom

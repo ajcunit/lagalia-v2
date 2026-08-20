@@ -210,12 +210,15 @@ class UserOption(BaseModel):
 
 
 # Declarat ABANS de /users/{id}: si no, «options» intentaria casar com a id.
+# Porta: tasks:write — el conjunt més ampli que necessita anomenar usuaris
+# (assignar tasques: admin, RC i resp. de departament; assignar contractes:
+# admin i RC, que també la tenen).
 @router.get("/users/options", tags=["users"], operation_id="listUserOptions")
 async def list_user_options(
     session: SessionDep,
-    _authz: Annotated[authz.AuthzContext, Depends(authz.Authorize("contracts:assign"))],
+    _authz: Annotated[authz.AuthzContext, Depends(authz.Authorize("tasks:write"))],
 ) -> dict[str, list[UserOption]]:
-    """Usuaris actius per assignar com a responsables (contract-assignment)."""
+    """Usuaris actius per als selectors d'assignació (contractes i tasques)."""
     from sqlalchemy import select
 
     rows = (

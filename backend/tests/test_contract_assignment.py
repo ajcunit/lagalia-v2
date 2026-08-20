@@ -131,7 +131,7 @@ async def test_assign_validates_and_denies(api_client, assign_world) -> None:  #
     assert _assign(api_client, employee_headers, w["contract"], [], []).status_code == 403
 
 
-async def test_user_options_requires_assign_grant(api_client, assign_world) -> None:  # type: ignore[no-untyped-def]
+async def test_user_options_requires_write_grant(api_client, assign_world, make_user) -> None:  # type: ignore[no-untyped-def]
     w = assign_world
     admin_headers = login_headers(api_client, w["admin"].email)
     response = api_client.get("/api/v1/users/options", headers=admin_headers)
@@ -139,6 +139,11 @@ async def test_user_options_requires_assign_grant(api_client, assign_world) -> N
     rows = response.json()["data"]
     assert all(set(row) == {"id", "name"} for row in rows), "només id i nom, res més"
     assert any(row["id"] == w["manager_user"].id for row in rows)
+
+    # Un responsable de departament assigna tasques: també hi accedeix.
+    dept_manager = await make_user("dept_manager")
+    dm_headers = login_headers(api_client, dept_manager.email)
+    assert api_client.get("/api/v1/users/options", headers=dm_headers).status_code == 200
 
     employee_headers = login_headers(api_client, w["employee"].email)
     assert api_client.get("/api/v1/users/options", headers=employee_headers).status_code == 403
