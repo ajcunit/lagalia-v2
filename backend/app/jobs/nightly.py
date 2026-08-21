@@ -34,6 +34,7 @@ NIGHTLY_STEPS = [
 SETTING_ENABLED = "sync.nightly_enabled"
 SETTING_TIME = "sync.nightly_time"
 SETTING_DAYS = "sync.nightly_days"
+SETTING_ENRICH = "sync.nightly_enrich"
 
 _DEFAULT_TIME = "02:30"
 
@@ -57,7 +58,47 @@ async def sync_nightly(ctx: JobContext) -> dict[str, Any]:
         raise RuntimeError(
             f"Passos fallits: {', '.join(failures)} — resum: {json.dumps(results, default=str)}"
         )
+
+    # Enriquiment automàtic (sync.nightly_enrich, actiu de sèrie), NOMÉS si
+    # la cadena ha acabat bé: s'ENCUA com a job independent — mai dins de la
+    # cadena, que el job_timeout no mati les sincros si l'enriquiment dura
+    # hores. Sense «forçar»: només els expedients no enriquits (els nous).
+    results["enrichment_enqueued"] = False
+    if await _enrich_enabled():
+        results["enrichment_enqueued"] = await _enqueue_enrichment()
     return results
+
+
+async def _enrich_enabled() -> bool:
+    from app.core.db import session_factory
+
+    async with session_factory() as session:
+        values = await load_schedule_settings(session)
+    return parse_enabled(values.get(SETTING_ENRICH), default=True)
+
+
+async def _enqueue_enrichment() -> bool:
+    from app.core.db import session_factory
+    from app.core.problems import Problem
+    from app.jobs.service import enqueue_job
+
+    async with session_factory() as session:
+        try:
+            job_row = await enqueue_job(
+                session,
+                job_type="enrich.batch",
+                payload={"trigger": "scheduled"},
+                # Mateixa clau que el llançament manual de la pantalla de
+                # sync: mai dos enriquiments alhora, vinguin d'on vinguin.
+                dedup_key="trigger:enrich.batch",
+            )
+        except Problem:
+            # Ja n'hi ha un en curs (p. ex. llançat a mà): no es duplica.
+            logger.info("nightly_enrichment_already_running")
+            return False
+        await session.commit()
+    logger.info("nightly_enrichment_enqueued", job_id=str(job_row.id))
+    return True
 
 
 _ALL_DAYS = {1, 2, 3, 4, 5, 6, 7}
@@ -130,7 +171,7 @@ async def load_schedule_settings(session: AsyncSession) -> dict[str, Any]:
     rows = (
         await session.execute(
             select(Setting.key, Setting.value).where(
-                Setting.key.in_([SETTING_ENABLED, SETTING_TIME, SETTING_DAYS])
+                Setting.key.in_([SETTING_ENABLED, SETTING_TIME, SETTING_DAYS, SETTING_ENRICH])
             )
         )
     ).all()

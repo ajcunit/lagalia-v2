@@ -268,6 +268,7 @@ function NightlyScheduleCard() {
 
   const byKey = new Map((settings.data?.data ?? []).map((s) => [s.key, s.value]));
   const enabled = String(byKey.get("sync.nightly_enabled") ?? "true").toLowerCase() !== "false";
+  const enrich = String(byKey.get("sync.nightly_enrich") ?? "true").toLowerCase() !== "false";
   const time = String(byKey.get("sync.nightly_time") ?? "02:30");
   const rawDays = byKey.get("sync.nightly_days");
   const days = new Set<number>(
@@ -367,6 +368,19 @@ function NightlyScheduleCard() {
             ? `${formatDateTime(last.created_at)} · ${t(`sync.jobStatus.${last.status}` as Parameters<typeof t>[0])}`
             : "—"}
         </p>
+      </div>
+      <div className="mt-4 border-t border-line pt-3">
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <Switch
+            checked={enrich}
+            disabled={!canWrite}
+            onChange={(checked) =>
+              put.mutate({ key: "sync.nightly_enrich", value: String(checked) })
+            }
+          />
+          {t("sync.nightlyEnrich")}
+        </label>
+        <p className="mt-1 text-xs text-muted">{t("sync.nightlyEnrichHint")}</p>
       </div>
     </div>
   );
