@@ -4019,6 +4019,50 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /contractors/{id}/minor-totals:
+    get:
+      tags: [contractors]
+      operationId: getContractorMinorTotals
+      summary: Sumes dels contractes menors per exercici i tipus
+      description: |
+        Estat econòmic en menors de l'adjudicatari
+        (specs/contractor-economic-status.md): agregat de TOT l'ens — el
+        límit de menors per adjudicatari no entén de departaments. Tothom
+        amb accés a la fitxa el pot consultar per saber si pot seguir
+        contractant.
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Sumes per exercici (més recent primer) amb desglossament per tipus
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [fiscal_year, count, amount, by_type]
+                      properties:
+                        fiscal_year: { type: [integer, "null"] }
+                        count: { type: integer }
+                        amount: { type: string }
+                        by_type:
+                          type: array
+                          items:
+                            type: object
+                            required: [contract_type, count, amount]
+                            properties:
+                              contract_type: { type: [string, "null"] }
+                              count: { type: integer }
+                              amount: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ───────────────────────────── jobs ─────────────────────────────
   /jobs:
     get:

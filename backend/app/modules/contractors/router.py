@@ -21,6 +21,7 @@ from app.modules.contractors.models import ContractorDuplicate, ContractorDuplic
 from app.modules.contractors.schemas import (
     ContractorDuplicateGroup,
     ContractorDuplicateResponse,
+    ContractorMinorTotals,
     ContractorProfile,
     DuplicateResolveRequest,
     GroupResolveRequest,
@@ -259,3 +260,17 @@ async def get_contractor(
     if values is None:
         raise Problem(404, "Adjudicatari no trobat", "not-found")
     return ContractorProfile(**values)
+
+
+@router.get("/contractors/{id}/minor-totals", operation_id="getContractorMinorTotals")
+async def get_contractor_minor_totals(
+    id: Annotated[int, Path(ge=1)], session: SessionDep, _authz: ReadDep
+) -> ContractorMinorTotals:
+    """Sumes dels contractes menors per exercici i tipus
+    (specs/contractor-economic-status.md): agregat de tot l'ens — el límit
+    de menors per adjudicatari no entén de departaments."""
+    if await repository.profile(session, id) is None:
+        raise Problem(404, "Adjudicatari no trobat", "not-found")
+    return ContractorMinorTotals.model_validate(
+        {"data": await repository.minor_totals(session, id)}
+    )

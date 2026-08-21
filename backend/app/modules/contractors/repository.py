@@ -235,3 +235,37 @@ async def duplicate_groups(
 async def ranking_by_id(session: AsyncSession, contractor_id: int) -> dict[str, Any] | None:
     row = (await session.execute(_ranking_base().where(Contractor.id == contractor_id))).first()
     return row_to_ranking(row) if row else None
+
+
+async def minor_totals(session: AsyncSession, contractor_id: int) -> list[dict[str, Any]]:
+    """Suma dels menors per exercici i tipus (specs/contractor-economic-status.md).
+
+    Agregat GLOBAL a propòsit: el control del límit de menors per
+    adjudicatari és sobre tot l'ens, no sobre el departament de qui mira.
+    """
+    rows = (
+        await session.execute(
+            select(
+                MinorContract.fiscal_year,
+                MinorContract.contract_type,
+                func.count().label("total"),
+                func.coalesce(func.sum(MinorContract.award_amount), 0).label("amount"),
+            )
+            .where(MinorContract.contractor_id == contractor_id)
+            .group_by(MinorContract.fiscal_year, MinorContract.contract_type)
+            .order_by(MinorContract.fiscal_year.desc().nulls_last())
+        )
+    ).all()
+
+    years: dict[int | None, dict[str, Any]] = {}
+    for row in rows:
+        year = years.setdefault(
+            row.fiscal_year,
+            {"fiscal_year": row.fiscal_year, "count": 0, "amount": Decimal(0), "by_type": []},
+        )
+        year["count"] += int(row.total)
+        year["amount"] += row.amount
+        year["by_type"].append(
+            {"contract_type": row.contract_type, "count": int(row.total), "amount": row.amount}
+        )
+    return list(years.values())

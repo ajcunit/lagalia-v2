@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Contact, Info, TrendingUp } from "lucide-react";
+import { Contact, Info, Receipt, TrendingUp } from "lucide-react";
 
 import { api } from "../../api/client";
 
@@ -57,6 +57,7 @@ export function ContractorDetail() {
         <SheetTabs
           tabs={[
             { key: "resum", label: t("sheet.tabSummary"), icon: Info },
+            { key: "menors", label: t("contractors.tabMinors"), icon: Receipt },
             { key: "contacte", label: t("contractors.tabContact"), icon: Contact },
             ...(data.tax_id
               ? [{ key: "analisi", label: t("contractors.tabAnalysis"), icon: TrendingUp }]
@@ -66,6 +67,8 @@ export function ContractorDetail() {
           onSelect={setTab}
         />
       </div>
+
+      {tab === "menors" && <MinorTotalsTab contractorId={id} />}
 
       {tab === "contacte" && (
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -419,5 +422,85 @@ function OrganRow(props: {
         </tr>
       )}
     </>
+  );
+}
+
+/** Estat econòmic en contractes menors (specs/contractor-economic-status.md):
+ *  sumes per exercici i tipus, agregades a tot l'ens — el límit de menors
+ *  per adjudicatari no entén de departaments. Referències LCSP art. 118:
+ *  15.000 € serveis/subministraments, 40.000 € obres. */
+const MINOR_LIMIT_WORKS = 40000;
+const MINOR_LIMIT_OTHER = 15000;
+
+function minorLimitFor(contractType: string | null): number {
+  return (contractType ?? "").toLowerCase().includes("obr")
+    ? MINOR_LIMIT_WORKS
+    : MINOR_LIMIT_OTHER;
+}
+
+function MinorTotalsTab(props: { contractorId: number }) {
+  const totals = useQuery({
+    queryKey: ["contractor-minor-totals", props.contractorId],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/contractors/{id}/minor-totals", {
+        params: { path: { id: props.contractorId } },
+      });
+      if (error !== undefined) throw error;
+      return data.data;
+    },
+  });
+
+  if (totals.isPending) return <Skeleton rows={5} />;
+  if (totals.isError) return <EmptyState icon="⚠️" title={t("admin.loadError")} />;
+
+  const currentYear = new Date().getFullYear();
+
+  return (
+    <div className="mt-5 space-y-4">
+      <p className="text-sm text-muted">{t("contractors.minors.intro")}</p>
+      {totals.data.length === 0 ? (
+        <SectionCard title={t("contractors.minors.title")}>
+          <p className="text-sm text-muted">{t("contractors.minors.none")}</p>
+        </SectionCard>
+      ) : (
+        totals.data.map((year) => (
+          <SectionCard
+            key={year.fiscal_year ?? "sense"}
+            title={`${year.fiscal_year ?? t("contractors.minors.noYear")} — ${year.count} · ${formatCurrency(year.amount)}`}
+          >
+            <ul className="divide-y divide-line">
+              {year.by_type.map((row) => {
+                const amount = Number(row.amount);
+                const limit = minorLimitFor(row.contract_type);
+                const overLimit = amount >= limit;
+                return (
+                  <li
+                    key={row.contract_type ?? "sense"}
+                    className="flex flex-wrap items-center gap-3 py-2"
+                  >
+                    <span className="min-w-44 text-sm font-medium text-ink">
+                      {row.contract_type ?? t("contractors.minors.noType")}
+                    </span>
+                    <span className="text-sm text-muted">
+                      {row.count} {t("contractors.minors.contracts")}
+                    </span>
+                    <span className="ml-auto text-sm tabular-nums text-ink">
+                      {formatCurrency(row.amount)}
+                    </span>
+                    {year.fiscal_year === currentYear && overLimit && (
+                      <Badge tone="danger">{t("contractors.minors.overLimit")}</Badge>
+                    )}
+                    {year.fiscal_year === currentYear && !overLimit && amount >= limit * 0.8 && (
+                      <Badge tone="warning">{t("contractors.minors.nearLimit")}</Badge>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </SectionCard>
+        ))
+      )}
+      <p className="text-xs text-muted">{t("contractors.minors.limitsHint")}</p>
+    </div>
   );
 }
