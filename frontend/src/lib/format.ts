@@ -6,11 +6,20 @@ const currencyFormat = new Intl.NumberFormat("ca-ES", {
   minimumFractionDigits: 2,
 });
 
-const dateFormat = new Intl.DateTimeFormat("ca-ES", { dateStyle: "medium" });
+// dd/mm/yyyy (petició d'usuari 2026-08-21): compacte i sense ambigüitat a
+// les taules; el canvi és aquí i val per a tota l'aplicació.
+const dateFormat = new Intl.DateTimeFormat("ca-ES", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
 const dateTimeFormat = new Intl.DateTimeFormat("ca-ES", {
-  dateStyle: "medium",
-  timeStyle: "short",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
 export function formatCurrency(value: string | number | null | undefined): string {
