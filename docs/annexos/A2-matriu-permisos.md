@@ -53,6 +53,9 @@ Flags independents del rol: `permiso_auditoria` → `can_audit`; `permiso_pla_co
 | Consultar `audit_log` | ✔ | — | — | — |
 | **Sistema** (nou v2) |
 | Estat del sistema, readiness i ús de la plataforma (`system:read`) | ✔ | — | — | — |
+| **Processos BPM** (nou v2, mòdul activable) |
+| Veure processos i instàncies (`bpm:read`) | ✔ | ✔ | — | — |
+| Gestionar processos i instàncies (`bpm:manage`) | ✔ | ✔ | — | — |
 | **Tasques** (nou v2) |
 | Veure | ✔ | ✔ | ✔ᴰ | ✔ᴰ (assignades) |
 | Crear/editar sobre contractes del seu àmbit | ✔ | ✔ | ✔ᴰ | — |

@@ -24,6 +24,13 @@ class ContractorRef(BaseModel):
     tax_id: str | None = None
 
 
+class ManagerRef(BaseModel):
+    """Responsable assignat: només id i nom, mai cap altra dada d'usuari."""
+
+    id: int
+    name: str
+
+
 class ContractSummary(BaseModel):
     id: int
     file_code: str
@@ -111,6 +118,7 @@ class ContractDetail(ContractSummary):
     first_synced_at: datetime | None = None
     last_synced_at: datetime | None = None
     siblings: list[ContractSummary] = []
+    managers: list[ManagerRef] = []
     counters: dict[str, int]
     created_at: datetime
 
@@ -158,6 +166,7 @@ class ContractDetail(ContractSummary):
             first_synced_at=contract.first_synced_at,
             last_synced_at=contract.last_synced_at,
             siblings=[ContractSummary.from_contract(s) for s in siblings],
+            managers=[ManagerRef(id=u.id, name=u.name) for u in contract.managers],
             counters=counters,
             created_at=contract.created_at,
         )
@@ -278,6 +287,14 @@ class ContractUpdate(BaseModel):
     award_amount_vat: Decimal | None = Field(default=None, ge=0)
     estimated_value: Decimal | None = Field(default=None, ge=0)
     received_offers: int | None = Field(default=None, ge=0)
+
+
+class AssignmentUpdate(BaseModel):
+    """Assignació individual (specs/contract-assignment.md): les dues llistes
+    se substitueixen senceres — el que s'envia és l'estat final."""
+
+    department_ids: list[int] = Field(max_length=20)
+    manager_ids: list[int] = Field(max_length=20)
 
 
 class HistoryEntryResponse(BaseModel):

@@ -45,7 +45,9 @@
 		Permissions-Policy "geolocation=(), microphone=(), camera=()"
 		# El bundle és propi i no hi ha CDNs; 'unsafe-inline' només per als
 		# estils en línia dels components (barres de progrés, amplades).
-		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		# frame-src blob:: el visor de PDF intern (specs/pdf-viewer.md)
+		# mostra el document en un iframe amb object URL creat al client.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 		-Server
 	}
 

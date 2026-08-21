@@ -46,6 +46,8 @@ TRUTH_TABLE: dict[str, tuple[Cell, Cell, Cell, Cell]] = {
     "sync:execute": (_A, _A, None, None),
     "sync:read": (_A, _A, None, None),
     "association_rules:manage": (_A, _A, None, None),
+    "bpm:read": (_A, _A, None, None),
+    "bpm:manage": (_A, _A, None, None),
     # Organització
     "departments:read": (_A, _A, _A, _A),
     "departments:write": (_A, _A, None, None),

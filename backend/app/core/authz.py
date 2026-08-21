@@ -126,6 +126,9 @@ PERMISSION_MATRIX: dict[str, dict[UserRole, Grant]] = {
     "sync:execute": {UserRole.ADMIN: _ALL, UserRole.PROCUREMENT_MANAGER: _ALL},
     "sync:read": {UserRole.ADMIN: _ALL, UserRole.PROCUREMENT_MANAGER: _ALL},
     "association_rules:manage": {UserRole.ADMIN: _ALL, UserRole.PROCUREMENT_MANAGER: _ALL},
+    # Processos BPM (specs/bpm.md): qui orquestra la contractació.
+    "bpm:read": {UserRole.ADMIN: _ALL, UserRole.PROCUREMENT_MANAGER: _ALL},
+    "bpm:manage": {UserRole.ADMIN: _ALL, UserRole.PROCUREMENT_MANAGER: _ALL},
     # Organització
     "departments:read": {
         UserRole.ADMIN: _ALL,

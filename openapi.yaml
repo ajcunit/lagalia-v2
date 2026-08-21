@@ -64,6 +64,8 @@ tags:
     description: Paràmetres i connectors (secrets sempre write-only)
   - name: audit
     description: Auditoria de seguretat (append-only, cadena de hash)
+  - name: bpm
+    description: Processos BPM — seqüències de tasques per expedient (mòdul activable)
   - name: sync
     description: Sincronitzacions amb fonts externes (historial i llançament)
   - name: public-registry
@@ -630,6 +632,45 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /contracts/{id}/assignments:
+    put:
+      tags: [contracts]
+      operationId: assignContract
+      summary: Departaments i responsables del contracte
+      description: |
+        Assignació individual (specs/contract-assignment.md): les dues
+        llistes se substitueixen senceres — el cos és l'estat final.
+        Historial per camp canviat i auditoria `contracts.assign`.
+      x-required-scopes: [contracts:assign]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [department_ids, manager_ids]
+              properties:
+                department_ids:
+                  type: array
+                  maxItems: 20
+                  items: { type: integer, format: int64 }
+                manager_ids:
+                  type: array
+                  maxItems: 20
+                  items: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Contracte amb l'assignació aplicada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contract" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /contracts/{id}/history:
     get:
       tags: [contracts]
@@ -941,6 +982,36 @@ paths:
                     items: { $ref: "#/components/schemas/PhaseDocument" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /contracts/{id}/documents/{document_id}/content:
+    get:
+      tags: [contracts]
+      operationId: getContractDocumentContent
+      summary: Còpia local d'un document per al visor intern
+      description: |
+        Contingut de la còpia local (specs/pdf-viewer.md). Autenticació
+        estàndard per capçalera — cap token per query string. Només els PDF
+        se serveixen inline; la resta, com a adjunt. Cada visualització
+        queda auditada.
+      x-required-scopes: [contracts:read]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: document_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "200":
+          description: Contingut del document
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /contracts/{id}/executions:
     get:
@@ -3362,6 +3433,151 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
 
   # ───────────────────────── webhooks ─────────────────────────
+  # ───────────────────────────── bpm ─────────────────────────────
+  /bpm/workflows:
+    get:
+      tags: [bpm]
+      operationId: listBpmWorkflows
+      summary: Processos BPM definits
+      x-required-scopes: [bpm:read]
+      responses:
+        "200":
+          description: Processos amb els seus passos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/BpmWorkflow" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [bpm]
+      operationId: createBpmWorkflow
+      summary: Crea un procés amb els seus passos
+      x-required-scopes: [bpm:manage]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BpmWorkflowInput" }
+      responses:
+        "201":
+          description: Procés creat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BpmWorkflow" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /bpm/workflows/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    put:
+      tags: [bpm]
+      operationId: updateBpmWorkflow
+      summary: Edita un procés (substitueix la llista de passos)
+      x-required-scopes: [bpm:manage]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BpmWorkflowInput" }
+      responses:
+        "200":
+          description: Procés actualitzat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BpmWorkflow" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [bpm]
+      operationId: deleteBpmWorkflow
+      summary: Esborra un procés (i les seves instàncies)
+      x-required-scopes: [bpm:manage]
+      responses:
+        "204": { description: Esborrat }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /bpm/workflows/{id}/actions/start:
+    post:
+      tags: [bpm]
+      operationId: startBpmInstance
+      summary: Arrenca manualment el procés sobre un contracte
+      x-required-scopes: [bpm:manage]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: contract_id
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "201":
+          description: Instància oberta amb la primera tasca creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BpmInstance" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /bpm/instances:
+    get:
+      tags: [bpm]
+      operationId: listBpmInstances
+      summary: Instàncies de processos (filtre per procés o contracte)
+      x-required-scopes: [bpm:read]
+      parameters:
+        - name: workflow_id
+          in: query
+          schema: { type: integer, format: int64, minimum: 1 }
+        - name: contract_id
+          in: query
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "200":
+          description: Instàncies, més recents primer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/BpmInstance" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /bpm/instances/{id}/actions/cancel:
+    post:
+      tags: [bpm]
+      operationId: cancelBpmInstance
+      summary: Cancel·la una instància en marxa
+      x-required-scopes: [bpm:manage]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Instància cancel·lada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BpmInstance" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /webhooks:
     get:
       tags: [webhooks]
@@ -4197,6 +4413,38 @@ paths:
               schema: { $ref: "#/components/schemas/Problem" }
 
   # ───────────────────────────── users ─────────────────────────────
+  /users/options:
+    get:
+      tags: [users]
+      operationId: listUserOptions
+      summary: Usuaris actius per als selectors d'assignació
+      description: |
+        Només id i nom (mai rol, correu ni cap altra dada): els selectors de
+        responsables de contracte (specs/contract-assignment.md) i
+        d'assignats de tasques necessiten anomenar usuaris sense obrir la
+        gestió completa, que continua sent d'admin. Porta tasks:write, el
+        conjunt més ampli de rols que assigna.
+      x-required-scopes: [tasks:write]
+      responses:
+        "200":
+          description: Usuaris actius, ordenats per nom
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name]
+                      properties:
+                        id: { type: integer, format: int64 }
+                        name: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /users:
     get:
       tags: [users]
@@ -5162,6 +5410,15 @@ components:
               type: array
               description: Lots germans (mateix expedient).
               items: { $ref: "#/components/schemas/ContractSummary" }
+            managers:
+              type: array
+              description: Responsables assignats (només id i nom).
+              items:
+                type: object
+                required: [id, name]
+                properties:
+                  id: { type: integer, format: int64 }
+                  name: { type: string }
             counters:
               type: object
               required: [extensions, modifications, history]
@@ -5600,6 +5857,86 @@ components:
             storage_bytes: { type: [integer, "null"] }
             storage_truncated: { type: [boolean, "null"] }
             storage_measured_at: { type: [string, "null"], format: date-time }
+
+    BpmStepInput:
+      type: object
+      required: [title, assignee_kind]
+      properties:
+        title: { type: string, minLength: 2, maxLength: 255 }
+        description: { type: [string, "null"], maxLength: 2000 }
+        task_type:
+          type: string
+          enum: [review, extension, settlement, guarantee_return, report, meeting, other]
+          default: other
+        priority: { type: string, enum: [low, normal, high], default: normal }
+        offset_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+          default: 0
+          description: Dies des del disparador (primer pas) o des de la compleció de l'anterior.
+        assignee_kind: { type: string, enum: [user, department, role] }
+        assignee_user_id: { type: [integer, "null"], format: int64 }
+        assignee_department_id: { type: [integer, "null"], format: int64 }
+        assignee_role:
+          oneOf:
+            - { $ref: "#/components/schemas/Role" }
+            - { type: "null" }
+
+    BpmStep:
+      allOf:
+        - $ref: "#/components/schemas/BpmStepInput"
+        - type: object
+          required: [id, position]
+          properties:
+            id: { type: integer, format: int64 }
+            position: { type: integer }
+
+    BpmWorkflowInput:
+      type: object
+      required: [name, trigger, steps]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 255 }
+        description: { type: [string, "null"], maxLength: 2000 }
+        trigger: { type: string, enum: [contract_created, status_reached, manual] }
+        trigger_status:
+          type: [string, "null"]
+          maxLength: 255
+          description: Estat de la font que dispara el procés (obligatori per a status_reached).
+        active: { type: boolean, default: true }
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 30
+          items: { $ref: "#/components/schemas/BpmStepInput" }
+
+    BpmWorkflow:
+      type: object
+      required: [id, name, trigger, active, steps, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        trigger: { type: string, enum: [contract_created, status_reached, manual] }
+        trigger_status: { type: [string, "null"] }
+        active: { type: boolean }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/BpmStep" }
+        created_at: { type: string, format: date-time }
+
+    BpmInstance:
+      type: object
+      required: [id, workflow_id, contract_id, status, current_position]
+      properties:
+        id: { type: integer, format: int64 }
+        workflow_id: { type: integer, format: int64 }
+        contract_id: { type: integer, format: int64 }
+        status: { type: string, enum: [running, done, cancelled] }
+        current_position: { type: integer }
+        current_task_id: { type: [integer, "null"], format: int64 }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
 
     SystemUsage:
       type: object

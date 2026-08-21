@@ -26,6 +26,7 @@ from app.modules.contracts.models import (
     ContractSource,
 )
 from app.modules.contracts.schemas import (
+    AssignmentUpdate,
     BulkAssignRequest,
     ContractCreate,
     ContractUpdate,
@@ -183,6 +184,81 @@ async def _require_alert_grant(
         if not await repository.is_manager(session, contract_id, user.id):
             await _audit_denied(session, user, contract_id, "contracts:close_alert", ctx)
             raise Problem(403, "Només el responsable del contracte pot fer-ho", "forbidden")
+    return contract
+
+
+async def assign_contract(
+    session: AsyncSession,
+    contract_id: int,
+    data: AssignmentUpdate,
+    user: User,
+    ctx: RequestContext,
+) -> Contract:
+    """Assignació individual de departaments i responsables
+    (specs/contract-assignment.md): substitueix les dues llistes senceres."""
+    if authz.evaluate(user, "contracts:assign") is None:
+        await _audit_denied(session, user, contract_id, "contracts:assign", ctx)
+        raise Problem(403, "Sense permís per assignar el contracte", "forbidden")
+    # contracts:assign és d'abast complet per als dos rols que el tenen (A2).
+    contract = await get_scoped_contract(session, contract_id, user, authz.ScopeInfo(type="all"))
+
+    departments = await get_departments(session, data.department_ids)
+    if len(departments) != len(set(data.department_ids)):
+        raise Problem(422, "Algun departament no existeix", "validation")
+
+    from sqlalchemy import select
+
+    managers: list[User] = []
+    if data.manager_ids:
+        managers = list(
+            (
+                await session.execute(
+                    select(User).where(User.id.in_(set(data.manager_ids)), User.active.is_(True))
+                )
+            ).scalars()
+        )
+    if len(managers) != len(set(data.manager_ids)):
+        raise Problem(422, "Algun usuari no existeix o no està actiu", "validation")
+
+    changed: list[str] = []
+    before_deps = sorted(d.code for d in contract.departments)
+    after_deps = sorted(d.code for d in departments)
+    if before_deps != after_deps:
+        session.add(
+            _history(
+                contract, "departments", ", ".join(before_deps), ", ".join(after_deps), user.id
+            )
+        )
+        contract.departments = list(departments)
+        changed.append("departments")
+
+    before_managers = sorted(u.name for u in contract.managers)
+    after_managers = sorted(u.name for u in managers)
+    if before_managers != after_managers:
+        session.add(
+            _history(
+                contract, "managers", ", ".join(before_managers), ", ".join(after_managers), user.id
+            )
+        )
+        contract.managers = managers
+        changed.append("managers")
+
+    if changed:
+        await session.flush()
+        await record_audit(
+            session,
+            actor_type=AuditActorType.USER,
+            action="contracts.assign",
+            success=True,
+            actor_id=user.id,
+            resource_type="contract",
+            resource_id=str(contract.id),
+            ip=ctx.ip,
+            user_agent=ctx.user_agent,
+            trace_id=ctx.trace_id,
+            details={"changed": changed},
+        )
+    await session.commit()
     return contract
 
 
