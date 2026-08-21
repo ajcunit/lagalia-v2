@@ -2380,6 +2380,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contractors/{id}/minor-totals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sumes dels contractes menors per exercici i tipus
+         * @description Estat econòmic en menors de l'adjudicatari
+         *     (specs/contractor-economic-status.md): agregat de TOT l'ens — el
+         *     límit de menors per adjudicatari no entén de departaments. Tothom
+         *     amb accés a la fitxa el pot consultar per saber si pot seguir
+         *     contractant.
+         */
+        get: operations["getContractorMinorTotals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -8660,6 +8684,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContractorProfile"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getContractorMinorTotals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sumes per exercici (més recent primer) amb desglossament per tipus */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            fiscal_year: number | null;
+                            count: number;
+                            amount: string;
+                            by_type: {
+                                contract_type: string | null;
+                                count: number;
+                                amount: string;
+                            }[];
+                        }[];
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];

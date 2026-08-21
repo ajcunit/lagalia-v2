@@ -28,6 +28,26 @@ class ContractorProfile(ContractorRanking):
     created_at: datetime
 
 
+class MinorTypeTotal(BaseModel):
+    contract_type: str | None
+    count: int
+    amount: Decimal
+
+
+class MinorYearTotal(BaseModel):
+    fiscal_year: int | None
+    count: int
+    amount: Decimal
+    by_type: list[MinorTypeTotal]
+
+
+class ContractorMinorTotals(BaseModel):
+    """Estat econòmic en menors per exercici: tothom amb accés a la fitxa
+    el pot consultar per saber si l'adjudicatari pot seguir contractant."""
+
+    data: list[MinorYearTotal]
+
+
 class ContractorDuplicateResponse(BaseModel):
     id: int
     status: str
