@@ -65,6 +65,14 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 
 ---
 
+### B-023 · Unificar menors dins de contractes (doble comptatge detectat)
+- **Prioritat:** P1 · **Estat:** Proposta acceptada de paraula (2026-08-21); pendent de spec i de branca pròpia · **Mida:** XL
+- **Descripció:** detectat per l'Esteve amb dades reals: el dataset PSCP de contractes JA conté els menors complets (clau `procediment` = «Contracte menor») — a Cunit, 7.344 dels 7.696 contractes (95%) són menors, i **7.188 expedients viuen duplicats** a `contracts` i `minor_contracts` alhora. Conseqüència greu: la fitxa i el rànquing d'adjudicataris **compten el mateix expedient dues vegades** (imports inflats). El RPC aporta el que la PSCP no té: les **liquidacions**, casades per número d'expedient, i 643 expedients que només són al registre.
+- **Com desenvolupar-la:** (1) **correcció immediata** (separable, mida S): que la suma de «contractes» del rànquing/fitxa d'adjudicatari exclogui `procedure ILIKE '%menor%'` perquè les dues xifres siguin disjuntes. (2) **Unificació**: columnes de liquidació a `contracts` (tipus, data, import, exercici fiscal); `sync.minor_contracts` es converteix en sincronització de liquidacions que casa per `file_code` i CREA el contracte si només existeix al RPC (marca d'origen); migració de dades fusionant `minor_contracts` → `contracts` (els 643 orfes inclosos) amb recablatge de la FK `tasks.minor_contract_id` cap a `contract_id`; filtre `filter[procedure]` al llistat de contractació; l'entrada «Menors» del menú passa a ser una vista prefiltrada del llistat de contractes; retirar l'API de menors, el mòdul activable `minor_contracts`, les pantalles i les stats pròpies; la pestanya «Menors» de l'adjudicatari (specs/contractor-economic-status.md) passa a agregar sobre `contracts` filtrant per procediment. Migració amb `downgrade` real i compte amb el trigger append-only d'auditoria. Spec nova `contracts-unification.md` ABANS de tocar res; branca pròpia + validació local + aprovació de l'equip (regla vigent).
+- **Specs afectades:** [contracting-data-model.md](../specs/contracting-data-model.md), [contracts-api.md](../specs/contracts-api.md), [minor-contractors-api.md](../specs/minor-contractors-api.md), [minors-ui.md](../specs/minors-ui.md), [contractor-economic-status.md](../specs/contractor-economic-status.md), [remaining-syncs.md](../specs/remaining-syncs.md), [module-flags.md](../specs/module-flags.md), [04-model-de-dades.md](04-model-de-dades.md).
+
+---
+
 ## Tancades
 
 ### B-022 · Dashboard d'estat del sistema i observabilitat per a administradors
