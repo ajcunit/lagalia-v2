@@ -74,6 +74,12 @@ KNOWN_SETTINGS: list[KnownSetting] = [
         "[1, 2, 3, 4, 5, 6, 7]",
     ),
     KnownSetting(
+        "sync.nightly_enrich",
+        "Encuar l'enriquiment PSCP dels expedients pendents en acabar la cadena "
+        "nocturna (true/false; no definit = activat)",
+        "true",
+    ),
+    KnownSetting(
         "rag.indexable_phases",
         "Fases dels documents que es descarreguen i s'indexen al RAG (llista JSON; "
         "buit o no definit = totes). La resta es mostren només amb enllaç al portal.",

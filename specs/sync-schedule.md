@@ -17,6 +17,14 @@ extensions i l'execució referencien contractes acabats de sincronitzar):
 2. `sync.extensions` (RPC: pròrrogues, modificacions, liquidacions)
 3. `sync.minor_contracts` (menors)
 4. `sync.execution` (dataset d'execució + enriquiment de detall)
+5. `alerts.recompute` (indicadors de venciment sobre les dades fresques)
+
+**Enriquiment automàtic** (2026-08-21, `sync.nightly_enrich`, actiu de
+sèrie): si la cadena acaba bé, s'**encua** `enrich.batch` com a job
+independent — mai dins de la cadena, perquè el `job_timeout` no mati les
+sincros si l'enriquiment dura hores. Sense «forçar»: només els expedients
+sense `enriched_at` (els nous de la nit). Mateixa clau de dedup que el
+llançament manual (`trigger:enrich.batch`): mai dos enriquiments alhora.
 
 - Reutilitza els handlers registrats (mateix codi que el llançament
   manual: `sync_runs`, dedup i auditoria per pas inclosos).
@@ -34,6 +42,8 @@ extensions i l'execució referencien contractes acabats de sincronitzar):
   sempre en **Europe/Madrid**.
 - `sync.nightly_days` — llista JSON de dies ISO (1=dilluns … 7=diumenge;
   per defecte tots).
+- `sync.nightly_enrich` — `true`/`false` (per defecte `true`): encuar
+  l'enriquiment en acabar la cadena.
 
 El scheduler (procés `app.jobs.scheduler`, advisory lock) llegeix la
 configuració de la BD a cada tick i encua `sync.nightly` **un cop al
@@ -44,9 +54,9 @@ no requereix reiniciar res.
 ### Pantalla (UI-first)
 
 Targeta «Programació nocturna» a Sincronitzacions: commutador, hora,
-dies de la setmana i última execució de la cadena; escriu els settings
-via l'API existent (`config:write`). El llançament manual per tipus no
-canvia.
+dies de la setmana, **commutador d'enriquiment automàtic** i última
+execució de la cadena; escriu els settings via l'API existent
+(`config:write`). El llançament manual per tipus no canvia.
 
 ## Canvis d'API
 

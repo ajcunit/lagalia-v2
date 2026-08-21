@@ -94,10 +94,64 @@ async def test_nightly_chain_success(monkeypatch: pytest.MonkeyPatch) -> None:
     async def set_progress(pct: int, message: str | None) -> None:
         pass
 
+    # L'encuament real de l'enriquiment es prova a part: aquí s'aïlla.
+    async def no_enrich() -> bool:
+        return False
+
+    monkeypatch.setattr(nightly, "_enrich_enabled", no_enrich)
+
     ctx = registry.JobContext(job_id=uuid4(), payload={}, set_progress=set_progress)
     result = await nightly.sync_nightly(ctx)
-    assert set(result) == set(nightly.NIGHTLY_STEPS)
+    assert set(result) == set(nightly.NIGHTLY_STEPS) | {"enrichment_enqueued"}
+    assert result["enrichment_enqueued"] is False
     assert result["sync.contracts"] == {"step": "sync.contracts"}
+
+
+async def test_nightly_enqueues_enrichment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """L'enriquiment s'ENCUA com a job independent en acabar la cadena
+    (sync.nightly_enrich, actiu de sèrie), mai dins de la cadena mateixa."""
+    from sqlalchemy import text
+
+    import app.jobs.tasks  # noqa: F401 — registra enrich.batch per a l'encuament
+    from app.core.db import session_factory
+
+    for step in nightly.NIGHTLY_STEPS:
+
+        async def handler(ctx: registry.JobContext, _step: str = step) -> dict[str, Any]:
+            return {"step": _step}
+
+        monkeypatch.setitem(registry._REGISTRY, step, handler)
+
+    async def set_progress(pct: int, message: str | None) -> None:
+        pass
+
+    async def cleanup() -> None:
+        async with session_factory() as session:
+            await session.execute(text("DELETE FROM jobs WHERE dedup_key = 'trigger:enrich.batch'"))
+            await session.commit()
+
+    await cleanup()
+    try:
+        ctx = registry.JobContext(job_id=uuid4(), payload={}, set_progress=set_progress)
+        result = await nightly.sync_nightly(ctx)
+        assert result["enrichment_enqueued"] is True
+
+        async with session_factory() as session:
+            payload = (
+                await session.execute(
+                    text(
+                        "SELECT payload FROM jobs WHERE type = 'enrich.batch' "
+                        "AND dedup_key = 'trigger:enrich.batch' AND status = 'queued'"
+                    )
+                )
+            ).scalar_one()
+        assert payload == {"trigger": "scheduled"}
+
+        # Segona nit amb l'anterior encara en cua: no es duplica.
+        result = await nightly.sync_nightly(ctx)
+        assert result["enrichment_enqueued"] is False
+    finally:
+        await cleanup()
 
 
 def test_expiry_alerts_have_a_producer() -> None:
