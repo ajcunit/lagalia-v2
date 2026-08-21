@@ -20,11 +20,15 @@ logger = structlog.get_logger()
 TIMEZONE = ZoneInfo("Europe/Madrid")
 
 # Ordre prescrit a docs/08 §3: extensions encadenades després de contracts.
+# alerts.recompute tanca la cadena: els indicadors de venciment es calculen
+# sobre les dades acabades de sincronitzar (cas real: a producció no
+# s'omplien mai perquè cap productor encuava el job).
 NIGHTLY_STEPS = [
     "sync.contracts",
     "sync.extensions",
     "sync.minor_contracts",
     "sync.execution",
+    "alerts.recompute",
 ]
 
 SETTING_ENABLED = "sync.nightly_enabled"

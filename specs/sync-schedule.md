@@ -55,9 +55,13 @@ Cap endpoint nou: settings coneguts via `GET/PUT /settings` existents.
 
 ## Fora d'abast
 
-- `alerts.recompute` després de cada sync (pendent del mòdul d'alertes).
 - Cadències separades per tipus (una sola cadena nocturna cobreix la
   prescripció actual; si mai cal, s'afegiran settings per tipus).
+
+> Actualització 2026-08-21: `alerts.recompute` ja **és l'últim pas de la
+> cadena nocturna** (i va programat diàriament com a xarxa de seguretat) —
+> vegeu specs/contract-actions.md. Era aquí a fora d'abast i ningú el va
+> encuar mai: a producció els venciments no s'omplien.
 - `sync.cpv` (manual/trimestral segons docs/08): queda manual.
 
 ## Criteris d'acceptació

@@ -98,3 +98,14 @@ async def test_nightly_chain_success(monkeypatch: pytest.MonkeyPatch) -> None:
     result = await nightly.sync_nightly(ctx)
     assert set(result) == set(nightly.NIGHTLY_STEPS)
     assert result["sync.contracts"] == {"step": "sync.contracts"}
+
+
+def test_expiry_alerts_have_a_producer() -> None:
+    """Cas real de producció: alerts.recompute existia però cap productor
+    l'encuava — cap contracte sortia mai amb «fi propera»."""
+    from app.jobs.schedule import SCHEDULE
+
+    assert "alerts.recompute" in nightly.NIGHTLY_STEPS, "la cadena nocturna el tanca"
+    assert any(item.job_type == "alerts.recompute" for item in SCHEDULE), (
+        "programat diàriament encara que la nocturna estigui desactivada"
+    )

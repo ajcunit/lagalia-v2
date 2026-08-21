@@ -22,6 +22,15 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=900,
         dedup_key="jobs.sweep",
     ),
+    # Indicadors de venciment (expiry_warning/possibly_finished): diaris i
+    # també al final de la cadena nocturna. Sense això no es calculaven mai
+    # (el job existia sense cap productor — es va veure a producció com a
+    # «cap contracte amb fi propera» després de la primera càrrega).
+    ScheduledJob(
+        job_type="alerts.recompute",
+        interval_seconds=86400,
+        dedup_key="alerts.recompute",
+    ),
     # Recordatoris de tasques: horari, idempotent (sent_at + dedupe diari).
     ScheduledJob(
         job_type="tasks.reminders",
