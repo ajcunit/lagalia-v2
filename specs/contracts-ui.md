@@ -10,6 +10,7 @@ Regles verificables:
 
 - **L'estat viu a la URL** (10-ui §1.2): cerca, filtres, ordre, vista i cursor com a query params — Enrere, enllaços compartits i marcadors reprodueixen la vista exacta. La cerca lliure va amb debounce.
 - **Taula server-side única**: ordenació clicant capçaleres (columnes numèriques amb `tabular-nums`), paginació per cursor (Següent/Anterior amb pila de cursors), `meta.total` real.
+- **Columna «Fase»** (petició d'usuari 2026-08-21): l'estat de l'expedient a la font (`status`: anunci, licitació, adjudicat, formalitzat…) com a distintiu de color a cada fila — verd formalitzat, ambre adjudicat, blau licitació/anunci, vermell anul·lat/desert, neutre la resta. La coincidència és laxa perquè el text és de la font. Fins ara la fase només es podia filtrar, no veure.
 - **Filtres de la fase**: cerca lliure, departament (desplegable de `/departments`), exercici, tipus, estat intern, alerta de venciment, possiblement finalitzats, sense departament; chips d'actius amb «netejar-ho tot».
 - **Vista Admin/Usuari**: toggle només si `can_switch_view` (de `/me/permissions`), sense recàrrega — canvia el param `view`.
 - **Fitxa** (`/contracts/:id`): seccions d'objecte i gestió, adjudicatari (enllaç a fitxa futura), imports (formats `ca-ES` centralitzats: `formatCurrency`/`formatDate`/`formatDuration`, 10-ui §2), dates i durada, classificació, **lots germans** navegables, **pròrrogues**, **modificacions** i **historial** (primera pàgina); enllaços externs de `links` amb `rel="noopener"`; breadcrumb.

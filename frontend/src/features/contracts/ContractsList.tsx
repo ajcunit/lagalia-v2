@@ -19,6 +19,23 @@ import {
   type ContractsListParams,
 } from "./queries";
 
+/** Color per fase de l'expedient a partir de l'estat de la font (PSCP).
+ *  Coincidència laxa: els textos són de la font i poden variar. */
+function phaseTone(status: string): "neutral" | "success" | "warning" | "danger" | "accent" {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("formalitzat")) return "success";
+  if (normalized.includes("adjudicat")) return "warning";
+  if (normalized.includes("anul") || normalized.includes("desert")) return "danger";
+  if (
+    normalized.includes("licitaci") ||
+    normalized.includes("anunci") ||
+    normalized.includes("termini") ||
+    normalized.includes("avaluaci")
+  )
+    return "accent";
+  return "neutral";
+}
+
 const SORTABLE: Array<{ key: string; labelKey: Parameters<typeof t>[0] }> = [
   { key: "file_code", labelKey: "contracts.col.fileCode" },
   { key: "published_at", labelKey: "contracts.col.published" },
@@ -352,6 +369,9 @@ export function ContractsList() {
                 <th scope="col" className="px-3 py-2 font-medium">
                   {t("contracts.col.contractor")}
                 </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  {t("contracts.col.phase")}
+                </th>
                 {SORTABLE.slice(1).map((col) => (
                   <SortHeader key={col.key} col={col} sort={sort} onSort={toggleSort} />
                 ))}
@@ -387,6 +407,13 @@ export function ContractsList() {
                   </td>
                   <td className="max-w-48 truncate px-3 py-2 text-muted">
                     {contract.contractor?.name ?? "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    {contract.status ? (
+                      <Badge tone={phaseTone(contract.status)}>{contract.status}</Badge>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-muted">
                     {formatDate(contract.published_at)}
