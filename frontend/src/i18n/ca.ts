@@ -160,6 +160,7 @@ export const ca = {
   "contracts.col.amount": "Import adjudicat",
   "contracts.col.end": "Fi calculada",
   "contracts.col.state": "Estat",
+  "contracts.col.phase": "Fase",
   "contracts.badge.expiry": "Venç aviat",
   "contracts.badge.finished": "Poss. finalitzat",
   "contracts.prev": "Anterior",
