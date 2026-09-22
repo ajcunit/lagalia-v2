@@ -10,7 +10,8 @@ Les sincronitzacions (Socrata: contractes, menors, CPV, prorrogues; pscp: enriqu
 
 - `GET /sync-runs` — keyset per `id` desc (`page[size]` ≤ 100); filtres `filter[kind]`, `filter[status]`. Camps: kind, trigger, status, started/finished, comptadors (new/updated/unchanged/total_source), endpoint, `error_summary`.
 - `GET /sync-runs/{id}/items` — detall per registre problematic del run (keyset per id desc, `page[size]` ≤ 200): file_code, outcome, message.
-- `POST /sync-runs/actions/trigger` — cos `{kind, full?, limit?}` amb `kind ∈ {contracts, minor, cpv, extensions, enrichment}`:
+- `POST /sync-runs/actions/trigger` — cos `{kind, full?, limit?}` amb `kind ∈ {contracts, minor, cpv, extensions, enrichment, execution, all}`:
+  - **`all`** (petició d'usuari 2026-09-22, botó «Sincronitza-ho tot»): encua `sync.nightly` — la MATEIXA cadena que la programada (contractes → pròrrogues → menors → execució → venciments, amb l'enriquiment encuat al final si `sync.nightly_enrich` és actiu). Comparteix el `dedup_key` amb la nocturna (`sync.nightly`): mai dues cadenes alhora, la llanci el rellotge o una persona.
   - mapa a jobs existents: `sync.contracts`, `sync.minor_contracts`, `sync.cpv`, `sync.extensions`, `enrich.batch` (enrichment: `full` → `force`, `limit` opcional).
   - `trigger` del run: `manual` per a usuaris, `api` per a claus de servei (mai ve del client).
   - dedup per tipus (`dedup_key = trigger:<job_type>`): un segon llançament amb un d'equivalent en cua/curs → 409.

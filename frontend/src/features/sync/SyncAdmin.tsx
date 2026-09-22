@@ -96,7 +96,7 @@ export function SyncAdmin() {
   });
 
   const trigger = useMutation({
-    mutationFn: async (kind: Kind) => {
+    mutationFn: async (kind: Kind | "all") => {
       const { data, error, response } = await api.POST("/sync-runs/actions/trigger", {
         body: { kind },
       });
@@ -114,7 +114,7 @@ export function SyncAdmin() {
     },
   });
 
-  function launch(kind: Kind) {
+  function launch(kind: Kind | "all") {
     if (kind === "enrichment" && !window.confirm(t("sync.confirmEnrichment"))) return;
     setNotice(null);
     trigger.mutate(kind);
@@ -141,7 +141,11 @@ export function SyncAdmin() {
       {tab === "execucions" && (
       <>
       {canExecute && (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Button tone="accent" disabled={trigger.isPending} onClick={() => launch("all")}>
+            {t("sync.launch.all")}
+          </Button>
+          <span aria-hidden className="mx-1 h-5 border-l border-line" />
           {KINDS.map((kind) => (
             <Button key={kind} disabled={trigger.isPending} onClick={() => launch(kind)}>
               {t(`sync.launch.${kind}`)}

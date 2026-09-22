@@ -96,3 +96,44 @@ async def test_sync_admin_api(api_client, make_user) -> None:  # type: ignore[no
         assert payload["trigger"] == "manual"
     finally:
         await _cleanup_jobs(created_jobs)
+
+
+async def test_trigger_all_runs_full_chain(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    """«Sincronitza-ho tot»: kind=all encua la MATEIXA cadena que la nocturna
+    i comparteix el candau amb la programada (mai dues cadenes alhora)."""
+    from sqlalchemy import text as sql_text
+
+    from app.core.db import session_factory
+
+    admin_user = await make_user("admin")
+    admin = login_headers(api_client, admin_user.email)
+
+    async def cleanup() -> None:
+        async with session_factory() as session:
+            await session.execute(sql_text("DELETE FROM jobs WHERE dedup_key = 'sync.nightly'"))
+            await session.commit()
+
+    await cleanup()
+    try:
+        first = api_client.post(
+            "/api/v1/sync-runs/actions/trigger", json={"kind": "all"}, headers=admin
+        )
+        assert first.status_code == 202, first.text
+        assert first.json()["job_type"] == "sync.nightly"
+
+        # El candau és el mateix que el de la nocturna programada.
+        async with session_factory() as session:
+            dedup = (
+                await session.execute(
+                    sql_text("SELECT dedup_key FROM jobs WHERE id = :i"),
+                    {"i": first.json()["job_id"]},
+                )
+            ).scalar_one()
+        assert dedup == "sync.nightly"
+
+        second = api_client.post(
+            "/api/v1/sync-runs/actions/trigger", json={"kind": "all"}, headers=admin
+        )
+        assert second.status_code == 409
+    finally:
+        await cleanup()
