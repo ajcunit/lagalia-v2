@@ -11,6 +11,7 @@ from typing import Any
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 from arq.jobs import Job as ArqJob
+from sqlalchemy import text as sql_text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,6 +61,33 @@ async def enqueue_job(
         await pool.aclose()
     await session.commit()
     return job
+
+
+async def free_stale_dedup(session: AsyncSession, dedup_key: str) -> bool:
+    """Allibera un dedup_key bloquejat per una fila provadament morta.
+
+    Cas real de producció: una fila `queued` que mai arrenca (missatge d'arq
+    perdut en un reinici de Redis) o `running` d'un worker mort ocupa la
+    clau per sempre, i TOTS els encuaments programats d'aquell tipus fallen
+    en silenci nit rere nit — l'escombrat no pot ajudar si la fila encallada
+    és la seva. Mateixos criteris de mort provada que jobs.sweep: `queued`
+    mai arrencat en 30 min, o `running` més vell que el job_timeout + marge
+    (arq no deixa córrer res més enllà del límit)."""
+    result = await session.execute(
+        sql_text(
+            "UPDATE jobs SET status = 'failed', finished_at = now(), "
+            "error = 'alliberat: bloquejava el dedup_key i era provadament mort' "
+            "WHERE dedup_key = :k AND ("
+            "  (status = 'queued' AND started_at IS NULL "
+            "   AND created_at < now() - interval '30 minutes') "
+            "  OR (status = 'running' "
+            "      AND started_at < now() - make_interval(secs => :deadline))"
+            ")"
+        ),
+        {"k": dedup_key, "deadline": settings.jobs_timeout_seconds + 1800},
+    )
+    await session.commit()
+    return int(getattr(result, "rowcount", 0) or 0) > 0
 
 
 async def _load_job(session: AsyncSession, job_id: uuid.UUID) -> Job:

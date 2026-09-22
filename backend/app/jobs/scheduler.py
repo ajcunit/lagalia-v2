@@ -15,6 +15,7 @@ import app.jobs.tasks  # noqa: F401 — registra els handlers
 from app.core.config import settings
 from app.core.db import engine, session_factory
 from app.core.logging import configure_logging
+from app.jobs.models import Job
 from app.jobs.schedule import SCHEDULE
 from app.jobs.service import enqueue_job
 
@@ -23,6 +24,33 @@ logger = structlog.get_logger()
 SCHEDULER_LOCK_KEY = 420_100
 _TICK_SECONDS = 5
 _STANDBY_SECONDS = 15
+
+
+async def _enqueue_healing(job_type: str, dedup_key: str) -> Job | None:
+    """Encua un job programat alliberant abans un dedup_key mort.
+
+    Cas real de producció: una fila encallada (missatge d'arq perdut en un
+    reinici de Redis, o worker mort a mig executar) ocupava la clau per
+    sempre i el cron fallava en silenci cada finestra — inclòs jobs.sweep,
+    que és qui hauria netejat la resta. El scheduler ara es cura sol: si la
+    fila que bloqueja és provadament morta, l'allibera i reintenta un cop.
+    """
+    from app.core.problems import Problem
+    from app.jobs.service import free_stale_dedup
+
+    async with session_factory() as session:
+        try:
+            return await enqueue_job(session, job_type=job_type, dedup_key=dedup_key)
+        except Problem:
+            pass
+    async with session_factory() as session:
+        if not await free_stale_dedup(session, dedup_key):
+            # Bloquejat per un job VIU: comportament normal del dedup.
+            logger.info("scheduled_job_still_running", job_type=job_type)
+            return None
+        logger.warning("scheduled_dedup_healed", job_type=job_type, dedup_key=dedup_key)
+    async with session_factory() as session:
+        return await enqueue_job(session, job_type=job_type, dedup_key=dedup_key)
 
 
 async def _tick(redis: Redis) -> None:
@@ -38,12 +66,12 @@ async def _tick(redis: Redis) -> None:
         due = await redis.set(f"sched:{item.job_type}", "1", nx=True, ex=item.interval_seconds)
         if not due:
             continue
-        async with session_factory() as session:
-            try:
-                job = await enqueue_job(session, job_type=item.job_type, dedup_key=item.dedup_key)
+        try:
+            job = await _enqueue_healing(item.job_type, item.dedup_key)
+            if job is not None:
                 logger.info("scheduled_job_enqueued", job_type=item.job_type, job_id=str(job.id))
-            except Exception as exc:
-                logger.error("scheduled_job_failed", job_type=item.job_type, error=str(exc))
+        except Exception as exc:
+            logger.error("scheduled_job_failed", job_type=item.job_type, error=str(exc))
     await _tick_nightly(redis)
     await _tick_reports(redis)
 
@@ -72,14 +100,12 @@ async def _tick_reports(redis: Redis) -> None:
     due = await redis.set("sched:reports.audit_monthly", "1", nx=True, ex=interval_days * 86400)
     if not due:
         return
-    async with session_factory() as session:
-        try:
-            job = await enqueue_job(
-                session, job_type="reports.audit_monthly", dedup_key="reports.audit_monthly"
-            )
+    try:
+        job = await _enqueue_healing("reports.audit_monthly", "reports.audit_monthly")
+        if job is not None:
             logger.info("audit_report_enqueued", job_id=str(job.id), interval_days=interval_days)
-        except Exception as exc:
-            logger.error("audit_report_failed", error=str(exc))
+    except Exception as exc:
+        logger.error("audit_report_failed", error=str(exc))
 
 
 async def _tick_nightly(redis: Redis) -> None:
@@ -105,12 +131,15 @@ async def _tick_nightly(redis: Redis) -> None:
     due = await redis.set(f"sched:sync.nightly:{local_date}", "1", nx=True, ex=26 * 3600)
     if not due:
         return
-    async with session_factory() as session:
-        try:
-            job = await enqueue_job(session, job_type="sync.nightly", dedup_key="sync.nightly")
+    try:
+        job = await _enqueue_healing("sync.nightly", "sync.nightly")
+        if job is not None:
             logger.info("nightly_sync_enqueued", job_id=str(job.id), date=local_date)
-        except Exception as exc:
-            logger.error("nightly_sync_failed", error=str(exc))
+        else:
+            # La d'ahir encara corre (o el dedup és viu): avui no toca doblar.
+            logger.warning("nightly_sync_skipped_still_running", date=local_date)
+    except Exception as exc:
+        logger.error("nightly_sync_failed", error=str(exc))
 
 
 async def main() -> None:

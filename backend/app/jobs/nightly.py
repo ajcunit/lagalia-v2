@@ -80,25 +80,39 @@ async def _enrich_enabled() -> bool:
 async def _enqueue_enrichment() -> bool:
     from app.core.db import session_factory
     from app.core.problems import Problem
-    from app.jobs.service import enqueue_job
+    from app.jobs.service import enqueue_job, free_stale_dedup
 
-    async with session_factory() as session:
-        try:
+    # Mateixa clau que el llançament manual de la pantalla de sync: mai dos
+    # enriquiments alhora, vinguin d'on vinguin.
+    dedup_key = "trigger:enrich.batch"
+
+    async def _try() -> bool:
+        async with session_factory() as session:
             job_row = await enqueue_job(
                 session,
                 job_type="enrich.batch",
                 payload={"trigger": "scheduled"},
-                # Mateixa clau que el llançament manual de la pantalla de
-                # sync: mai dos enriquiments alhora, vinguin d'on vinguin.
-                dedup_key="trigger:enrich.batch",
+                dedup_key=dedup_key,
             )
-        except Problem:
-            # Ja n'hi ha un en curs (p. ex. llançat a mà): no es duplica.
+        logger.info("nightly_enrichment_enqueued", job_id=str(job_row.id))
+        return True
+
+    try:
+        return await _try()
+    except Problem:
+        pass
+    # Bloquejat: si la fila que ocupa la clau és provadament morta (worker
+    # caigut, missatge d'arq perdut), s'allibera i es reintenta un cop.
+    async with session_factory() as session:
+        if not await free_stale_dedup(session, dedup_key):
+            # N'hi ha un de VIU (p. ex. llançat a mà): no es duplica.
             logger.info("nightly_enrichment_already_running")
             return False
-        await session.commit()
-    logger.info("nightly_enrichment_enqueued", job_id=str(job_row.id))
-    return True
+    try:
+        return await _try()
+    except Problem:
+        logger.info("nightly_enrichment_already_running")
+        return False
 
 
 _ALL_DAYS = {1, 2, 3, 4, 5, 6, 7}

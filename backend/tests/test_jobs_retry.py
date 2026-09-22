@@ -305,3 +305,72 @@ async def test_sweep_fails_zombie_running_jobs() -> None:
     assert rows[zombie_id] == "failed"
     # Un job en marxa de veritat (dins del límit) no es toca.
     assert rows[fresh_id] == "running"
+
+
+async def test_scheduler_heals_stale_dedup() -> None:
+    """Cas real de producció: una fila encallada ocupava el dedup_key per
+    sempre i tots els crons d'aquell tipus fallaven en silenci — inclòs
+    jobs.sweep, que és qui hauria netejat la resta."""
+    from app.jobs.scheduler import _enqueue_healing
+    from app.jobs.service import free_stale_dedup
+
+    dedup = f"test-heal-{uuid_module.uuid4().hex[:8]}"
+
+    async def cleanup() -> None:
+        async with session_factory() as session:
+            await session.execute(text("DELETE FROM jobs WHERE dedup_key = :d"), {"d": dedup})
+            await session.commit()
+
+    try:
+        # Fila «queued» mai arrencada fa 1 hora: missatge d'arq perdut.
+        async with session_factory() as session:
+            stale_id = (
+                await session.execute(
+                    text(
+                        "INSERT INTO jobs (id, type, status, created_at, dedup_key) "
+                        "VALUES (:i, 'system.heartbeat', 'queued', now() - interval '1 hour', :d) "
+                        "RETURNING id"
+                    ),
+                    {"i": uuid_module.uuid4(), "d": dedup},
+                )
+            ).scalar_one()
+            await session.commit()
+
+        healed = await _enqueue_healing("system.heartbeat", dedup)
+        assert healed is not None, "la clau morta s'allibera i s'encua de nou"
+
+        async with session_factory() as session:
+            old_status = (
+                await session.execute(
+                    text("SELECT status FROM jobs WHERE id = :i"), {"i": stale_id}
+                )
+            ).scalar_one()
+        assert old_status == "failed"
+
+        # Amb un job VIU (l'acabat d'encuar), NO es duplica ni s'allibera res.
+        blocked = await _enqueue_healing("system.heartbeat", dedup)
+        assert blocked is None
+        async with session_factory() as session:
+            alive = (
+                await session.execute(
+                    text("SELECT status FROM jobs WHERE id = :i"), {"i": healed.id}
+                )
+            ).scalar_one()
+        assert alive == "queued", "el job viu no es toca"
+
+        # free_stale_dedup directe: fila «running» més vella que el límit.
+        async with session_factory() as session:
+            await session.execute(text("DELETE FROM jobs WHERE dedup_key = :d"), {"d": dedup})
+            await session.execute(
+                text(
+                    "INSERT INTO jobs (id, type, status, started_at, dedup_key) "
+                    "VALUES (:i, 'system.heartbeat', 'running', "
+                    "now() - make_interval(secs => :s), :d)"
+                ),
+                {"i": uuid_module.uuid4(), "s": 999999, "d": dedup},
+            )
+            await session.commit()
+        async with session_factory() as session:
+            assert await free_stale_dedup(session, dedup) is True
+    finally:
+        await cleanup()
