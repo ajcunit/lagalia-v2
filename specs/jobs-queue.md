@@ -64,6 +64,17 @@ Cap (el component `JobProgress` arriba amb les primeres pantalles de sync de la 
   `queued` mai arrencats en 30 minuts passen a `failed` amb error explicatiu
   i alliberen el `dedup_key` (cas real: worker antic sense el handler
   deixava el job zombi bloquejant tots els encuaments).
+- **Autocuració del scheduler** (2026-09-22, cas real de producció: «els
+  crons de sincronització no funcionen»): si l'encuament programat topa amb
+  el dedup_key ocupat, el scheduler comprova si la fila que el bloqueja és
+  **provadament morta** — `queued` mai arrencada en 30 min (missatge d'arq
+  perdut en un reinici de Redis) o `running` més vella que el
+  `job_timeout` + 30 min (worker mort) — i si ho és, la passa a `failed` i
+  reintenta l'encuament un cop (`free_stale_dedup`). Sense això, una sola
+  fila encallada silenciava TOTS els crons d'aquell tipus per sempre,
+  inclòs `jobs.sweep` mateix (que és qui hauria netejat la resta) — el
+  taló d'Aquil·les de l'autoneteja. Un job viu de veritat mai es toca.
+  L'encuament de l'enriquiment nocturn fa servir la mateixa curació.
 - **Escombrat de zombis**: un job `running` amb `started_at` més vell que
   `JOBS_TIMEOUT_SECONDS` + 30 min és provadament mort — arq no deixa córrer
   res més enllà del `job_timeout`, o sigui que si la fila continua així el
