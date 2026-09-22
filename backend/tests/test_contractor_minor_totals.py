@@ -67,3 +67,65 @@ async def test_minor_totals_by_year_and_type(api_client, make_user) -> None:  # 
             )
             await session.execute(text("DELETE FROM contractors WHERE id = :c"), {"c": contractor})
             await session.commit()
+
+
+async def test_ranking_does_not_double_count_minors(api_client, make_user) -> None:  # type: ignore[no-untyped-def]
+    """B-023 pas 1: un menor que viu al dataset PSCP (procedure «Contracte
+    menor») I a minor_contracts es comptava DUES vegades al volum total."""
+    tag = uuid_module.uuid4().hex[:8]
+    admin = await make_user("admin")
+
+    async with session_factory() as session:
+        contractor = (
+            await session.execute(
+                text(
+                    "INSERT INTO contractors (canonical_name, tax_id) VALUES (:n, :t) RETURNING id"
+                ),
+                {"n": f"Doble {tag}", "t": f"D{tag[:8].upper()}"},
+            )
+        ).scalar_one()
+        contracts = [
+            (f"DBL-{tag}/1", "Obert", 100000),
+            (f"DBL-{tag}/2", "Contracte menor", 9000),  # duplicat: també al RPC
+            (f"DBL-{tag}/3", None, 500),  # procediment buit = compta com a major
+        ]
+        for file_code, procedure, amount in contracts:
+            await session.execute(
+                text(
+                    "INSERT INTO contracts (file_code, status, lot, subject, procedure, "
+                    "award_amount, published_at, contractor_id) "
+                    "VALUES (:f, 'Formalitzat', '', :s, :p, :a, '2026-01-01', :c)"
+                ),
+                {"f": file_code, "s": f"Doble {tag}", "p": procedure, "a": amount, "c": contractor},
+            )
+        for file_code, amount in ((f"DBL-{tag}/2", 9000), (f"DBL-{tag}/4", 2000)):
+            await session.execute(
+                text(
+                    "INSERT INTO minor_contracts (file_code, award_amount, fiscal_year, "
+                    "contractor_id) VALUES (:f, :a, 2026, :c)"
+                ),
+                {"f": file_code, "a": amount, "c": contractor},
+            )
+        await session.commit()
+
+    try:
+        headers = login_headers(api_client, admin.email)
+        profile = api_client.get(f"/api/v1/contractors/{contractor}", headers=headers)
+        assert profile.status_code == 200, profile.text
+        body = profile.json()
+        # Bandes disjuntes: el menor duplicat NOMÉS compta a la banda de menors.
+        assert body["contracts_count"] == 2, "Obert + procediment buit"
+        assert float(body["contracts_amount"]) == 100500.0
+        assert body["minor_count"] == 2
+        assert float(body["minor_amount"]) == 11000.0
+        assert float(body["total_amount"]) == 111500.0, "abans sortia 120500 (9000 doblats)"
+    finally:
+        async with session_factory() as session:
+            await session.execute(
+                text("DELETE FROM minor_contracts WHERE file_code LIKE :p"), {"p": f"DBL-{tag}%"}
+            )
+            await session.execute(
+                text("DELETE FROM contracts WHERE file_code LIKE :p"), {"p": f"DBL-{tag}%"}
+            )
+            await session.execute(text("DELETE FROM contractors WHERE id = :c"), {"c": contractor})
+            await session.commit()
