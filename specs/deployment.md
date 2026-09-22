@@ -89,7 +89,9 @@ arrenqui res i mai hi ha dos processos migrant alhora.
 Un MinIO acabat de crear **no té cap bucket**, i `S3Storage` (boto3) no el
 crea: la primera pujada de document responia `NoSuchBucket` i el fitxer es
 perdia. Amb el mateix patró que `migrate`, un servei d'un sol ús
-**`createbucket`** (`minio/mc`) fa `mc mb --ignore-existing` sobre
+**`createbucket`** (`quay.io/minio/mc` — MinIO va retirar les imatges de
+Docker Hub el 2026 i el re-pull fallava amb «pull access denied»; el
+servei `storage` també ve de quay.io) fa `mc mb --ignore-existing` sobre
 `S3_BUCKET` i li deixa permís **privat**; `api` i `worker` esperen que hagi
 acabat bé. És idempotent: als desplegaments següents troba el bucket fet i
 surt amb codi 0.
