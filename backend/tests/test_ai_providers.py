@@ -30,7 +30,10 @@ async def test_provider_admin_api(api_client, make_user) -> None:  # type: ignor
         json={
             "name": "Ollama local",
             "protocol": "openai_compatible",
-            "base_url": "http://127.0.0.1:11434/v1",
+            # Port 1, no l'11434: a la màquina de desenvolupament hi pot
+            # haver un Ollama REAL escoltant i el healthcheck sortiria
+            # «healthy» — el test vol un port tancat garantit.
+            "base_url": "http://127.0.0.1:1/v1",
             "default_model": "llama3",
         },
         headers=admin,

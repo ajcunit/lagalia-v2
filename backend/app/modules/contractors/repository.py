@@ -24,7 +24,14 @@ _contracts_agg = (
         func.count().label("contracts_count"),
         func.coalesce(func.sum(Contract.award_amount), 0).label("contracts_amount"),
     )
-    .where(Contract.contractor_id.is_not(None))
+    .where(
+        Contract.contractor_id.is_not(None),
+        # B-023: el 95% del dataset PSCP són menors i 7.188 expedients viuen
+        # també a minor_contracts — sense excloure'ls aquí, el rànquing i la
+        # fitxa sumaven el MATEIX expedient dues vegades. El coalesce compta
+        # com a majors els que tenen el procediment buit.
+        func.coalesce(Contract.procedure, "").notilike("%menor%"),
+    )
     .group_by(Contract.contractor_id)
     .subquery()
 )
