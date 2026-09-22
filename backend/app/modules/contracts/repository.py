@@ -61,7 +61,12 @@ async def get_visible_contract(
     """Detall dins d'abast; fora d'abast és com si no existís (404)."""
     stmt = (
         select(Contract)
-        .options(selectinload(Contract.contractor), selectinload(Contract.departments))
+        .options(
+            selectinload(Contract.contractor),
+            selectinload(Contract.departments),
+            # El detall mostra i edita els responsables (contract-assignment).
+            selectinload(Contract.managers),
+        )
         .where(Contract.id == contract_id)
     )
     predicate = visibility_predicate(scope, user_id)

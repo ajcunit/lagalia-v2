@@ -370,6 +370,7 @@ const MODULE_ITEMS: { key: string; labelKey: Parameters<typeof t>[0] }[] = [
   { key: "compliance", labelKey: "config.moduleCompliance" },
   { key: "plan", labelKey: "nav.plan" },
   { key: "webhooks", labelKey: "nav.webhooks" },
+  { key: "bpm", labelKey: "nav.bpm" },
 ];
 
 /** Mòduls activables (specs/module-flags.md): el nucli (contractes,

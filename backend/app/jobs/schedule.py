@@ -71,4 +71,11 @@ SCHEDULE: list[ScheduledJob] = [
         interval_seconds=900,
         dedup_key="system.status_snapshot",
     ),
+    # Processos BPM (specs/bpm.md): arrenca instàncies degudes i avança les
+    # que tenen la tasca completada. No fa res amb el mòdul desactivat.
+    ScheduledJob(
+        job_type="bpm.scan",
+        interval_seconds=3600,
+        dedup_key="bpm.scan",
+    ),
 ]

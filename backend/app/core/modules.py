@@ -23,6 +23,7 @@ MODULES: dict[str, str] = {
     "compliance": "Revisió legal",
     "plan": "Pla anual",
     "webhooks": "Webhooks sortints",
+    "bpm": "Processos BPM",
 }
 
 SETTING_KEY = "modules.disabled"
@@ -43,6 +44,7 @@ _PREFIXES: list[tuple[str, str]] = [
     ("compliance", "compliance"),
     ("plan", "plan"),
     ("webhooks", "webhooks"),
+    ("bpm", "bpm"),
 ]
 
 _API_ROOT = "/api/v1/"

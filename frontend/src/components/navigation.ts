@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowLeftRight,
+  GitBranch,
   BarChart3,
   Bot,
   Building2,
@@ -122,6 +123,14 @@ export const ADMIN_TILES: AdminTile[] = [
     descriptionKey: "adminHub.fieldMappings",
     icon: ArrowLeftRight,
     action: "config:write",
+  },
+  {
+    to: "/admin/bpm",
+    labelKey: "nav.bpm",
+    descriptionKey: "adminHub.bpm",
+    icon: GitBranch,
+    action: "bpm:manage",
+    module: "bpm",
   },
   {
     to: "/admin/webhooks",

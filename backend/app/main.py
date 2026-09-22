@@ -12,6 +12,7 @@ from app.core.tracing import new_trace_id
 from app.jobs import tasks as _jobs_tasks  # noqa: F401 — registra els handlers
 from app.jobs.router import router as jobs_router
 from app.modules.audit.router import router as audit_router
+from app.modules.bpm.router import router as bpm_router
 from app.modules.chat.router import router as chat_router
 from app.modules.compliance.router import router as compliance_router
 from app.modules.config.router import router as config_router
@@ -146,6 +147,7 @@ api.include_router(config_router)
 api.include_router(audit_router)
 api.include_router(sync_router)
 api.include_router(system_router)
+api.include_router(bpm_router)
 api.include_router(public_registry_router)
 api.include_router(favorites_router)
 api.include_router(help_router)
