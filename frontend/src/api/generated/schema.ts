@@ -7219,8 +7219,15 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @enum {string} */
-                    kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment" | "execution";
+                    /**
+                     * @description `all` llança la cadena completa (la mateixa que la
+                     *     nocturna: contractes → pròrrogues → menors → execució →
+                     *     venciments, amb l'enriquiment encuat al final si el
+                     *     setting el té actiu). Comparteix el candau amb la
+                     *     programada: mai dues cadenes alhora.
+                     * @enum {string}
+                     */
+                    kind: "contracts" | "minor" | "cpv" | "extensions" | "enrichment" | "execution" | "all";
                     /**
                      * @description Sync completa (ignora l'incremental); a enrichment, re-enriquir també els ja enriquits.
                      * @default false

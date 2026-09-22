@@ -40,6 +40,10 @@ _KIND_TO_JOB: dict[str, str] = {
     "extensions": "sync.extensions",
     "enrichment": "enrich.batch",
     "execution": "sync.execution",
+    # «Sincronitza-ho tot»: la mateixa cadena que la nocturna, a demanda
+    # (contractes → pròrrogues → menors → execució → venciments, i encua
+    # l'enriquiment si el setting el té actiu).
+    "all": "sync.nightly",
 }
 
 
@@ -77,7 +81,7 @@ class PagedItemsResponse(BaseModel):
 
 
 class TriggerRequest(BaseModel):
-    kind: Literal["contracts", "minor", "cpv", "extensions", "enrichment", "execution"]
+    kind: Literal["contracts", "minor", "cpv", "extensions", "enrichment", "execution", "all"]
     full: bool = False
     limit: Annotated[int | None, Field(ge=1, le=10000)] = None
 
@@ -168,12 +172,15 @@ async def trigger_sync(
     else:
         payload["full"] = body.full
 
+    # La cadena completa comparteix el dedup amb la programada: mai dues
+    # cadenes alhora, tant si la llança el rellotge com una persona.
+    dedup_key = "sync.nightly" if body.kind == "all" else f"trigger:{job_type}"
     job = await enqueue_job(
         session,
         job_type=job_type,
         payload=payload,
         created_by=authz_ctx.user.id or None,
-        dedup_key=f"trigger:{job_type}",
+        dedup_key=dedup_key,
     )
     await record_audit(
         session,

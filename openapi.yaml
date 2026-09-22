@@ -2983,7 +2983,13 @@ paths:
               properties:
                 kind:
                   type: string
-                  enum: [contracts, minor, cpv, extensions, enrichment, execution]
+                  enum: [contracts, minor, cpv, extensions, enrichment, execution, all]
+                  description: |
+                    `all` llança la cadena completa (la mateixa que la
+                    nocturna: contractes → pròrrogues → menors → execució →
+                    venciments, amb l'enriquiment encuat al final si el
+                    setting el té actiu). Comparteix el candau amb la
+                    programada: mai dues cadenes alhora.
                 full:
                   type: boolean
                   default: false

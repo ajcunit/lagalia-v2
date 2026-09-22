@@ -928,6 +928,7 @@ export const ca = {
   "sync.intro": "Historial de sincronitzacions amb les fonts externes (dades obertes de la Generalitat i contractaciopublica.cat) i llançament manual. El progrés d'un llançament apareix aquí mateix quan el treball comença.",
   "sync.nightlyEnrich": "Enriquiment automàtic en acabar",
   "sync.nightlyEnrichHint": "En acabar la cadena nocturna s'encua l'enriquiment PSCP dels expedients que encara no s'han enriquit (els nous de la nit). Si ja n'hi ha un en marxa, no es duplica.",
+  "sync.launch.all": "Sincronitza-ho tot",
   "sync.launch.contracts": "Sincronitza contractes",
   "sync.launch.minor": "Sincronitza menors",
   "sync.launch.cpv": "Sincronitza CPV",
