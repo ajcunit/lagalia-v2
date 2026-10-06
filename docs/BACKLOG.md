@@ -97,6 +97,12 @@ Registre únic de tot allò que sorgeix durant el desenvolupament: idees, deute 
 ---
 
 
+### B-024 · Plantilles d'estructura mínima per al generador documental
+- **Prioritat:** P2 · **Estat:** Especificada (spec aprovada 2026-10-06) · **Mida:** L
+- **Descripció:** l'índex d'un document del generador surt només del que la IA dedueix dels plecs de referència o, si el JSON falla, d'una llista fixa al codi (`FALLBACK_SECTIONS`). Res no garanteix que el document tingui les seccions mínimes dels plecs tipus de la Generalitat (PPT/PCAP). Petició directa de l'Esteve.
+- **Com desenvolupar-la:** taula `doc_templates` mantinguda des del hub d'administració (acció nova `doc_templates:manage`), `generate-index` que fusiona deterministament la resposta de la IA amb la plantilla, acció `apply-template` sense IA, i comprovació al `PATCH` que les seccions obligatòries hi són. Migració 0036 (Gestiona es renumera en rebasar).
+- **Specs afectades:** [docgen-templates.md](../specs/docgen-templates.md) (nova), [doc-generator.md](../specs/doc-generator.md), docs/02 §2.14, docs/04 §6, docs/05, docs/07 §2.3, docs/10, A2, A3.
+
 ### B-003 · Decidir emmagatzematge d'objectes: sistema de fitxers o MinIO
 - **Prioritat:** P2 · **Estat:** Resolta (2026-08-19: **MinIO** — ja muntat en un servidor; per al test es manté a la mateixa instància de LAGALia, `STORAGE_BACKEND=s3`) · **Mida:** S
 - **Descripció:** [03-arquitectura.md](03-arquitectura.md) §2.6 deixa obert si els documents descarregats i generats van a disc muntat o a MinIO (S3).
